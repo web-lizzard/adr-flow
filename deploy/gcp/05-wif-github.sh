@@ -18,6 +18,7 @@ PRINCIPAL_SET="principalSet://iam.googleapis.com/${POOL_RESOURCE}/attribute.repo
 
 DEPLOY_ROLES=(
 	roles/run.admin
+	roles/run.sourceDeveloper
 	roles/artifactregistry.writer
 	roles/cloudbuild.builds.editor
 	roles/iam.serviceAccountUser
@@ -85,6 +86,18 @@ if [[ -n "${API_RUN_SA_EMAIL:-}" ]] || gcloud iam service-accounts describe \
 		--project="${GCP_PROJECT_ID}" \
 		--role="roles/iam.serviceAccountUser" \
 		--member="serviceAccount:${DEPLOY_SA_EMAIL}" \
+		--quiet >/dev/null
+fi
+
+# Cloud Run --source uploads to run-sources-PROJECT-REGION (created on first API deploy).
+# Project roles alone may not satisfy buckets.get on that bucket; grant bucket IAM when it exists.
+RUN_SOURCES_BUCKET="run-sources-${GCP_PROJECT_ID}-${GCP_REGION}"
+if gcloud storage buckets describe "gs://${RUN_SOURCES_BUCKET}" \
+	--project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+	gcp_info "Granting storage.admin on gs://${RUN_SOURCES_BUCKET} for GitHub API source deploy"
+	gcloud storage buckets add-iam-policy-binding "gs://${RUN_SOURCES_BUCKET}" \
+		--member="serviceAccount:${DEPLOY_SA_EMAIL}" \
+		--role="roles/storage.admin" \
 		--quiet >/dev/null
 fi
 

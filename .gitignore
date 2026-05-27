@@ -6,6 +6,7 @@
 .devcontainer/.project-assets-meta
 .devcontainer/.permissions-cache/
 .devcontainer/.permissions-meta
+.devcontainer/mcp.env
 .pnpm-store/
 __pycache__/
 .pytest_cache/

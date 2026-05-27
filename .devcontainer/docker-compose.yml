@@ -7,6 +7,7 @@ services:
     volumes:
       - ..:/workspace:cached
       - gcloud-config:/home/vscode/.config/gcloud
+      - cursor-plans:/home/vscode/.cursor/plans
     depends_on:
       - redis
       - postgres
@@ -35,3 +36,4 @@ services:
 volumes:
   postgres-data:
   gcloud-config:
+  cursor-plans:

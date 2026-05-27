@@ -1,0 +1,21 @@
+{
+	"mcpServers": {
+		"gcloud": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["-y", "@google-cloud/gcloud-mcp"],
+			"envFile": "${workspaceFolder}/.env"
+		},
+		"gcp-observability": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["-y", "@google-cloud/observability-mcp"],
+			"envFile": "${workspaceFolder}/.env"
+		},
+		"github": {
+			"type": "stdio",
+			"command": "bash",
+			"args": ["${workspaceFolder}/scripts/mcp/github-stdio.sh"]
+		}
+	}
+}

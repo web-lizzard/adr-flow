@@ -37,3 +37,8 @@ gcp-deploy-api:
 
 gcp-deploy-web:
     @bash deploy/gcp/deploy-web.sh
+
+# --- MCP (devcontainer diagnostics) ---
+
+mcp-verify:
+    @bash scripts/mcp/verify.sh

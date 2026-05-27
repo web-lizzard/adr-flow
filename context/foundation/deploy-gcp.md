@@ -128,6 +128,14 @@ Manual bootstrap and ad-hoc deploys use credentials **inside the container**. Th
 
 **CI is independent:** GitHub Actions uses WIF only, not the devcontainer volume.
 
+### MCP servers (gcloud, observability, GitHub)
+
+Cursor MCP servers for troubleshooting run **inside** the devcontainer and reuse the same `gcloud-config` volume. They do not use WIF or `deploy/gcp/secrets.env`. Server definitions live in `.cursor/mcp.json`; GitHub token and flags in root `.env` (see `.env.example`).
+
+1. Set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` (read-only fine-grained PAT).
+2. Complete the login flow above (`just gcp-auth`, project/region).
+3. Rebuild the devcontainer, then `just mcp-verify` and the checklist in [`.devcontainer/MCP.md`](../../.devcontainer/MCP.md).
+
 ### Optional: Cloud Code extension
 
 [`devcontainer.json`](../../.devcontainer/devcontainer.json) can include `GoogleCloudTools.cloudcode` for Cloud Run explorer, logs, and ad-hoc deploy UI. For production-parity flags (`--no-cpu-throttling`, VPC egress), prefer **`just gcp-deploy-api`** / **`just gcp-deploy-web`** over Cloud Code defaults.

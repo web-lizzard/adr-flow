@@ -12,11 +12,12 @@ services:
       - postgres
 
   # --- bootstrap-devcontainer service: redis ---
+  # Host ports avoid 6379/5432 conflicts; in-container URLs still use redis:6379 / postgres:5432.
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6391:6379"
 
   # --- bootstrap-devcontainer service: postgres ---
   postgres:
@@ -27,7 +28,7 @@ services:
       POSTGRES_PASSWORD: dev
       POSTGRES_DB: app
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 

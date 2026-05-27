@@ -23,3 +23,11 @@ test-backend:
 test:
     just test-frontend
     just test-backend
+
+# --- GCP (devcontainer; MVP project only) — logic in scripts/gcp/ ---
+
+gcp-auth:
+    @bash scripts/gcp/auth.sh
+
+gcp-auth-login:
+    @bash scripts/gcp/auth-login.sh

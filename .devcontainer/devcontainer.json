@@ -25,7 +25,8 @@
 				"ms-python.python",
 				"ms-python.vscode-pylance",
 				"charliermarsh.ruff",
-				"humao.rest-client"
+				"humao.rest-client",
+				"GoogleCloudTools.cloudcode"
 			]
 		}
 	}

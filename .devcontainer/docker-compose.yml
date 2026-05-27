@@ -6,6 +6,7 @@ services:
     command: sleep infinity
     volumes:
       - ..:/workspace:cached
+      - gcloud-config:/home/vscode/.config/gcloud
     depends_on:
       - redis
       - postgres
@@ -32,3 +33,4 @@ services:
 
 volumes:
   postgres-data:
+  gcloud-config:

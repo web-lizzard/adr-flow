@@ -1,0 +1,12 @@
+.env
+.env.*
+.cursor/skills
+.cursor/permissions.json
+.devcontainer/.project-assets-cache/
+.devcontainer/.project-assets-meta
+.devcontainer/.permissions-cache/
+.devcontainer/.permissions-meta
+.pnpm-store/
+
+
+!.env.example

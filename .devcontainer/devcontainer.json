@@ -1,0 +1,12 @@
+{
+	"name": "Dev Container",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"remoteUser": "vscode",
+	"initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/initialize.sh",
+	"mounts": [
+		"source=${localWorkspaceFolder}/.devcontainer/.permissions-cache/permissions.json,target=/home/vscode/.cursor/permissions.json,type=bind,consistency=cached"
+	],
+	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh"
+}

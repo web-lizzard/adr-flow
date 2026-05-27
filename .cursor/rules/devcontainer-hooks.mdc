@@ -1,0 +1,49 @@
+---
+description: New devcontainer steps go in post-create.d / initialize.d, not orchestrators
+globs: .devcontainer/{post-create.d,initialize.d}/**/*
+alwaysApply: false
+---
+
+# Devcontainer: post-create and initialize
+
+## Where to add steps
+
+| Phase | When it runs | Add script here |
+|-------|--------------|-----------------|
+| **initialize** | On the host, before the container starts | `.devcontainer/initialize.d/` |
+| **post-create** | Inside the container, after creation | `.devcontainer/post-create.d/` |
+
+Do **not** add setup logic to `.devcontainer/initialize.sh` or `.devcontainer/post-create.sh` — those files only run every `*.sh` in the matching `.d` directory.
+
+## File conventions
+
+- One step = one `NN-description.sh` file (e.g. `15-install-node.sh`).
+- Numeric prefix (`05-`, `10-`, `20-`) controls order (lexicographic sort).
+- Start each script with a shebang and `set -euo pipefail`.
+- Only top-level `*.sh` files in `initialize.d/` / `post-create.d/` are executed — subdirectories (e.g. `initialize.d/lib/`) are for helpers and are **not** auto-run.
+
+## initialize vs post-create
+
+- **initialize.d** — host-side work (clone cache, fetch assets, files outside the container).
+- **post-create.d** — in-container work (apt, git hooks, workspace tool setup).
+
+Post-create example (workspace root):
+
+```bash
+WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${WORKSPACE_ROOT}"
+```
+
+Initialize example with a helper:
+
+```bash
+INIT_D_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/assets-common.sh
+source "${INIT_D_DIR}/lib/assets-common.sh"
+```
+
+## Avoid
+
+- ❌ Editing `post-create.sh` / `initialize.sh` to add a new step
+- ❌ Putting commands directly in `devcontainer.json` instead of a `.d` script (exception: changing `initializeCommand` / `postCreateCommand` only if the orchestrator path changes)
+- ❌ Scripts without a numeric prefix when order relative to other steps matters

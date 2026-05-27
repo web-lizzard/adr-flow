@@ -1,93 +1,67 @@
 ---
-schema_version: 1
-pipeline: bootstrap-v1
-tech_stack_handoff: context/foundation/tech-stack.md
 bootstrapped_at: "2026-05-27T00:33:55Z"
 architecture_mode: split
+starter_id: frontend:nuxt,backend:fastapi
+starter_name: Nuxt, FastAPI
 project_name: adr-flow
-stages:
-  init:
-    status: ok
-    at: "2026-05-27T00:33:55Z"
-    notes: ""
-  scaffold:
-    status: ok
-    at: "2026-05-27T00:40:00Z"
-    notes: "frontend: augmented nuxi (--template minimal, Node 22 PATH); pnpm allowBuilds remediation"
-  dev_quality:
-    status: ok
-    at: "2026-05-27T00:46:24Z"
-    notes: "frontend: pnpm install required Node 22 PATH (default shell Node 20)"
-  devcontainer:
-    status: ok
-    at: "2026-05-27T00:51:43Z"
-    notes: "postcreate append; catalog+rest-client extensions; redis+postgres compose"
-  repo_conventions:
-    status: ok
-    at: "2026-05-27T01:00:00Z"
-    notes: "7-day PM policy (pnpm, uv); Justfile dev-frontend + dev-backend (health at GET /health)"
-  verify:
-    status: ok
-    at: "2026-05-27T01:05:00Z"
-    notes: "frontend: npm audit ENOLOCK (pnpm); pnpm audit clean; backend: pip-audit via uvx, 0 findings"
-phase_scaffold_status: ok
-resolved:
-  mode: split
-  components:
-    frontend:
-      starter_id: nuxt
-      package_manager: pnpm
-      cwd_strategy: subdir-then-move
+language_family: multi
+package_manager: frontend:pnpm, backend:uv
+cwd_strategy: frontend:subdir-then-move, backend:native-cwd
+bootstrapper_confidence: frontend:verified, backend:first-class
+phase_3_status: ok
+audit_command: frontend:npm audit --json (failed; pnpm audit supplemental), backend:pip-audit
+---
+
+## Hand-off
+
+```yaml
+project_name: adr-flow
+architecture_mode: split
+components:
+  frontend:
+    product_type: web
+    starter_id: nuxt
+    package_manager: pnpm
+    hints:
       language_family: js
-      product_type: web
-      card_name: Nuxt
+      deployment_target: vercel
+      bootstrapper_confidence: verified
+      quality_override: false
+      path_taken: custom
       dev_tooling:
         formatter: prettier
         linter: eslint
         type_checker: typescript
-    backend:
-      starter_id: fastapi
-      package_manager: uv
-      cwd_strategy: native-cwd
+  backend:
+    product_type: api
+    starter_id: fastapi
+    package_manager: uv
+    hints:
       language_family: python
-      product_type: api
-      card_name: FastAPI
+      deployment_target: fly
+      bootstrapper_confidence: first-class
+      quality_override: false
+      path_taken: standard
       dev_tooling:
         formatter: ruff
         linter: ruff
         type_checker: ty
-gates:
-  user_confirmed_init: true
-  devcontainer_detection: detected
----
+hints:
+  team_size: solo
+  ci_provider: github-actions
+  ci_default_flow: auto-deploy-on-merge
+  path_taken: custom
+  self_check_answers: null
+  has_auth: true
+  has_payments: false
+  has_realtime: false
+  has_ai: true
+  has_background_jobs: true
+```
 
-## Pipeline status
+## Why this stack
 
-| Stage | Status |
-| ----- | ------ |
-| init | ok |
-| scaffold | ok |
-| dev_quality | ok |
-| devcontainer | ok |
-| repo_conventions | ok |
-| verify | ok |
-| phase_scaffold_status | ok |
-
-## Init
-
-**Hand-off received (split):**
-
-- Mode: split
-- Project name: adr-flow
-- Components:
-  - frontend: nuxt (js, pm=pnpm, deploy=vercel)
-  - backend: fastapi (python, pm=uv, deploy=fly)
-- Shared hints: team=solo, CI=github-actions/auto-deploy-on-merge, flags=has_auth, has_ai, has_background_jobs
-- Dev tooling: frontend — prettier / eslint / typescript; backend — ruff / ruff / ty
-
-**User confirm:** Proceed.
-
-**Resolution:** Registry lookup ok for `nuxt` and `fastapi`. `cwd_strategy`: frontend `subdir-then-move` (nuxt), backend `native-cwd` (fastapi). Populated-cwd guard: no scaffold fingerprint files at repo root or under `frontend/` / `backend/`.
+ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and one-shot AI review on publish — a natural split between a Nuxt UI and a Python API. Nuxt (Vue, SSR via Nitro) fits a markdown editor, card-based history, and status-driven flows on a tight three-week, after-hours MVP; Vercel is the default deploy path. FastAPI carries Pydantic-typed request/response models, OpenAPI for agent-friendly boundaries, and async-friendly handlers for review jobs triggered from `draft` → `in_review`, with Fly.io as the API home. GitHub Actions auto-deploys on merge. Auth and persistence live in the backend; the frontend calls the API — no realtime collaboration in MVP. Ruff + ty on the API and Prettier/ESLint/TypeScript on the UI keep both sides explicit and convention-aligned for solo development.
 
 ## Pre-scaffold verification
 
@@ -191,45 +165,84 @@ Install [just](https://github.com/casey/just#installation) on the host to run re
 
 ## Post-scaffold audit
 
-### frontend (js)
+### frontend
 
-**Tool**: `npm audit --json` (configured)
+**Tool**: `npm audit --json`
 **Status**: failed to run
-**Reason**: ENOLOCK — pnpm project has `pnpm-lock.yaml` but no `package-lock.json`; `npm audit` requires an npm lockfile.
+**Reason**: ENOLOCK — this component uses `pnpm` (`pnpm-lock.yaml`); `npm audit` requires `package-lock.json`.
 
-**Supplemental (pnpm-native)**: `pnpm audit --json` (Node 22 PATH) — exit 0.
+**Supplemental**: `pnpm audit --json` (Node 22 PATH) — exit 0.
 
-**Summary**: 0 CRITICAL, 0 HIGH, 0 MODERATE, 0 LOW (pnpm audit `metadata.vulnerabilities`).
-**Direct vs transitive**: not distinguished by pnpm audit JSON summary (617 prod + 1 dev + 158 optional deps in tree).
+**Summary**: 0 CRITICAL, 0 HIGH, 0 MODERATE, 0 LOW (from pnpm `metadata.vulnerabilities`).
+**Direct vs transitive**: not distinguished by pnpm audit JSON summary.
 
-### backend (python)
+#### CRITICAL findings
 
-**Tool**: `pip-audit --format json` (via `uvx pip-audit`; `pip-audit` not on PATH)
-**Status**: ok
-**Summary**: 0 CRITICAL, 0 HIGH, 0 MODERATE, 0 LOW — no advisories in scanned dependencies.
-**Direct vs transitive**: not distinguished by pip-audit JSON list (all `vulns: []`).
+(none)
 
-## Hints not acted on
+#### HIGH findings
 
-v1 does not automate the following from the tech-stack hand-off:
+(none)
 
-- `bootstrapper_confidence` (frontend: verified; backend: first-class)
-- `quality_override` (false per component)
-- `path_taken` (frontend: custom; backend: standard; shared: custom)
-- `self_check_answers` (null)
-- `team_size` (solo)
-- `deployment_target` (frontend: vercel; backend: fly)
-- `ci_provider` / `ci_default_flow` (github-actions / auto-deploy-on-merge)
-- `has_auth` (true)
-- `has_payments` (false)
-- `has_realtime` (false)
-- `has_ai` (true)
-- `has_background_jobs` (true)
+#### MODERATE findings
 
-### Why this stack (excerpt)
+(none)
 
-ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and one-shot AI review on publish — a natural split between a Nuxt UI and a Python API. Nuxt (Vue, SSR via Nitro) fits a markdown editor, card-based history, and status-driven flows on a tight three-week, after-hours MVP; Vercel is the default deploy path. FastAPI carries Pydantic-typed request/response models, OpenAPI for agent-friendly boundaries, and async-friendly handlers for review jobs triggered from `draft` → `in_review`, with Fly.io as the API home. GitHub Actions auto-deploys on merge. Auth and persistence live in the backend; the frontend calls the API — no realtime collaboration in MVP. Ruff + ty on the API and Prettier/ESLint/TypeScript on the UI keep both sides explicit and convention-aligned for solo development.
+#### LOW / INFO findings
 
-## Next stage pointer
+(none)
 
-Pipeline complete. Optional: `/agents` to generate AGENTS.md.
+### backend
+
+**Tool**: `pip-audit --format json` (invoked as `uvx pip-audit --format json`; `pip-audit` not on PATH)
+**Summary**: 0 CRITICAL, 0 HIGH, 0 MODERATE, 0 LOW
+**Direct vs transitive**: not distinguished by pip-audit JSON output
+
+#### CRITICAL findings
+
+(none)
+
+#### HIGH findings
+
+(none)
+
+#### MODERATE findings
+
+(none)
+
+#### LOW / INFO findings
+
+(none)
+
+## Hints recorded but not acted on
+
+| Hint | Value |
+| ---- | ----- |
+| bootstrapper_confidence | frontend: verified; backend: first-class |
+| quality_override | false per component |
+| path_taken | frontend: custom; backend: standard; shared: custom |
+| self_check_answers | null |
+| team_size | solo |
+| deployment_target | frontend: vercel; backend: fly |
+| ci_provider | github-actions |
+| ci_default_flow | auto-deploy-on-merge |
+| has_auth | true |
+| has_payments | false |
+| has_realtime | false |
+| has_ai | true |
+| has_background_jobs | true |
+
+## Next steps
+
+Next: a future skill will set up agent context (CLAUDE.md, AGENTS.md). For now, your project is scaffolded and verified — happy hacking.
+
+Useful manual steps in the meantime:
+
+- Install [just](https://github.com/casey/just#installation) and run `just dev` from the repo root (split: `just dev-frontend`, `just dev-backend`, or aggregate `just dev`).
+- `git init` (if you have not already) to start your own repo history.
+- Review any `.scaffold` siblings the conflict policy created and decide which version of each file to keep.
+- Address audit findings per your project's risk tolerance — the full breakdown is in this log.
+- If release-age policy was applied, run `pnpm install` / `uv lock` when ready to refresh lockfiles under the new constraint.
+- Review devcontainer compose credentials (`dev`/`dev`) before sharing the repo.
+- If pre-commit was installed, run `pre-commit run --all-files` once after `git init` to validate hooks.
+- Optional: run `/agents` to generate `AGENTS.md` for AI coding agents in this repo.

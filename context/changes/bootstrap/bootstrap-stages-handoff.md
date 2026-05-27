@@ -15,9 +15,9 @@ stages:
     at: "2026-05-27T00:40:00Z"
     notes: "frontend: augmented nuxi (--template minimal, Node 22 PATH); pnpm allowBuilds remediation"
   dev_quality:
-    status: pending
-    at: null
-    notes: ""
+    status: ok
+    at: "2026-05-27T00:46:24Z"
+    notes: "frontend: pnpm install required Node 22 PATH (default shell Node 20)"
   devcontainer:
     status: pending
     at: null
@@ -67,7 +67,7 @@ gates:
 | ----- | ------ |
 | init | ok |
 | scaffold | ok |
-| dev_quality | pending |
+| dev_quality | ok |
 | devcontainer | pending |
 | repo_conventions | pending |
 | verify | pending |
@@ -138,11 +138,26 @@ gates:
 
 ## Dev tooling
 
-_Not run yet._
+| Scope | formatter | linter | type_checker | status |
+| ----- | --------- | ------ | ------------ | ------ |
+| frontend | prettier installed; `.prettierrc` added; `format` script | eslint installed; `lint` script | typescript installed; `typecheck` script | ok (pnpm needed Node 22 PATH) |
+| backend | ruff installed; `[tool.ruff]` appended | ruff (shared dep) | ty installed | ok |
 
 ## Pre-commit
 
-_Not run yet._
+User: **Yes — install hooks (Recommended)**.
+
+| Hook id | tool | scope | files filter | status |
+| ------- | ---- | ----- | ------------ | ------ |
+| prettier | prettier | frontend | `^frontend/` | added |
+| ruff | ruff | backend | `^backend/` | added |
+| ruff-format | ruff | backend | `^backend/` | added |
+| frontend-eslint | eslint | frontend | `^frontend/` | added (local) |
+| frontend-typecheck | typescript | frontend | `^frontend/` | added (local) |
+| backend-ty | ty | backend | `^backend/` | added (local) |
+| trailing-whitespace | pre-commit-hooks | repo | (existing) | kept |
+
+`pre-commit install`: ok (`uv run --directory backend pre-commit install`). `pre-commit` devDep added in `backend/`.
 
 ## Devcontainer
 
@@ -183,4 +198,4 @@ ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and
 
 ## Next stage pointer
 
-Next: /bootstrap-dev-quality
+Next: /bootstrap-devcontainer

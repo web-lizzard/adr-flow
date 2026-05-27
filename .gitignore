@@ -9,6 +9,7 @@
 .pnpm-store/
 __pycache__/
 .pytest_cache/
+node_modules/
 
 
 !.env.example

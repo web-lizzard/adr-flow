@@ -1,0 +1,15 @@
+# Dev orchestration — bootstrapper v1
+# Install just: https://github.com/casey/just#installation
+
+set shell := ["bash", "-cu"]
+
+# --- bootstrapper dev recipes (v1) ---
+
+dev-frontend:
+    cd frontend && pnpm run dev
+
+dev-backend:
+    cd backend && uv run uvicorn main:app --reload
+
+dev:
+    @just dev-frontend & just dev-backend & wait

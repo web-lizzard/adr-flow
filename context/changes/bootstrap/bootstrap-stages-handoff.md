@@ -23,9 +23,9 @@ stages:
     at: "2026-05-27T00:51:43Z"
     notes: "postcreate append; catalog+rest-client extensions; redis+postgres compose"
   repo_conventions:
-    status: pending
-    at: null
-    notes: ""
+    status: ok
+    at: "2026-05-27T01:00:00Z"
+    notes: "7-day PM policy (pnpm, uv); Justfile dev-frontend + dev-backend (health at GET /health)"
   verify:
     status: pending
     at: null
@@ -69,7 +69,7 @@ gates:
 | scaffold | ok |
 | dev_quality | ok |
 | devcontainer | ok |
-| repo_conventions | pending |
+| repo_conventions | ok |
 | verify | pending |
 | phase_scaffold_status | ok |
 
@@ -172,11 +172,22 @@ User: **Yes — install hooks (Recommended)**.
 
 ## Package manager security
 
-_Not run yet._
+User: **Yes — 7-day cooldown (Recommended)**.
+
+| Scope | package_manager | action | path | result |
+| ----- | --------------- | ------ | ---- | ------ |
+| frontend | pnpm | merged | frontend/pnpm-workspace.yaml | minimumReleaseAge: 10080 |
+| backend | uv | merged | backend/pyproject.toml | exclude-newer = "7 days" |
 
 ## Justfile
 
-_Not run yet._
+| Scope | recipe | discovered command | status |
+| ----- | ------ | ------------------ | ------ |
+| frontend | dev-frontend | cd frontend && pnpm run dev | written |
+| backend | dev-backend | cd backend && uv run uvicorn main:app --reload | written |
+| root | dev | dev-frontend & dev-backend (parallel) | written |
+
+Install [just](https://github.com/casey/just#installation) on the host to run recipes; not installed by bootstrap.
 
 ## Post-scaffold audit
 
@@ -205,4 +216,4 @@ ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and
 
 ## Next stage pointer
 
-Next: /bootstrap-repo-conventions
+Next: /bootstrap-verify

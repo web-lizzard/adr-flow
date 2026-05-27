@@ -5,16 +5,20 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.136.3",
-    "uvicorn>=0.48.0",
+    "fastapi>=0.136.0",
+    "uvicorn>=0.34.0",
 ]
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.6.0",
-    "ruff>=0.15.14",
-    "ty>=0.0.39",
+    "pre-commit>=4.0.0",
+    "ruff>=0.15.0",
+    "ty>=0.0.1",
 ]
+
+[tool.uv]
+# bootstrapper
+exclude-newer = "7 days"
 
 [tool.ruff]
 line-length = 88

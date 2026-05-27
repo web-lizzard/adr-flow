@@ -7,13 +7,6 @@ repos:
     hooks:
       - id: trailing-whitespace
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        files: ^frontend/
-        types_or: [javascript, jsx, ts, tsx, json, css, markdown]
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.2
     hooks:
@@ -24,19 +17,29 @@ repos:
 
   - repo: local
     hooks:
-      - id: frontend-eslint
-        name: eslint (frontend)
-        entry: bash -c 'cd frontend && PATH="/usr/local/share/nvm/versions/node/v22.22.3/bin:$PATH" pnpm run lint'
+      - id: frontend-prettier
+        name: prettier (frontend)
+        entry: bash .pre-commit/run-in-frontend.sh ./node_modules/.bin/prettier --check .
         language: system
         pass_filenames: false
         files: ^frontend/
+        exclude: ^frontend/(package\.json|pnpm-lock\.yaml)$
+
+      - id: frontend-eslint
+        name: eslint (frontend)
+        entry: bash .pre-commit/run-in-frontend.sh ./node_modules/.bin/eslint .
+        language: system
+        pass_filenames: false
+        files: ^frontend/
+        exclude: ^frontend/(package\.json|pnpm-lock\.yaml)$
 
       - id: frontend-typecheck
         name: typecheck (frontend)
-        entry: bash -c 'cd frontend && PATH="/usr/local/share/nvm/versions/node/v22.22.3/bin:$PATH" pnpm run typecheck'
+        entry: bash .pre-commit/run-in-frontend.sh ./node_modules/.bin/tsc --noEmit
         language: system
         pass_filenames: false
         files: ^frontend/
+        exclude: ^frontend/(package\.json|pnpm-lock\.yaml)$
 
       - id: backend-ty
         name: ty check (backend)

@@ -1,16 +1,16 @@
 {
 	"name": "Dev Container",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspace",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+	"shutdownAction": "stopCompose",
 	"remoteUser": "vscode",
 	"initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/initialize.sh",
 	"mounts": [
 		"source=${localWorkspaceFolder}/.devcontainer/.permissions-cache/permissions.json,target=/home/vscode/.cursor/permissions.json,type=bind,consistency=cached"
 	],
 	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
 	"remoteEnv": {
 		"REDIS_URL": "redis://redis:6379",
 		"DATABASE_URL": "postgresql://dev:dev@postgres:5432/app"

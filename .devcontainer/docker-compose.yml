@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
     depends_on:
       - redis
       - postgres

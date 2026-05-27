@@ -23,6 +23,8 @@ architecture:
 
 **Deploy both Nuxt 4 frontend and FastAPI backend on GCP Cloud Run, with self-hosted PostgreSQL on a GCE e2-micro instance and in-app event dispatch via asyncio.TaskGroup.**
 
+**How to deploy:** [deploy-gcp.md](deploy-gcp.md) (runbook) · [deploy/gcp/README.md](../../deploy/gcp/README.md) (scripts).
+
 Cloud Run scores highest on the dimension that matters most for an MVP with a production future: zero migration cost when scaling up. The free tier (180K vCPU-seconds, 360K GiB-seconds, 2M requests/month) covers MVP traffic at $0/month compute. "CPU always allocated" mode (GA) supports asyncio.TaskGroup background tasks — the AI review job runs after the HTTP response without a separate worker. Self-hosted Postgres on a GCE e2-micro eliminates the double cold-start problem (Cloud Run + Neon) and provides sub-millisecond query latency via Direct VPC Egress. The event-sourced architecture stores events in Postgres as the source of truth; the in-app asyncio queue dispatches them. On restart, unprocessed events replay from the database — no Redis dependency at MVP. Redis Streams can be added on the same GCE VM when multi-instance dispatch is needed.
 
 ## Platform Comparison
@@ -156,85 +158,12 @@ How GCP Cloud Run operates day to day for ADR Flow.
 
 ## Getting Started
 
-1. **Create a GCP project and enable APIs:**
-   ```bash
-   gcloud projects create adr-flow --name="ADR Flow"
-   gcloud config set project adr-flow
-   gcloud services enable run.googleapis.com \
-     compute.googleapis.com \
-     secretmanager.googleapis.com \
-     cloudbuild.googleapis.com \
-     artifactregistry.googleapis.com
-   ```
+**Operational steps** (bootstrap scripts, `europe-west1`, corrected networking, WIF, GitHub Actions) live in the foundation runbook and script README — not duplicated here:
 
-2. **Provision the GCE e2-micro for Postgres:**
-   ```bash
-   gcloud compute instances create adr-flow-db \
-     --zone=us-central1-a \
-     --machine-type=e2-micro \
-     --boot-disk-size=10GB \
-     --boot-disk-type=pd-ssd \
-     --image-family=debian-12 \
-     --image-project=debian-cloud \
-     --tags=postgres
+- **[deploy-gcp.md](deploy-gcp.md)** — environments, devcontainer auth, CI on `main`, verification, rollback, troubleshooting
+- **[deploy/gcp/README.md](../../deploy/gcp/README.md)** — `01`–`06` scripts, `run-api.flags` / `run-web.flags`, `just gcp-deploy-*`
 
-   # SSH in and install Postgres
-   gcloud compute ssh adr-flow-db --zone=us-central1-a
-   # On the VM:
-   sudo apt update && sudo apt install -y postgresql-15
-   sudo -u postgres psql -c "CREATE USER adrflow WITH PASSWORD 'CHANGE_ME';"
-   sudo -u postgres psql -c "CREATE DATABASE adrflow OWNER adrflow;"
-   ```
-
-3. **Set up networking (Direct VPC Egress):**
-   ```bash
-   # Allow Cloud Run to reach the GCE instance on port 5432
-   gcloud compute firewall-rules create allow-cloud-run-to-postgres \
-     --direction=INGRESS \
-     --action=ALLOW \
-     --rules=tcp:5432 \
-     --source-ranges=0.0.0.0/0 \
-     --target-tags=postgres \
-     --network=default
-   ```
-
-4. **Deploy the backend (FastAPI):**
-   ```bash
-   cd backend
-   gcloud run deploy adr-flow-api \
-     --source . \
-     --region=us-central1 \
-     --min-instances=0 \
-     --max-instances=1 \
-     --cpu-boost \
-     --no-cpu-throttling \
-     --set-secrets=DATABASE_URL=db-url:latest,OPENROUTER_API_KEY=openrouter-key:latest \
-     --vpc-egress=all-traffic \
-     --network=default \
-     --subnet=default
-   ```
-   `--no-cpu-throttling` enables "CPU always allocated" mode for asyncio.TaskGroup background tasks. `--cpu-boost` provides extra CPU during cold starts.
-
-5. **Deploy the frontend (Nuxt 4):**
-   ```bash
-   cd frontend
-   gcloud run deploy adr-flow-web \
-     --source . \
-     --region=us-central1 \
-     --min-instances=0 \
-     --max-instances=2 \
-     --cpu-boost \
-     --set-env-vars=API_BASE_URL=https://adr-flow-api-xxxxx.run.app
-   ```
-
-6. **Set up Postgres backups (on the GCE VM):**
-   ```bash
-   # Install gsutil and create a backup bucket
-   gcloud storage buckets create gs://adr-flow-backups --location=us-central1
-
-   # Cron job for daily pg_dump (add to /etc/cron.d/pg-backup)
-   # 0 3 * * * postgres pg_dump -Fc adrflow | gsutil cp - gs://adr-flow-backups/adrflow-$(date +\%Y\%m\%d).dump
-   ```
+This document’s earlier draft commands used `us-central1`, `0.0.0.0/0` Postgres firewall, and `vpc-egress=all-traffic`; the implemented MVP uses EU region, subnet `10.8.0.0/24`, and `private-ranges-only` egress.
 
 ## Migration Path
 

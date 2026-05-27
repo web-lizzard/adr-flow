@@ -83,6 +83,51 @@ Admin access: `gcloud compute ssh adr-flow-db --zone=europe-west1-b`. Postgres i
 - `.bootstrap-state.env` — written by scripts (IPs, WIF names, generated passwords)
 - `dev-sa.json` — optional headless SA key (MVP project only; never for CI)
 
+## Deploy API (Cloud Run source + uv)
+
+After bootstrap through `04-secrets.sh`, deploy the FastAPI service from `backend/`:
+
+```bash
+just gcp-deploy-api
+# equivalent: bash deploy/gcp/deploy-api.sh
+```
+
+| Input | Role |
+|-------|------|
+| [`backend/pyproject.toml`](../../backend/pyproject.toml) + [`backend/uv.lock`](../../backend/uv.lock) | Locked dependencies (uv) |
+| [`backend/.gcloudignore`](../../backend/.gcloudignore) | Excludes `.venv/`, tests, caches from upload |
+| `GOOGLE_PYTHON_PACKAGE_MANAGER=uv` | Buildpack uses uv ([Python on Cloud Run](https://cloud.google.com/run/docs/runtimes/python-dependencies)) |
+| [`run-api.flags`](run-api.flags) | Service flags shared with docs / future GHA |
+
+**Service:** `adr-flow-api` in `europe-west1` (override via `.env`: `GCP_PROJECT_ID`, `GCP_REGION`).
+
+**Build:**
+
+```bash
+gcloud run deploy adr-flow-api --source backend \
+  --set-build-env-vars=GOOGLE_PYTHON_PACKAGE_MANAGER=uv \
+  ...
+```
+
+The buildpack runs `uvicorn main:app --host 0.0.0.0 --port 8080` when `uvicorn` is in project dependencies.
+
+**Runtime flags** ([`run-api.flags`](run-api.flags)):
+
+| Flag | Value | Why |
+|------|-------|-----|
+| `--min-instances` | `0` | Scale to zero |
+| `--max-instances` | `1` | MVP single-instance dispatch |
+| `--no-cpu-throttling` | on | Background asyncio after response |
+| `--cpu-boost` | on | Cold start |
+| `--vpc-egress` | `private-ranges-only` | Reach GCE Postgres private IP |
+| `--network` / `--subnet` | `default` / `adr-flow-cloud-run` | Direct VPC egress |
+| `--set-secrets` | `DATABASE_URL=db-url:latest`, `OPENROUTER_API_KEY=openrouter-key:latest` | Secret Manager |
+| `--service-account` | `adr-flow-api-run@…` | Set by `deploy-api.sh` from bootstrap state |
+
+Verify: `curl "$(gcloud run services describe adr-flow-api --region=europe-west1 --format='value(status.url)')/health"` → `{"status":"ok"}`.
+
+**Note:** With `--min-instances=0`, instances can scale down after idle even with `--no-cpu-throttling`. Long background jobs may need `--min-instances=1` temporarily (cost trade-off).
+
 ## Phase 2 — production (deferred)
 
 When adding `adr-flow-prod`: new project, GitHub Environment `production`, `workflow_dispatch` deploy, **no** prod deploy from this devcontainer. See `docs/deploy/gcp.md` when added.

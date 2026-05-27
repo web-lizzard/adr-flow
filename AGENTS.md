@@ -37,7 +37,7 @@ Deeper product and architecture: @context/foundation/prd.md, @context/foundation
 ## Coding Style
 
 - **Frontend:** TypeScript, ESLint (@frontend/eslint.config.mjs), Prettier (@frontend/.prettierrc). Nuxt 4 conventions under `frontend/app/`.
-- **Backend:** Python 3.12+, Ruff line length 88 (@backend/pyproject.toml). Keep request/response models explicit for OpenAPI consumers.
+- **Backend:** Python 3.13+, Ruff line length 88 (@backend/pyproject.toml). Keep request/response models explicit for OpenAPI consumers.
 
 ## Commit & Pull Request Guidelines
 

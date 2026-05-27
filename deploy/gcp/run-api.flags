@@ -1,0 +1,17 @@
+# Cloud Run flags for adr-flow-api (source deploy from backend/).
+# Used by deploy/gcp/deploy-api.sh and documented in deploy/gcp/README.md.
+# Override project/region via .env or deploy/gcp/.bootstrap-state.env (see _common.sh).
+#
+# Build (set on deploy command, not in this file):
+#   --set-build-env-vars=GOOGLE_PYTHON_PACKAGE_MANAGER=uv
+#
+--region=europe-west1
+--min-instances=0
+--max-instances=1
+--no-cpu-throttling
+--cpu-boost
+--vpc-egress=private-ranges-only
+--network=default
+--subnet=adr-flow-cloud-run
+--allow-unauthenticated
+--set-secrets=DATABASE_URL=db-url:latest,OPENROUTER_API_KEY=openrouter-key:latest

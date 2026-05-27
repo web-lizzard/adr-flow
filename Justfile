@@ -13,3 +13,13 @@ dev-backend:
 
 dev:
     @just dev-frontend & just dev-backend & wait
+
+test-frontend:
+    cd frontend && pnpm run test
+
+test-backend:
+    cd backend && uv run pytest
+
+test:
+    just test-frontend
+    just test-backend

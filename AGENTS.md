@@ -30,7 +30,9 @@ Deeper product and architecture: @context/foundation/prd.md, @context/foundation
 - `cd frontend && pnpm run lint` / `pnpm run format` / `pnpm run typecheck` — ESLint, Prettier, TypeScript.
 - `cd backend && uv run ruff check .` / `uv run ruff format .` / `uv run ty check` — Python lint, format, types.
 
-No automated test suite is configured yet; add tests beside the component you change when introducing a runner.
+- `cd frontend && pnpm run test` — Vitest (`tests/`).
+- `cd backend && uv run pytest` — pytest (`tests/`).
+- `just test` / `just test-frontend` / `just test-backend` — both or one side.
 
 ## Coding Style
 

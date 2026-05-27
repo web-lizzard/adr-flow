@@ -8,6 +8,7 @@
 .devcontainer/.permissions-meta
 .pnpm-store/
 __pycache__/
+.pytest_cache/
 
 
 !.env.example

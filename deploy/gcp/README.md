@@ -74,4 +74,4 @@ curl "$(gcloud run services describe adr-flow-api --region=europe-west1 --format
 curl "$(gcloud run services describe adr-flow-web --region=europe-west1 --format='value(status.url)')/api/health"
 ```
 
-CI uses the same scripts/flags: [deploy-api.yml](../../.github/workflows/deploy-api.yml), [deploy-web.yml](../../.github/workflows/deploy-web.yml).
+CI uses the same scripts/flags: [deploy-gcp.yml](../../.github/workflows/deploy-gcp.yml) (API job, then web when both change).

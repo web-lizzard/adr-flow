@@ -1,23 +1,77 @@
-# Deploy adr-flow-web to Cloud Run on merge to main (frontend changes).
-# Auth: Workload Identity Federation — configure repo variables after deploy/gcp/05-wif-github.sh
+# Deploy adr-flow-api then adr-flow-web to Cloud Run on merge to main.
+# Web needs a live API URL for NUXT_API_UPSTREAM; API deploy runs first when both change.
+# Auth: Workload Identity Federation — repo variables from deploy/gcp/05-wif-github.sh
 #   GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER, WIF_SERVICE_ACCOUNT
-name: Deploy Web
+name: Deploy GCP
 
 on:
   push:
     branches: [main]
     paths:
+      - 'backend/**'
       - 'frontend/**'
+      - 'deploy/gcp/run-api.flags'
       - 'deploy/gcp/run-web.flags'
+      - 'deploy/gcp/deploy-api.sh'
       - 'deploy/gcp/deploy-web.sh'
-      - '.github/workflows/deploy-web.yml'
+      - '.github/workflows/deploy-gcp.yml'
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  deploy:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'backend/**'
+              - 'deploy/gcp/run-api.flags'
+              - 'deploy/gcp/deploy-api.sh'
+              - '.github/workflows/deploy-gcp.yml'
+            web:
+              - 'frontend/**'
+              - 'deploy/gcp/run-web.flags'
+              - 'deploy/gcp/deploy-web.sh'
+              - '.github/workflows/deploy-gcp.yml'
+
+  deploy-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        run: bash deploy/gcp/deploy-api.sh
+
+  deploy-web:
+    needs: [changes, deploy-api]
+    if: |
+      always() &&
+      needs.changes.outputs.web == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     runs-on: ubuntu-latest
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -26,7 +80,7 @@ jobs:
       API_SERVICE: adr-flow-api
       WEB_SERVICE: adr-flow-web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: google-github-actions/auth@v3
         with:
@@ -34,7 +88,7 @@ jobs:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
@@ -59,7 +113,7 @@ jobs:
               --format='value(status.url)'
           )"
           if [[ -z "${API_URL}" ]]; then
-            echo "error: ${API_SERVICE} is not deployed. Run the Deploy API workflow first." >&2
+            echo "error: ${API_SERVICE} is not deployed. Run deploy-api first." >&2
             exit 1
           fi
           API_URL="${API_URL%/}"

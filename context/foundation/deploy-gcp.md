@@ -168,10 +168,9 @@ Workflows run on **push to `main`** with path filters. Both need `permissions: i
 
 | Workflow | Paths | What it does |
 |----------|-------|----------------|
-| [`.github/workflows/deploy-api.yml`](../../.github/workflows/deploy-api.yml) | `backend/**`, `deploy/gcp/run-api.flags`, `deploy/gcp/deploy-api.sh`, workflow file | WIF auth → `bash deploy/gcp/deploy-api.sh` (Cloud Run source + uv) |
-| [`.github/workflows/deploy-web.yml`](../../.github/workflows/deploy-web.yml) | `frontend/**`, `deploy/gcp/run-web.flags`, `deploy/gcp/deploy-web.sh`, workflow file | WIF auth → Docker build/push → `gcloud run deploy` with `NUXT_API_UPSTREAM` from `adr-flow-api` |
+| [`.github/workflows/deploy-gcp.yml`](../../.github/workflows/deploy-gcp.yml) | Path-filtered `backend/**` / `frontend/**` (+ related `deploy/gcp/*` and workflow file) | WIF auth → API job (`deploy-api.sh`) then web job (Docker build/push, `NUXT_API_UPSTREAM` from live `adr-flow-api`) |
 
-**Release habit:** merge backend and frontend changes to `main`; only changed paths trigger deploys. Deploy **API before web** on a greenfield stack (web workflow fails if `adr-flow-api` is missing).
+**Release habit:** merge to `main`; only changed paths run. When both API and web paths change, **API deploys first**, then web (`deploy-web` `needs: deploy-api`). Frontend-only pushes skip API and deploy web if `adr-flow-api` already exists. Greenfield: run API once before first web deploy.
 
 **Deploy SA roles (bootstrap):** `run.admin`, `artifactregistry.writer`, `cloudbuild.builds.editor`, `iam.serviceAccountUser` — not project Owner.
 
@@ -324,7 +323,7 @@ jobs:
 
 - Trigger: **`workflow_dispatch` only** (manual “Deploy prod” in Actions UI), and/or tags `v*` if you add `on: push: tags`.
 - **`environment: production`** on jobs: required reviewers, deployment branches, secrets scoped to prod (`GCP_PROJECT_ID` = `adr-flow-prod`, prod `WIF_SERVICE_ACCOUNT` if separate).
-- **Steps:** mirror MVP workflows — `google-github-actions/auth@v3` with prod WIF vars → `deploy-api.sh` / same web build+deploy as [`deploy-web.yml`](../../.github/workflows/deploy-web.yml).
+- **Steps:** mirror MVP workflow — `google-github-actions/auth@v3` with prod WIF vars → `deploy-api.sh` then web build+deploy as in [`deploy-gcp.yml`](../../.github/workflows/deploy-gcp.yml).
 - **No devcontainer involvement** for prod releases.
 
 ### Optional later (out of MVP scope)

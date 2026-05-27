@@ -25,3 +25,8 @@ for script in "${scripts[@]}"; do
 done
 
 echo "Post-create setup finished."
+
+# --- bootstrap-devcontainer 2026-05-27T00:51:43Z ---
+# Installs dependencies for scaffolded component(s). Safe to re-run.
+cd "${SCRIPT_DIR}/../frontend" && pnpm install
+cd "${SCRIPT_DIR}/../backend" && uv sync

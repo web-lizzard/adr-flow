@@ -19,9 +19,9 @@ stages:
     at: "2026-05-27T00:46:24Z"
     notes: "frontend: pnpm install required Node 22 PATH (default shell Node 20)"
   devcontainer:
-    status: pending
-    at: null
-    notes: ""
+    status: ok
+    at: "2026-05-27T00:51:43Z"
+    notes: "postcreate append; catalog+rest-client extensions; redis+postgres compose"
   repo_conventions:
     status: pending
     at: null
@@ -58,7 +58,7 @@ resolved:
         type_checker: ty
 gates:
   user_confirmed_init: true
-  devcontainer_detection: not_run
+  devcontainer_detection: detected
 ---
 
 ## Pipeline status
@@ -68,7 +68,7 @@ gates:
 | init | ok |
 | scaffold | ok |
 | dev_quality | ok |
-| devcontainer | pending |
+| devcontainer | ok |
 | repo_conventions | pending |
 | verify | pending |
 | phase_scaffold_status | ok |
@@ -161,7 +161,14 @@ User: **Yes — install hooks (Recommended)**.
 
 ## Devcontainer
 
-_Not run yet._
+| Sub-step | Result | Detail |
+| -------- | ------ | ------ |
+| detection | detected | `.devcontainer/devcontainer.json`, `Dockerfile` |
+| gate | applied | user accepted setup |
+| postcreate | append | `.devcontainer/post-create.sh` — `frontend` pnpm install, `backend` uv sync |
+| extensions catalog | append | js (eslint, prettier, volar) + python (python, pylance, ruff) |
+| extensions extra | append | `humao.rest-client` (.http files) |
+| services | append | redis:7-alpine:6379, postgres:16-alpine:5432 in `.devcontainer/docker-compose.yml` |
 
 ## Package manager security
 
@@ -198,4 +205,4 @@ ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and
 
 ## Next stage pointer
 
-Next: /bootstrap-devcontainer
+Next: /bootstrap-repo-conventions

@@ -5,7 +5,8 @@ WORKDIR /app
 
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml holds allowBuilds (esbuild, @parcel/watcher) required for install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .

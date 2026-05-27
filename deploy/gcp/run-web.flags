@@ -1,0 +1,12 @@
+# Cloud Run flags for adr-flow-web (image from Cloud Build + frontend/Dockerfile).
+# Used by deploy/gcp/deploy-web.sh and documented in deploy/gcp/README.md.
+# Override project/region via .env or deploy/gcp/.bootstrap-state.env (see _common.sh).
+#
+# Env set on deploy command (not in this file):
+#   NUXT_API_UPSTREAM=<adr-flow-api URL>  (resolved by deploy-web.sh)
+#
+--region=europe-west1
+--allow-unauthenticated
+--min-instances=0
+--max-instances=1
+--port=8080

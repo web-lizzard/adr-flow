@@ -33,10 +33,10 @@ cat <<EOF
 
 Artifact Registry ready.
 
-  Configure Docker auth (once per devcontainer):
-    gcloud auth configure-docker ${AR_HOST} --quiet
+  Web deploy (Cloud Build; no local Docker):
+    just gcp-deploy-web
 
-  Example web image:
+  Example web image tag:
     ${IMAGE_PREFIX}/adr-flow-web:latest
 
 Bootstrap complete. See ${SCRIPT_DIR}/README.md for deploy and verification steps.

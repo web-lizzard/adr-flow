@@ -128,6 +128,55 @@ Verify: `curl "$(gcloud run services describe adr-flow-api --region=europe-west1
 
 **Note:** With `--min-instances=0`, instances can scale down after idle even with `--no-cpu-throttling`. Long background jobs may need `--min-instances=1` temporarily (cost trade-off).
 
+## Deploy web (Cloud Build → Artifact Registry → Cloud Run)
+
+After bootstrap through `06-artifact-registry.sh` **and** the API is live (`just gcp-deploy-api`), deploy the Nuxt SSR service:
+
+```bash
+just gcp-deploy-web
+# equivalent: bash deploy/gcp/deploy-web.sh
+```
+
+Optional: `TAG=my-tag just gcp-deploy-web` to push a non-`latest` image tag.
+
+**No local Docker** — the devcontainer only needs `gcloud`. `deploy-web.sh` runs **`gcloud builds submit`** on `frontend/` (uses [`frontend/Dockerfile`](../../frontend/Dockerfile)), pushes to Artifact Registry, then deploys the image to Cloud Run.
+
+| Input | Role |
+|-------|------|
+| [`frontend/Dockerfile`](../../frontend/Dockerfile) | Multi-stage Node 22 build → Nitro `node-server` on port 8080 |
+| [`frontend/.dockerignore`](../../frontend/.dockerignore) | Keeps Cloud Build context small |
+| [`frontend/pnpm-workspace.yaml`](../../frontend/pnpm-workspace.yaml) | `allowBuilds` for pnpm (copied before `pnpm install` in Dockerfile) |
+| `AR_IMAGE_PREFIX` from `06-artifact-registry.sh` | e.g. `europe-west1-docker.pkg.dev/adr-flow/adr-flow` |
+| [`run-web.flags`](run-web.flags) | Service flags shared with docs / future GHA |
+| `NUXT_API_UPSTREAM` | Set at deploy from `adr-flow-api` URL (no trailing slash; plain env, not Secret Manager) |
+
+**Script flow:** `gcloud builds submit frontend/ --tag …` → `gcloud run deploy adr-flow-web` with `NUXT_API_UPSTREAM` resolved via:
+
+```bash
+gcloud run services describe adr-flow-api --format='value(status.url)'
+```
+
+**Runtime flags** ([`run-web.flags`](run-web.flags)):
+
+| Flag | Value | Why |
+|------|-------|-----|
+| `--region` | `europe-west1` | Same as API |
+| `--allow-unauthenticated` | on | MVP public UI |
+| `--min-instances` | `0` | Scale to zero |
+| `--max-instances` | `1` | MVP |
+| `--port` | `8080` | Matches Dockerfile `PORT` |
+
+The web service does **not** use VPC/subnet egress; Nitro proxies `/api/*` to the public API URL.
+
+Verify:
+
+```bash
+WEB_URL="$(gcloud run services describe adr-flow-web --region=europe-west1 --format='value(status.url)')"
+curl "${WEB_URL}/api/health"   # → {"status":"ok"}
+```
+
+Open the web URL in a browser; the home page loads API health via same-origin `/api/health` (no CORS).
+
 ## Phase 2 — production (deferred)
 
 When adding `adr-flow-prod`: new project, GitHub Environment `production`, `workflow_dispatch` deploy, **no** prod deploy from this devcontainer. See `docs/deploy/gcp.md` when added.

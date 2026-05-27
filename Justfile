@@ -34,3 +34,6 @@ gcp-auth-login:
 
 gcp-deploy-api:
     @bash deploy/gcp/deploy-api.sh
+
+gcp-deploy-web:
+    @bash deploy/gcp/deploy-web.sh

@@ -8,7 +8,7 @@ components:
     package_manager: pnpm
     hints:
       language_family: js
-      deployment_target: vercel
+      deployment_target: gcp-cloud-run
       bootstrapper_confidence: verified
       quality_override: false
       path_taken: custom
@@ -22,7 +22,7 @@ components:
     package_manager: uv
     hints:
       language_family: python
-      deployment_target: fly
+      deployment_target: gcp-cloud-run
       bootstrapper_confidence: first-class
       quality_override: false
       path_taken: standard
@@ -45,4 +45,4 @@ hints:
 
 ## Why this stack
 
-ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and one-shot AI review on publish — a natural split between a Nuxt UI and a Python API. Nuxt (Vue, SSR via Nitro) fits a markdown editor, card-based history, and status-driven flows on a tight three-week, after-hours MVP; Vercel is the default deploy path. FastAPI carries Pydantic-typed request/response models, OpenAPI for agent-friendly boundaries, and async-friendly handlers for review jobs triggered from `draft` → `in_review`, with Fly.io as the API home. GitHub Actions auto-deploys on merge. Auth and persistence live in the backend; the frontend calls the API — no realtime collaboration in MVP. Ruff + ty on the API and Prettier/ESLint/TypeScript on the UI keep both sides explicit and convention-aligned for solo development.
+ADR Flow is a hosted web app with email/password auth, per-user ADR storage, and one-shot AI review on publish — a natural split between a Nuxt UI and a Python API. Nuxt (Vue, SSR via Nitro) fits a markdown editor, card-based history, and status-driven flows on a tight three-week, after-hours MVP. FastAPI carries Pydantic-typed request/response models, OpenAPI for agent-friendly boundaries, and async-friendly handlers for review jobs triggered from `draft` → `in_review`. Both components deploy to GCP Cloud Run with PostgreSQL self-hosted on GCP; GitHub Actions auto-deploys on merge. Auth is custom JWT (no external provider); persistence lives in the backend; the frontend calls the API — no realtime collaboration in MVP. No Redis in MVP — background job queuing is solved at the application level. Ruff + ty on the API and Prettier/ESLint/TypeScript on the UI keep both sides explicit and convention-aligned for solo development.

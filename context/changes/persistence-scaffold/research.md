@@ -9,7 +9,7 @@ tags: [research, domain-model, aggregates, ddd, event-sourcing, persistence-scaf
 status: complete
 last_updated: 2026-06-14
 last_updated_by: Cursor
-last_updated_note: "Added Forward-compatibility notes (re-review, customizable rules, orgs/workspaces incl. user_id-as-ownership-scope)"
+last_updated_note: "Added follow-up research for applying migrations to self-hosted Postgres in CI"
 ---
 
 # Research: Domain aggregates for adr-flow (before F-02 schema modeling)
@@ -192,3 +192,97 @@ These are recommendations for the schema; the binding decisions belong in `/plan
 2. **Does the architecture's domain-event list need `ADRContentUpdated` added?** Recommended yes; confirm before the model is implemented in S-02.
 3. **Annotation storage — JSONB column vs. separate table.** Recommendation is JSONB on `adrs`; confirm during `/plan persistence-scaffold` against any future need to query annotations independently.
 4. **Does a soft-deleted ADR keep its `user_id` and status, or only flip `is_deleted`?** Recommendation: flip the flag only (full record retained per NFR: Data retention); confirm in plan.
+
+## Follow-up Research 2026-06-14T14:47:13+00:00
+
+### Research Question
+
+How to apply migrations to self-hosted Postgres in CI for the `persistence-scaffold` change.
+
+### Summary
+
+The best fit for this repo is **not** a GitHub-hosted runner connecting directly to the production Postgres VM. The production database is intentionally private: the GCP deployment uses a self-hosted Postgres VM on an internal IP, Cloud Run reaches it through Direct VPC egress, and the firewall is scoped to the Cloud Run subnet. GitHub-hosted runners are outside that network, so making them run migrations would require opening the database, adding a bastion/IAP tunnel, or using a self-hosted runner in the VPC.
+
+Recommended approach: **run migrations as a GCP-side deploy step near the app**, preferably a Cloud Run Job (or equivalent one-off Cloud Run execution) that uses the same backend runtime, service account, `DATABASE_URL` Secret Manager secret, and VPC egress settings as the API. GitHub Actions should trigger and wait for that job, then deploy/shift traffic only if migrations pass.
+
+For F-02, choose a migration tool that provides a migration history table and CI checks. Alembic fits the Python/FastAPI/uv stack well: `uv run alembic upgrade head` for applying migrations, `uv run alembic current --check-heads` for asserting a DB is current, and `uv run alembic check` for detecting model/schema drift when autogenerate metadata exists.
+
+### Current Repo State
+
+- `backend/main.py` is still the health-only FastAPI scaffold; no persistence code reads `DATABASE_URL` yet.
+- `backend/pyproject.toml` has only FastAPI and Uvicorn dependencies; there is no Postgres driver, SQLAlchemy/SQLModel, Alembic, or plain SQL migration runner yet.
+- F-02 explicitly scopes in "Postgres driver and migration tooling" plus the minimal `User` and `ADR` schema contract (`context/changes/github-issues/F-02-persistence-scaffold.md`).
+- `Justfile` has dev/test/deploy recipes, but no migration recipe.
+- `.github/workflows/deploy-gcp.yml` deploys the API and web on push to `main`, but has no test DB service and no migration step.
+- `.pre-commit-config.yaml` runs lint/type gates only; no migration validation hook exists.
+
+### Postgres and Network Constraints
+
+- Local dev Postgres exists in the devcontainer as `postgres:16-alpine`, exposed to the host on port `5435`, with in-container `DATABASE_URL=postgresql://dev:dev@postgres:5432/app`.
+- Production Postgres is provisioned by `deploy/gcp/03-gce-postgres.sh` and `deploy/gcp/postgres-vm-setup.sh` on a GCE VM.
+- The production app gets `DATABASE_URL` from Secret Manager via `deploy/gcp/run-api.flags`.
+- `deploy/gcp/run-api.flags` already configures Direct VPC egress for the API. A migration job should mirror this networking instead of bypassing it from CI.
+- `deploy/gcp/README.md` documents the small Postgres shape, including low connection limits. Keep the migration runner single-instance/single-task.
+
+### Recommended CI/CD Shape
+
+Use two different migration paths:
+
+1. **PR/test CI:** run migrations against an ephemeral Postgres service container in GitHub Actions. This validates that the migration set applies cleanly on a fresh database without touching shared infrastructure.
+2. **Production deploy:** after GitHub Actions authenticates to GCP through Workload Identity Federation, execute a GCP-side migration job and wait for completion. Only then deploy or shift traffic for the API revision.
+
+The production job should be configured with:
+
+- one task / one instance / low retry count;
+- the same service account used by the API, or a narrower migration service account with Secret Manager access;
+- the same `DATABASE_URL=db-url:latest` secret;
+- the same Direct VPC egress network/subnet settings as the API;
+- command equivalent to `cd backend && uv run alembic upgrade head`;
+- GitHub Actions `concurrency` for deploys so two migration jobs cannot race.
+
+Cloud Run Jobs are a good operational fit because Cloud Run jobs support one-off task execution, command overrides, Secret Manager environment injection, and Direct VPC egress flags through `gcloud`. Context7-backed docs checked during this follow-up also confirm Alembic supports `upgrade head`, `current --check-heads`, and `check` for CI-oriented validation.
+
+### Options Considered
+
+- **GitHub runner connects directly to Postgres:** poor fit. It conflicts with the private database design and would require public exposure, IP allowlists with changing runner IPs, VPN, bastion, or a self-hosted runner.
+- **SSH/IAP tunnel from GitHub Actions to the VM:** workable but brittle. It adds Compute/IAP/SSH IAM and network complexity to every deploy. Keep it as an emergency/manual operations path, not the default pipeline.
+- **Cloud Run Job / GCP-side migration step:** best default. It reuses GCP identity, Secret Manager, private networking, and the backend runtime environment.
+- **Manual migrations only:** acceptable for early MVP or high-risk migrations, especially behind `workflow_dispatch` plus environment approval. It should not be the only path once F-02 becomes a foundation for later slices.
+
+### Migration Guardrails
+
+- Use a real migration history table (`alembic_version` or equivalent), never ad hoc "run every SQL file" scripts.
+- Make migrations backward-compatible where possible: expand first, deploy code that tolerates both shapes, then contract later.
+- Treat the `events` table as higher-risk than projections. The event log is the source of truth; migrations should not rewrite or delete event rows casually.
+- Projection tables (`users`, `adrs`) can be rebuilt conceptually, but still need normal backup/restore discipline in production.
+- Verify or trigger an on-demand `pg_dump` before destructive or long-running migrations; daily backup alone is not enough for risky schema changes.
+- Add down migrations where realistic, but plan rollbacks primarily through compatible schema evolution because Cloud Run revision rollback does not roll back the database.
+- Keep the runner single and lock-protected. Use GitHub Actions `concurrency`, one Cloud Run Job task, and optionally a Postgres advisory lock around migration execution.
+- Align Postgres compatibility: devcontainer uses Postgres 16 while the GCE VM uses Postgres 15, so migration SQL should avoid PG16-only features unless prod is upgraded.
+
+### Implementation Implications for `/plan persistence-scaffold`
+
+- Add backend dependencies for the chosen migration stack, respecting the backend `exclude-newer = "7 days"` release-age policy.
+- Add an initial migration that creates `events`, `users`, and `adrs` according to F-02 and this research's aggregate/schema notes.
+- Add local commands, likely a `just backend-migrate` or `just migrate-backend`, that runs from `backend/` with `DATABASE_URL`.
+- Add CI that starts an ephemeral Postgres service and runs migrations on a fresh database.
+- Add a deploy migration step that executes in GCP, not from the public GitHub runner directly.
+- Document the manual break-glass path for running the migration job and checking its logs.
+
+### Code References
+
+- `context/changes/github-issues/F-02-persistence-scaffold.md` - F-02 requires Postgres driver and migration tooling, fresh/existing DB migration success, and `User`/`ADR` schema contract.
+- `context/foundation/application-architecture.md` - migrations belong in `infrastructure/`; F-02 delivers `events`, projection tables, port definitions, bootstrap skeleton, and empty dispatcher.
+- `context/foundation/infrastructure.md` - GCP platform decision, self-hosted Postgres, and warning that schema migrations do not roll back with Cloud Run revisions.
+- `.github/workflows/deploy-gcp.yml` - current deploy workflow; no migration job or DB test workflow.
+- `deploy/gcp/run-api.flags` - Cloud Run API settings to mirror for a migration job: VPC egress and Secret Manager `DATABASE_URL`.
+- `deploy/gcp/03-gce-postgres.sh` and `deploy/gcp/postgres-vm-setup.sh` - production self-hosted Postgres provisioning.
+- `.devcontainer/docker-compose.yml` and `.devcontainer/devcontainer.json` - local Postgres and local `DATABASE_URL`.
+- `backend/pyproject.toml` - current backend dependency baseline; no persistence dependencies yet.
+
+### Open Questions
+
+1. **Should production migrations be automatic on every `main` deploy or manually approved through a GitHub Environment?** Recommendation: automatic for additive F-02-style schema creation, approval-gated for destructive or long-running migrations.
+2. **Should the migration runner be a committed Cloud Run Job resource or created/updated ad hoc in the workflow?** Recommendation: define/update a stable `adr-flow-api-migrate` job so logs, IAM, and operations are predictable.
+3. **Should prod Postgres be upgraded to match dev Postgres 16 before migrations land?** Not required for F-02 if SQL is PG15-compatible, but version alignment lowers future migration risk.
+4. **Alembic vs plain SQL migrations:** recommendation is Alembic unless `/plan persistence-scaffold` deliberately chooses a simpler SQL-only runner.

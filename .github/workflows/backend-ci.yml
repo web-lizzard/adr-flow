@@ -1,0 +1,69 @@
+# Validate backend changes on pull requests: migrations, tests, lint, types.
+# Uses an ephemeral Postgres 15 service for production parity (prod defaults to PG15).
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+concurrency:
+  group: backend-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/adrflow_test
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: adrflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ci -d adrflow_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Apply migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Verify migration head
+        working-directory: backend
+        run: uv run alembic current --check-heads
+
+      - name: Check metadata drift
+        working-directory: backend
+        run: uv run alembic check
+
+      - name: Run persistence and domain tests
+        working-directory: backend
+        run: uv run pytest tests/infrastructure/adapters/persistence tests/domain
+
+      - name: Lint
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Type check
+        working-directory: backend
+        run: uv run ty check

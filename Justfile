@@ -24,6 +24,17 @@ test:
     just test-frontend
     just test-backend
 
+# --- backend migrations (DATABASE_URL from devcontainer or caller env) ---
+
+migrate-backend:
+    cd backend && uv run alembic upgrade head
+
+migrate-backend-current:
+    cd backend && uv run alembic current
+
+migrate-backend-history:
+    cd backend && uv run alembic history
+
 # --- GCP (devcontainer; MVP project only) — logic in scripts/gcp/ ---
 
 gcp-auth:
@@ -31,6 +42,9 @@ gcp-auth:
 
 gcp-auth-login:
     @bash scripts/gcp/auth-login.sh
+
+gcp-migrate-api:
+    @bash deploy/gcp/deploy-migrate-api.sh
 
 gcp-deploy-api:
     @bash deploy/gcp/deploy-api.sh

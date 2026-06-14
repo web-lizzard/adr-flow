@@ -60,6 +60,7 @@ cp secrets.env.example secrets.env   # edit before running
 
 | Command | When | Notes |
 |---------|------|-------|
+| `just gcp-migrate-api` | After `04-secrets.sh` | `deploy-migrate-api.sh` + [`run-migrate-api.flags`](run-migrate-api.flags) |
 | `just gcp-deploy-api` | After `04-secrets.sh` | `deploy-api.sh` + [`run-api.flags`](run-api.flags) |
 | `just gcp-deploy-web` | After `06` + API live | `deploy-web.sh` + [`run-web.flags`](run-web.flags); sets `NUXT_API_UPSTREAM` |
 
@@ -74,4 +75,50 @@ curl "$(gcloud run services describe adr-flow-api --region=europe-west1 --format
 curl "$(gcloud run services describe adr-flow-web --region=europe-west1 --format='value(status.url)')/api/health"
 ```
 
-CI uses the same scripts/flags: [deploy-gcp.yml](../../.github/workflows/deploy-gcp.yml) (API job, then web when both change).
+## Database migrations
+
+Production Postgres runs on a GCE VM with a private IP. The firewall only allows connections from the Cloud Run subnet `10.8.0.0/24` — GitHub-hosted runners **cannot** connect directly.
+
+### PR CI
+
+[`backend-ci.yml`](../../.github/workflows/backend-ci.yml) runs on every pull request touching `backend/`. It spins up an ephemeral `postgres:15-alpine` service container (matching the production PG version) and validates:
+
+- `alembic upgrade head` applies cleanly on a fresh database
+- `alembic current --check-heads` confirms the head revision
+- `alembic check` catches metadata drift against `models.py`
+- Persistence and domain tests pass
+- Ruff lint and ty type checks pass
+
+No GCP auth, secrets, or VPC access needed — fully self-contained.
+
+### Production
+
+[`deploy-gcp.yml`](../../.github/workflows/deploy-gcp.yml) runs the `migrate-api` job before `deploy-api` on every merge to `main` that touches backend files. The job calls [`deploy-migrate-api.sh`](deploy-migrate-api.sh) which:
+
+1. Deploys (or updates) a stable Cloud Run Job `adr-flow-api-migrate` from `backend/` source
+2. Executes it synchronously (`--wait`)
+3. The job runs `alembic upgrade head` (Alembic console script from the buildpack venv) against `DATABASE_URL` from Secret Manager (`db-url:latest`)
+
+The migration job uses the same service account (`adr-flow-api-run`), VPC egress, network, and subnet as the API service. Flags live in [`run-migrate-api.flags`](run-migrate-api.flags).
+
+**Build note**: `gcloud run jobs deploy --source` does not accept `--set-build-env-vars` (unlike `gcloud run deploy` for services). The uv buildpack activates automatically when `backend/pyproject.toml` and `backend/uv.lock` are present. At runtime the job uses the buildpack `launcher` entrypoint with `python -m alembic upgrade head` — overriding `--command` to `uv` or `alembic` directly fails because those binaries are not on PATH outside the launcher.
+
+**Alembic URL normalization**: the `DATABASE_URL` secret stores `postgresql+asyncpg://…` for the async API runtime. Alembic's `env.py` normalizes this to the sync `psycopg` driver at load time.
+
+### Operations
+
+| Task | Command |
+|------|---------|
+| Manual migration (production) | `just gcp-migrate-api` |
+| List recent executions | `gcloud run jobs executions list --job=adr-flow-api-migrate --region=europe-west1` |
+| Read execution logs | `gcloud logging read 'resource.labels.job_name="adr-flow-api-migrate"' --project=adr-flow --limit=50` |
+
+**Failure handling**: fix the migration, push to `main`, and let CI re-run the job. Do not deploy the API until migration succeeds — the workflow enforces this (`deploy-api` depends on `migrate-api`). Schema rollback is not automatic with Cloud Run revision rollback; prefer forward-compatible migrations.
+
+**Connection budget**: the VM has `max_connections = 20`. The migration job runs a single task — no connection pool needed. Workflow-level concurrency (`cancel-in-progress: false`) prevents parallel migration jobs.
+
+### First-time bootstrap
+
+If GCP scripts `01`–`06` have not been run, `migrate-api` will fail at auth or missing SA. Complete the bootstrap first (see Quick start above).
+
+CI uses the same scripts/flags: [deploy-gcp.yml](../../.github/workflows/deploy-gcp.yml) (migrations, then API, then web when both change).

@@ -1,0 +1,13 @@
+# Cloud Run Job flags for adr-flow-api-migrate (database migrations).
+# Used by deploy/gcp/deploy-migrate-api.sh.
+# Mirrors VPC networking from run-api.flags; omits service-only flags
+# (--allow-unauthenticated, --min/max-instances, --no-cpu-throttling, --cpu-boost).
+#
+# Build: uv buildpack auto-activates from pyproject.toml + uv.lock in backend/.
+# (gcloud run jobs deploy does not support --set-build-env-vars; services do.)
+#
+--region=europe-west1
+--vpc-egress=private-ranges-only
+--network=default
+--subnet=adr-flow-cloud-run
+--set-secrets=DATABASE_URL=db-url:latest

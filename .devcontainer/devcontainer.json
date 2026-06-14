@@ -21,7 +21,7 @@
 	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh",
 	"remoteEnv": {
 		"REDIS_URL": "redis://redis:6379",
-		"DATABASE_URL": "postgresql://dev:dev@postgres:5432/app"
+		"DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow"
 	},
 	"customizations": {
 		"vscode": {

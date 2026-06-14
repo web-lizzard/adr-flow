@@ -1,0 +1,43 @@
+---
+description: Hexagonal, CQRS lite, and event-sourcing boundaries for the FastAPI backend
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend architecture
+
+Layer map and flows: @context/foundation/application-architecture.md.
+
+## Layer boundaries
+
+- `domain/` — pure Python only. No FastAPI, SQL drivers, HTTP clients, or Pydantic.
+- `application/` — commands, queries, event handlers, ports. No framework imports. Command/query file layout: @.cursor/rules/backend-application.mdc.
+- `infrastructure/` — adapters (routers, persistence, LLM, messaging) and `bootstrap.py`.
+
+## Writes
+
+- State changes go **only** through command handlers that emit domain events.
+- Routers never mutate projection tables (`users`, `adrs`) directly.
+- `adrs.status` is a projection of events — never set arbitrarily in the API layer.
+
+```python
+# ❌ BAD — router updates projection directly
+await conn.execute("UPDATE adrs SET status = 'in_review' WHERE id = $1", adr_id)
+
+# ✅ GOOD — command → aggregate → event → projection
+await submit_adr_for_review(cmd, deps)
+```
+
+## Reads
+
+- Query handlers read projection tables only — no aggregate load, no event-store replay.
+
+## Ports
+
+- Introduce a `Protocol` in `application/ports/` when you need a second implementation or a test fake.
+- Do not abstract a single SQL adapter prematurely.
+
+## Schemas
+
+- Pydantic request/response models live in `infrastructure/api/schemas/`.
+- Domain types stay in `domain/` (dataclasses, enums, value objects).

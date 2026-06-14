@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-13
-updated: 2026-06-13
+updated: 2026-06-14
 related:
   - infrastructure.md
   - tech-stack.md
@@ -100,6 +100,14 @@ New events are always **appended**; existing rows are never updated or deleted.
 | `adrs` | Current ADR state (title, markdown content, status, `user_id`, soft-delete flag, timestamps) |
 
 Projections are updated synchronously in the command handler path (same transaction as the event append when possible). They exist so queries stay fast and simple.
+
+### Ownership scope
+
+ADR aggregates reference their owner **by identity** — a single UUID on the aggregate and on the `adrs` projection (`user_id`). They do not embed `User` state.
+
+In MVP, **treat `user_id` as the ownership scope**; today scope equals the authenticated user (per-user isolation). Post-MVP workspaces can introduce `workspace_id` as scope while `user_id` records the author — an additive migration (add column, backfill personal workspaces), not a rewrite of the ADR model, because ownership is already a reference-by-identity.
+
+**Enforce isolation in one place:** command handlers and query handlers validate scope before load or read (e.g. list and fetch ADRs filtered by the caller's scope). Do not scatter ownership checks across routers or projection adapters. That seam is the single point to extend when scope becomes workspace membership instead of user id.
 
 ### Startup replay
 

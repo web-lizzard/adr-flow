@@ -43,6 +43,9 @@ gcp-auth:
 gcp-auth-login:
     @bash scripts/gcp/auth-login.sh
 
+gcp-migrate-api:
+    @bash deploy/gcp/deploy-migrate-api.sh
+
 gcp-deploy-api:
     @bash deploy/gcp/deploy-api.sh
 

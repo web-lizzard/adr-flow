@@ -31,6 +31,12 @@ Run the same commands from `backend/` with `uv run alembic …` if you prefer. A
 
 Migration commands only evolve the database schema. The FastAPI app does not run migrations on startup — apply migrations explicitly before relying on new tables locally or in deploy pipelines.
 
+### CI and production
+
+- **PR validation**: [`.github/workflows/backend-ci.yml`](../.github/workflows/backend-ci.yml) runs migrations against an ephemeral Postgres 15 service on every pull request touching `backend/`. The devcontainer uses Postgres 16 for day-to-day work; CI uses 15 for production parity.
+- **Production migrations**: `just gcp-migrate-api` deploys and executes a Cloud Run Job (`adr-flow-api-migrate`) that runs `alembic upgrade head` inside the VPC. This runs automatically before API deploy in CI.
+- **Networking rationale**: see [`deploy/gcp/README.md`](../deploy/gcp/README.md#database-migrations) for why migrations run from GCP rather than GitHub runners.
+
 ## Cloud Run (source deploy)
 
 Deploy from the **repository root** after GCP bootstrap (`deploy/gcp/01-…` through `04-secrets.sh`):

@@ -1,5 +1,6 @@
 # Deploy adr-flow-api then adr-flow-web to Cloud Run on merge to main.
 # Web needs a live API URL for NUXT_API_UPSTREAM; API deploy runs first when both change.
+# Migrations run before API deploy via a Cloud Run Job on the private VPC.
 # Auth: Workload Identity Federation — repo variables from deploy/gcp/05-wif-github.sh
 #   GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER, WIF_SERVICE_ACCOUNT
 name: Deploy GCP
@@ -14,7 +15,14 @@ on:
       - 'deploy/gcp/run-web.flags'
       - 'deploy/gcp/deploy-api.sh'
       - 'deploy/gcp/deploy-web.sh'
+      - 'deploy/gcp/run-migrate-api.flags'
+      - 'deploy/gcp/deploy-migrate-api.sh'
+      - 'backend/infrastructure/adapters/persistence/migrations/**'
       - '.github/workflows/deploy-gcp.yml'
+
+concurrency:
+  group: deploy-gcp-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -36,6 +44,9 @@ jobs:
               - 'backend/**'
               - 'deploy/gcp/run-api.flags'
               - 'deploy/gcp/deploy-api.sh'
+              - 'deploy/gcp/run-migrate-api.flags'
+              - 'deploy/gcp/deploy-migrate-api.sh'
+              - 'backend/infrastructure/adapters/persistence/migrations/**'
               - '.github/workflows/deploy-gcp.yml'
             web:
               - 'frontend/**'
@@ -43,9 +54,32 @@ jobs:
               - 'deploy/gcp/deploy-web.sh'
               - '.github/workflows/deploy-gcp.yml'
 
-  deploy-api:
+  migrate-api:
     needs: changes
     if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Run database migrations
+        run: bash deploy/gcp/deploy-migrate-api.sh
+
+  deploy-api:
+    needs: [changes, migrate-api]
+    if: needs.changes.outputs.api == 'true' && needs.migrate-api.result == 'success'
     runs-on: ubuntu-latest
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -67,11 +101,22 @@ jobs:
         run: bash deploy/gcp/deploy-api.sh
 
   deploy-web:
-    needs: [changes, deploy-api]
-    if: |
+    needs: [changes, deploy-api, migrate-api]
+    # Run when web paths changed and one of:
+    # 1. Web-only change — API deploy skipped (api paths unchanged).
+    # 2. API + web change — migrate-api and deploy-api both succeeded.
+    # 3. Web change with API skipped — same as (1); migrate-api is not required.
+    if: >-
       always() &&
       needs.changes.outputs.web == 'true' &&
-      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
+      (
+        needs.deploy-api.result == 'success' ||
+        (needs.deploy-api.result == 'skipped' && needs.changes.outputs.api != 'true')
+      ) &&
+      (
+        needs.changes.outputs.api != 'true' ||
+        needs.migrate-api.result == 'success'
+      )
     runs-on: ubuntu-latest
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}

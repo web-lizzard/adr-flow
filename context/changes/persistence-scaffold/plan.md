@@ -558,20 +558,20 @@ Do not rewrite or delete event rows in any migration. Future projection migratio
 
 #### Automated
 
-- [ ] 4.1 PR workflow valid and path-filtered: `.github/workflows/backend-ci.yml`
-- [ ] 4.2 PR CI passes on a backend-touching PR: Postgres 15 service, `alembic upgrade head`, `--check-heads`, `alembic check`, persistence tests, ruff, ty
-- [ ] 4.3 Deploy workflow has concurrency, `migrate-api` job, and `deploy-api` depends on successful migration
-- [ ] 4.4 Deploy path filters include migration artifacts (`migrations/**`, `run-migrate-api.flags`, `deploy-migrate-api.sh`)
-- [ ] 4.5 GCP migration script shell syntax passes: `bash -n deploy/gcp/deploy-migrate-api.sh`
-- [ ] 4.6 `just gcp-migrate-api` recipe exists
-- [ ] 4.7 Backend tests pass: `just test-backend`
-- [ ] 4.8 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 4.9 Backend type check passes: `cd backend && uv run ty check`
+- [x] 4.1 PR workflow valid and path-filtered: `.github/workflows/backend-ci.yml`
+- [x] 4.2 PR CI passes on a backend-touching PR: Postgres 15 service, `alembic upgrade head`, `--check-heads`, `alembic check`, persistence tests, ruff, ty
+- [x] 4.3 Deploy workflow has concurrency, `migrate-api` job, and `deploy-api` depends on successful migration
+- [x] 4.4 Deploy path filters include migration artifacts (`migrations/**`, `run-migrate-api.flags`, `deploy-migrate-api.sh`)
+- [x] 4.5 GCP migration script shell syntax passes: `bash -n deploy/gcp/deploy-migrate-api.sh`
+- [x] 4.6 `just gcp-migrate-api` recipe exists
+- [x] 4.7 Backend tests pass: `just test-backend`
+- [x] 4.8 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 4.9 Backend type check passes: `cd backend && uv run ty check`
 
 #### Manual
 
-- [ ] 4.10 Review deploy job graph: `changes` → `migrate-api` → `deploy-api` → `deploy-web`
-- [ ] 4.11 Confirm `run-migrate-api.flags` mirrors VPC/subnet/egress; omits public auth and API scaling flags
-- [ ] 4.12 Confirm migration job uses `DATABASE_URL=db-url:latest` and `adr-flow-api-run` SA only
-- [ ] 4.13 Run `just gcp-migrate-api` in GCP-enabled env and verify job execution + `alembic_version` at head
-- [ ] 4.14 Confirm `backend-ci.yml` uses `postgres:15-alpine`
+- [x] 4.10 Review deploy job graph: `changes` → `migrate-api` → `deploy-api` → `deploy-web`
+- [x] 4.11 Confirm `run-migrate-api.flags` mirrors VPC/subnet/egress; omits public auth and API scaling flags
+- [x] 4.12 Confirm migration job uses `DATABASE_URL=db-url:latest` and `adr-flow-api-run` SA only
+- [x] 4.13 Run `just gcp-migrate-api` in GCP-enabled env and verify job execution + `alembic_version` at head
+- [x] 4.14 Confirm `backend-ci.yml` uses `postgres:15-alpine`

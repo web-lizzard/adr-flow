@@ -140,9 +140,10 @@ backend/
     api/
       routers/      # FastAPI route modules (driving adapters)
       schemas/      # Pydantic request/response models
-    persistence/
-      event_store.py
-      projections/  # users, adrs read/write adapters
+    adapters/
+      persistence/
+        event_store.py
+        projections/  # users, adrs read/write adapters
     llm/            # OpenRouter adapter
     messaging/      # asyncio TaskGroup event-bus implementation
     bootstrap.py    # Composition root: wire ports → adapters
@@ -159,8 +160,8 @@ Organise by **feature inside each layer** (`domain/adr/`, `commands/create_adr.p
 HTTP POST  →  infrastructure/api/routers/adr.py
            →  application/commands/submit_adr_for_review.py
            →  domain/adr/aggregate.py  (emits ADRSubmittedForReview)
-           →  infrastructure/persistence/event_store.py  (append)
-           →  infrastructure/persistence/projections/adrs.py  (status → in_review)
+           →  infrastructure/adapters/persistence/event_store.py  (append)
+           →  infrastructure/adapters/persistence/projections/adrs.py  (status → in_review)
            →  application/runtime/dispatcher.py  (schedule handler)
            →  application/handlers/run_ai_review.py  (async, after response)
 ```
@@ -170,7 +171,7 @@ HTTP POST  →  infrastructure/api/routers/adr.py
 ```
 HTTP GET   →  infrastructure/api/routers/adr.py
            →  application/queries/list_adrs.py
-           →  infrastructure/persistence/projections/adrs.py  (SELECT)
+           →  infrastructure/adapters/persistence/projections/adrs.py  (SELECT)
            →  response schema
 ```
 

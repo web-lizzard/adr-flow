@@ -28,7 +28,7 @@ fi
 
 echo ""
 echo "=== commands ==="
-for cmd in gcloud github-mcp-server npx; do
+for cmd in gcloud github-mcp-server npx uv; do
 	if command -v "${cmd}" >/dev/null 2>&1; then
 		echo "OK: ${cmd} -> $(command -v "${cmd}")"
 	else
@@ -39,6 +39,33 @@ done
 
 if command -v github-mcp-server >/dev/null 2>&1; then
 	echo "    version: $(github-mcp-server --version 2>/dev/null || true)"
+fi
+
+echo ""
+echo "=== dbeast (PostgreSQL MCP) ==="
+if command -v uv >/dev/null 2>&1 && uv tool list 2>/dev/null | awk '{print $1}' | grep -qx 'dbeast'; then
+	tool_dir="$(uv tool dir)/dbeast"
+	server_py="$(find "${tool_dir}/lib" -path '*/site-packages/src/server.py' -print -quit)"
+	if [[ -n "${server_py}" && -f "${server_py}" ]]; then
+		echo "OK: dbeast tool installed (${server_py})"
+	else
+		echo "FAIL: dbeast installed but src/server.py missing"
+		fail=1
+	fi
+else
+	echo "FAIL: dbeast uv tool not installed (run post-create 19-mcp-dbeast.sh or rebuild devcontainer)"
+	fail=1
+fi
+
+database_url="${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/adr_flow}"
+if command -v psql >/dev/null 2>&1; then
+	if psql "${database_url}" -c 'SELECT 1' >/dev/null 2>&1; then
+		echo "OK: Postgres reachable at ${database_url}"
+	else
+		echo "WARN: Postgres not reachable at ${database_url} (dbeast MCP will retry on connect)"
+	fi
+else
+	echo "SKIP: psql not installed — cannot probe Postgres"
 fi
 
 echo ""
@@ -65,7 +92,7 @@ fi
 echo ""
 echo "=== Cursor UI (manual) ==="
 echo "After rebuild, confirm in Cursor: Settings → MCP (or MCP Logs) that"
-echo "  gcloud, gcp-observability, and github are connected."
+echo "  gcloud, gcp-observability, github, and dbeast are connected."
 echo "Process paths must be under /home/vscode or /workspace, not host paths."
 echo "Full checklist: .devcontainer/MCP.md"
 echo ""

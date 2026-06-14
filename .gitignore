@@ -9,6 +9,7 @@
 .pnpm-store/
 __pycache__/
 .pytest_cache/
+logs/mcp_audit/
 node_modules/
 
 

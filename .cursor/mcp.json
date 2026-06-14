@@ -16,6 +16,11 @@
 			"type": "stdio",
 			"command": "bash",
 			"args": ["${workspaceFolder}/scripts/mcp/github-stdio.sh"]
+		},
+		"dbeast": {
+			"type": "stdio",
+			"command": "bash",
+			"args": ["${workspaceFolder}/scripts/mcp/dbeast-stdio.sh"]
 		}
 	}
 }

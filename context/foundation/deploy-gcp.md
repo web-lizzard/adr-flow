@@ -128,9 +128,9 @@ Manual bootstrap and ad-hoc deploys use credentials **inside the container**. Th
 
 **CI is independent:** GitHub Actions uses WIF only, not the devcontainer volume.
 
-### MCP servers (gcloud, observability, GitHub)
+### MCP servers (gcloud, observability, GitHub, DBeast)
 
-Cursor MCP servers for troubleshooting run **inside** the devcontainer and reuse the same `gcloud-config` volume. They do not use WIF or `deploy/gcp/secrets.env`. Server definitions live in `.cursor/mcp.json`; GitHub token and flags in root `.env` (see `.env.example`).
+Cursor MCP servers for troubleshooting run **inside** the devcontainer and reuse the same `gcloud-config` volume. They do not use WIF or `deploy/gcp/secrets.env`. Server definitions live in `.cursor/mcp.json`; GitHub token and flags in root `.env` (see `.env.example`). **DBeast** connects to the devcontainer Postgres (`DATABASE_URL`) for local schema/query debugging.
 
 1. Set `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env` (read-only fine-grained PAT).
 2. Complete the login flow above (`just gcp-auth`, project/region).

@@ -540,19 +540,19 @@ Do not rewrite or delete event rows in any migration. Future projection migratio
 
 #### Automated
 
-- [x] 3.1 Initial migration applies on a fresh dev database: `just migrate-backend`
-- [x] 3.2 Re-running the migration command on an up-to-date database succeeds: `just migrate-backend`
-- [x] 3.3 Migration current-state check passes: `cd backend && uv run alembic current --check-heads`
-- [x] 3.4 Persistence tests pass with a Postgres test URL: `cd backend && uv run pytest tests/infrastructure/adapters/persistence`
-- [x] 3.5 Full backend tests pass: `just test-backend`
-- [x] 3.6 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 3.7 Backend type check passes: `cd backend && uv run ty check`
+- [x] 3.1 Initial migration applies on a fresh dev database: `just migrate-backend` — e83113b
+- [x] 3.2 Re-running the migration command on an up-to-date database succeeds: `just migrate-backend` — e83113b
+- [x] 3.3 Migration current-state check passes: `cd backend && uv run alembic current --check-heads` — e83113b
+- [x] 3.4 Persistence tests pass with a Postgres test URL: `cd backend && uv run pytest tests/infrastructure/adapters/persistence` — e83113b
+- [x] 3.5 Full backend tests pass: `just test-backend` — e83113b
+- [x] 3.6 Backend lint passes: `cd backend && uv run ruff check .` — e83113b
+- [x] 3.7 Backend type check passes: `cd backend && uv run ty check` — e83113b
 
 #### Manual
 
-- [x] 3.8 Inspect the local database and confirm `events`, `users`, and `adrs` exist with the expected columns.
-- [x] 3.9 Confirm `adrs.review_annotations` is JSONB and nullable.
-- [x] 3.10 Confirm soft delete is represented by `adrs.is_deleted` and does not remove ownership or status columns.
+- [x] 3.8 Inspect the local database and confirm `events`, `users`, and `adrs` exist with the expected columns. — e83113b
+- [x] 3.9 Confirm `adrs.review_annotations` is JSONB and nullable. — e83113b
+- [x] 3.10 Confirm soft delete is represented by `adrs.is_deleted` and does not remove ownership or status columns. — e83113b
 
 ### Phase 4: CI and GCP Migration Execution
 

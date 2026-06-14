@@ -317,7 +317,22 @@ GitHub-hosted runners must **never** connect to the production Postgres VM. The 
 - **Update `deploy-api`**:
   - `needs: [changes, migrate-api]`
   - `if: needs.changes.outputs.api == 'true' && needs.migrate-api.result == 'success'`
-- **`deploy-web`**: keep `needs: [changes, deploy-api]` and existing `always()` skip logic — web deploy still waits for API job outcome but does not run migrations itself.
+- **Update `deploy-web`** — add `migrate-api` to `needs` and tighten `if` so a skipped `deploy-api` (after migration failure) does not allow web deploy on combined pushes:
+  - `needs: [changes, deploy-api, migrate-api]`
+  - `if:` (multiline):
+    ```yaml
+    always() &&
+    needs.changes.outputs.web == 'true' &&
+    (
+      needs.deploy-api.result == 'success' ||
+      (needs.deploy-api.result == 'skipped' && needs.changes.outputs.api != 'true')
+    ) &&
+    (
+      needs.changes.outputs.api != 'true' ||
+      needs.migrate-api.result == 'success'
+    )
+    ```
+  - **Rationale**: when `api` is true and `migrate-api` fails, `deploy-api` is skipped (not failed). The old `deploy-api.result == 'skipped'` check would still let `deploy-web` run. Require `migrate-api.result == 'success'` whenever `api` changed; allow `deploy-api` skipped only when `api` did not change (web-only push).
 - **First-time bootstrap note**: if GCP scripts `01`–`06` have not been run, `migrate-api` will fail at auth or missing SA — document in README; not a workflow design change.
 
 #### 3. Cloud Run Migration Job Flags
@@ -351,12 +366,25 @@ GitHub-hosted runners must **never** connect to the production Postgres VM. The 
 - **Source `_common.sh`** like `deploy-api.sh`; call `gcp_load_env`, `gcp_require_gcloud`, `gcp_set_project`.
 - **Runtime SA**: same as API — `API_RUN_SA_EMAIL` from `04-secrets.sh` (`adr-flow-api-run@…`). Verify SA exists before deploy.
 - **Flags file**: read `deploy/gcp/run-migrate-api.flags` with the same comment-stripping pattern as `deploy-api.sh`; substitute `--region` and `--subnet` from env.
-- **Job deploy** (`gcloud run jobs deploy`):
-  - `--source "${WORKSPACE_ROOT}/backend"` (same backend tree + `uv.lock` as API)
+- **Job deploy** (`gcloud run jobs deploy`) — pin these flags (mirror `deploy-api.sh`; do not rely on buildpack entrypoint):
+  - `--source "${WORKSPACE_ROOT}/backend"` — build context and container working directory (where `alembic.ini` lives)
   - `--set-build-env-vars=GOOGLE_PYTHON_PACKAGE_MANAGER=uv`
   - `--service-account="${API_RUN_SA_EMAIL}"`
-  - `--command` / `--args` equivalent to running Alembic upgrade from `backend/` — e.g. command `uv`, args `run,alembic,upgrade,head` with working directory set via Cloud Run job task spec (use `gcloud` flags that set container command/args and `GOOGLE_ENTRYPOINT` or `--command` per current `gcloud run jobs deploy` syntax).
-  - Apply flags from `run-migrate-api.flags`.
+  - `--command=uv`
+  - `--args=run,alembic,upgrade,head`
+  - Apply VPC/secrets flags from `run-migrate-api.flags` (same substitution pattern as API deploy).
+  - **Example** (region/subnet from env; flags file stripped of comments):
+    ```bash
+    gcloud run jobs deploy "${MIGRATE_JOB_NAME}" \
+      --source "${WORKSPACE_ROOT}/backend" \
+      --project="${GCP_PROJECT_ID}" \
+      --region="${GCP_REGION}" \
+      --set-build-env-vars=GOOGLE_PYTHON_PACKAGE_MANAGER=uv \
+      --service-account="${API_RUN_SA_EMAIL}" \
+      --command=uv \
+      --args=run,alembic,upgrade,head \
+      "${DEPLOY_FLAGS[@]}"
+    ```
 - **Job execute** (same script, after deploy succeeds):
   - `gcloud run jobs execute "${MIGRATE_JOB_NAME}" --project=… --region=… --wait`
   - Exit non-zero if execution fails; print log tail hint: `gcloud run jobs executions list --job=…` and `gcloud logging read` filter.
@@ -417,6 +445,7 @@ GitHub-hosted runners must **never** connect to the production Postgres VM. The 
 #### Manual Verification:
 
 - Review `deploy-gcp.yml` job graph: `changes` → `migrate-api` → `deploy-api` → `deploy-web` (when applicable).
+- Confirm `deploy-web` blocks when `api` changed and `migrate-api` failed (skipped `deploy-api` must not unblock web on combined pushes).
 - Confirm `run-migrate-api.flags` mirrors API VPC/subnet/egress and omits `--allow-unauthenticated` and API scaling/CPU flags.
 - Confirm migration job uses only `DATABASE_URL=db-url:latest` and `adr-flow-api-run` service account.
 - In a GCP-enabled environment (bootstrap `01`–`06` complete), run `just gcp-migrate-api` once and confirm execution succeeds and `alembic_version` reflects head in production Postgres.
@@ -480,32 +509,32 @@ Do not rewrite or delete event rows in any migration. Future projection migratio
 
 #### Automated
 
-- [x] 1.1 Dependency lock refresh succeeds: `cd backend && uv lock`
-- [x] 1.2 Backend imports remain valid: `cd backend && uv run python -c "import main"`
-- [x] 1.3 Alembic CLI can load configuration without connecting when asked for help/history: `cd backend && uv run alembic --help`
-- [x] 1.4 Backend tests still pass: `just test-backend`
-- [x] 1.5 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 1.6 Backend type check passes: `cd backend && uv run ty check`
+- [x] 1.1 Dependency lock refresh succeeds: `cd backend && uv lock` — b8333d1
+- [x] 1.2 Backend imports remain valid: `cd backend && uv run python -c "import main"` — b8333d1
+- [x] 1.3 Alembic CLI can load configuration without connecting when asked for help/history: `cd backend && uv run alembic --help` — b8333d1
+- [x] 1.4 Backend tests still pass: `just test-backend` — b8333d1
+- [x] 1.5 Backend lint passes: `cd backend && uv run ruff check .` — b8333d1
+- [x] 1.6 Backend type check passes: `cd backend && uv run ty check` — b8333d1
 
 #### Manual
 
-- [x] 1.7 New files are under the architecture-aligned path `backend/infrastructure/adapters/persistence/`.
-- [x] 1.8 No ports, repositories, projectors, or event-store adapters were introduced.
+- [x] 1.7 New files are under the architecture-aligned path `backend/infrastructure/adapters/persistence/`. — b8333d1
+- [x] 1.8 No ports, repositories, projectors, or event-store adapters were introduced. — b8333d1
 
 ### Phase 2: Domain Vocabulary Scaffold
 
 #### Automated
 
-- [ ] 2.1 Domain tests pass: `cd backend && uv run pytest tests/domain`
-- [ ] 2.2 Full backend tests pass: `just test-backend`
-- [ ] 2.3 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 2.4 Backend type check passes: `cd backend && uv run ty check`
+- [x] 2.1 Domain tests pass: `cd backend && uv run pytest tests/domain`
+- [x] 2.2 Full backend tests pass: `just test-backend`
+- [x] 2.3 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 2.4 Backend type check passes: `cd backend && uv run ty check`
 
 #### Manual
 
-- [ ] 2.5 Domain code contains no SQLAlchemy, Alembic, FastAPI, Pydantic, or HTTP imports.
-- [ ] 2.6 Aggregates do not contain lifecycle methods or invariant enforcement.
-- [ ] 2.7 `ADRContentUpdated` is present in the event vocabulary and called out as the intentional architecture gap closure.
+- [x] 2.5 Domain code contains no SQLAlchemy, Alembic, FastAPI, Pydantic, or HTTP imports.
+- [x] 2.6 Aggregates do not contain lifecycle methods or invariant enforcement.
+- [x] 2.7 `ADRContentUpdated` is present in the event vocabulary and called out as the intentional architecture gap closure.
 
 ### Phase 3: Schema Models, Initial Migration, and Local Verification
 

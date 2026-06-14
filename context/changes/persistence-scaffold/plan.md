@@ -525,34 +525,34 @@ Do not rewrite or delete event rows in any migration. Future projection migratio
 
 #### Automated
 
-- [x] 2.1 Domain tests pass: `cd backend && uv run pytest tests/domain`
-- [x] 2.2 Full backend tests pass: `just test-backend`
-- [x] 2.3 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 2.4 Backend type check passes: `cd backend && uv run ty check`
+- [x] 2.1 Domain tests pass: `cd backend && uv run pytest tests/domain` — 8e45301
+- [x] 2.2 Full backend tests pass: `just test-backend` — 8e45301
+- [x] 2.3 Backend lint passes: `cd backend && uv run ruff check .` — 8e45301
+- [x] 2.4 Backend type check passes: `cd backend && uv run ty check` — 8e45301
 
 #### Manual
 
-- [x] 2.5 Domain code contains no SQLAlchemy, Alembic, FastAPI, Pydantic, or HTTP imports.
-- [x] 2.6 Aggregates do not contain lifecycle methods or invariant enforcement.
-- [x] 2.7 `ADRContentUpdated` is present in the event vocabulary and called out as the intentional architecture gap closure.
+- [x] 2.5 Domain code contains no SQLAlchemy, Alembic, FastAPI, Pydantic, or HTTP imports. — 8e45301
+- [x] 2.6 Aggregates do not contain lifecycle methods or invariant enforcement. — 8e45301
+- [x] 2.7 `ADRContentUpdated` is present in the event vocabulary and called out as the intentional architecture gap closure. — 8e45301
 
 ### Phase 3: Schema Models, Initial Migration, and Local Verification
 
 #### Automated
 
-- [ ] 3.1 Initial migration applies on a fresh dev database: `just migrate-backend`
-- [ ] 3.2 Re-running the migration command on an up-to-date database succeeds: `just migrate-backend`
-- [ ] 3.3 Migration current-state check passes: `cd backend && uv run alembic current --check-heads`
-- [ ] 3.4 Persistence tests pass with a Postgres test URL: `cd backend && uv run pytest tests/infrastructure/adapters/persistence`
-- [ ] 3.5 Full backend tests pass: `just test-backend`
-- [ ] 3.6 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 3.7 Backend type check passes: `cd backend && uv run ty check`
+- [x] 3.1 Initial migration applies on a fresh dev database: `just migrate-backend`
+- [x] 3.2 Re-running the migration command on an up-to-date database succeeds: `just migrate-backend`
+- [x] 3.3 Migration current-state check passes: `cd backend && uv run alembic current --check-heads`
+- [x] 3.4 Persistence tests pass with a Postgres test URL: `cd backend && uv run pytest tests/infrastructure/adapters/persistence`
+- [x] 3.5 Full backend tests pass: `just test-backend`
+- [x] 3.6 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 3.7 Backend type check passes: `cd backend && uv run ty check`
 
 #### Manual
 
-- [ ] 3.8 Inspect the local database and confirm `events`, `users`, and `adrs` exist with the expected columns.
-- [ ] 3.9 Confirm `adrs.review_annotations` is JSONB and nullable.
-- [ ] 3.10 Confirm soft delete is represented by `adrs.is_deleted` and does not remove ownership or status columns.
+- [x] 3.8 Inspect the local database and confirm `events`, `users`, and `adrs` exist with the expected columns.
+- [x] 3.9 Confirm `adrs.review_annotations` is JSONB and nullable.
+- [x] 3.10 Confirm soft delete is represented by `adrs.is_deleted` and does not remove ownership or status columns.
 
 ### Phase 4: CI and GCP Migration Execution
 

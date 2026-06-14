@@ -4,6 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from infrastructure.adapters.persistence.database_url import normalize_database_url
 from infrastructure.adapters.persistence.models import Base
 
 config = context.config
@@ -12,15 +13,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-
-
-def normalize_database_url(url: str) -> str:
-    """Map async or bare Postgres URLs to the sync psycopg driver for Alembic."""
-    if url.startswith("postgresql+asyncpg://"):
-        return "postgresql+psycopg://" + url.removeprefix("postgresql+asyncpg://")
-    if url.startswith("postgresql://"):
-        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
-    return url
 
 
 def get_database_url() -> str:
@@ -51,6 +43,7 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"options": "-c client_encoding=UTF8"},
     )
 
     with connectable.connect() as connection:

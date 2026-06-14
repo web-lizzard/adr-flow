@@ -9,6 +9,28 @@ uv run uvicorn main:app --reload
 
 Local dev serves on port **8000** (`main()` in `main.py`). Cloud Run uses the Python buildpack default (**8080**).
 
+## Database migrations
+
+Schema changes are managed with Alembic under `infrastructure/adapters/persistence/migrations/`. ORM table metadata lives in `infrastructure/adapters/persistence/models.py`.
+
+In the devcontainer, point `DATABASE_URL` at the bundled Postgres service:
+
+```text
+postgresql://postgres:postgres@postgres:5432/adr_flow
+```
+
+From the repository root:
+
+```bash
+just migrate-backend          # apply pending migrations (alembic upgrade head)
+just migrate-backend-current  # show current revision
+just migrate-backend-history  # list revision history
+```
+
+Run the same commands from `backend/` with `uv run alembic …` if you prefer. Alembic reads `DATABASE_URL` at execution time and normalizes `postgresql+asyncpg://` URLs to the sync `psycopg` driver.
+
+Migration commands only evolve the database schema. The FastAPI app does not run migrations on startup — apply migrations explicitly before relying on new tables locally or in deploy pipelines.
+
 ## Cloud Run (source deploy)
 
 Deploy from the **repository root** after GCP bootstrap (`deploy/gcp/01-…` through `04-secrets.sh`):

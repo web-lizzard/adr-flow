@@ -1,0 +1,78 @@
+---
+description: Command and query modules — input dataclass and handler colocated in one file
+globs: backend/application/{commands,queries}/**/*
+alwaysApply: false
+---
+
+# Application commands and queries
+
+Each file under `application/commands/` or `application/queries/` defines **one** use case: the input dataclass and its handler together. Do not split input and handler across files.
+
+## Shape
+
+- **Input** — plain `@dataclass` per use case. No shared abstract `Command` / `Query` base class.
+- **Handler** — concrete class with dependencies injected via `__init__`, and a single `handle(self, …)` method. No abstract handler base class; no module-level handler functions.
+
+Classes (not functions) make it straightforward to construct handlers in tests and bootstrap with explicit, typed dependencies.
+
+## File layout
+
+- One file per use case, named after the use case (e.g. `submit_adr_for_review.py`).
+- Command files: `{Name}Command` + `{Name}CommandHandler`.
+- Query files: `{Name}Query` + `{Name}QueryHandler`.
+
+## Command example
+
+```python
+from dataclasses import dataclass
+from uuid import UUID
+
+from application.ports.event_store import EventStore
+
+
+@dataclass(frozen=True, slots=True)
+class SubmitAdrForReviewCommand:
+    adr_id: UUID
+    user_id: UUID
+
+
+class SubmitAdrForReviewCommandHandler:
+    def __init__(self, event_store: EventStore) -> None:
+        self._event_store = event_store
+
+    def handle(self, command: SubmitAdrForReviewCommand) -> None:
+        ...
+```
+
+## Query example
+
+```python
+from dataclasses import dataclass
+from uuid import UUID
+
+from application.ports.adr_read import AdrReadPort
+
+
+@dataclass(frozen=True, slots=True)
+class GetAdrQuery:
+    adr_id: UUID
+    user_id: UUID
+
+
+class GetAdrQueryHandler:
+    def __init__(self, adr_read: AdrReadPort) -> None:
+        self._adr_read = adr_read
+
+    def handle(self, query: GetAdrQuery) -> ...:
+        ...
+```
+
+## Avoid
+
+- ❌ `class Command(ABC)` / `class Query(ABC)` or `class CommandHandler(ABC)` hierarchies
+- ❌ `async def handle_submit_adr_for_review(...)` as the handler (use a class + `handle`)
+- ❌ Separate `submit_adr_for_review_command.py` and `submit_adr_for_review_handler.py`
+- ❌ Handler `handle()` taking primitive arguments instead of the command/query dataclass
+- ❌ Multiple unrelated commands or queries in one file
+
+Event handlers under `application/handlers/` are not covered by this rule — they react to domain events, not HTTP-driven commands/queries.

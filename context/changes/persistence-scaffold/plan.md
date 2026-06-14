@@ -480,17 +480,17 @@ Do not rewrite or delete event rows in any migration. Future projection migratio
 
 #### Automated
 
-- [ ] 1.1 Dependency lock refresh succeeds: `cd backend && uv lock`
-- [ ] 1.2 Backend imports remain valid: `cd backend && uv run python -c "import main"`
-- [ ] 1.3 Alembic CLI can load configuration without connecting when asked for help/history: `cd backend && uv run alembic --help`
-- [ ] 1.4 Backend tests still pass: `just test-backend`
-- [ ] 1.5 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 1.6 Backend type check passes: `cd backend && uv run ty check`
+- [x] 1.1 Dependency lock refresh succeeds: `cd backend && uv lock`
+- [x] 1.2 Backend imports remain valid: `cd backend && uv run python -c "import main"`
+- [x] 1.3 Alembic CLI can load configuration without connecting when asked for help/history: `cd backend && uv run alembic --help`
+- [x] 1.4 Backend tests still pass: `just test-backend`
+- [x] 1.5 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 1.6 Backend type check passes: `cd backend && uv run ty check`
 
 #### Manual
 
-- [ ] 1.7 New files are under the architecture-aligned path `backend/infrastructure/adapters/persistence/`.
-- [ ] 1.8 No ports, repositories, projectors, or event-store adapters were introduced.
+- [x] 1.7 New files are under the architecture-aligned path `backend/infrastructure/adapters/persistence/`.
+- [x] 1.8 No ports, repositories, projectors, or event-store adapters were introduced.
 
 ### Phase 2: Domain Vocabulary Scaffold
 

@@ -2,14 +2,13 @@ import { getRequestURL, proxyRequest } from "h3";
 
 /**
  * Same-origin /api/* proxy with runtime upstream (NUXT_API_UPSTREAM).
- * Strips the /api prefix before forwarding (e.g. /api/health → {upstream}/health).
+ * Preserves the /api prefix so the backend and frontend expose one API contract.
  */
 export default defineEventHandler(async (event) => {
   const { apiUpstream } = useRuntimeConfig(event);
   const upstream = apiUpstream.replace(/\/$/, "");
   const url = getRequestURL(event);
-  const path = url.pathname.replace(/^\/api/, "") || "/";
-  const target = `${upstream}${path}${url.search}`;
+  const target = `${upstream}${url.pathname}${url.search}`;
 
   return proxyRequest(event, target);
 });

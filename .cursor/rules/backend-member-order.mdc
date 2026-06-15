@@ -1,0 +1,51 @@
+---
+description: Public members before private — classes and modules
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Member ordering
+
+Put public API first; private helpers (`_name`) come after.
+
+## Classes
+
+Order: `__init__` → public methods → private methods.
+
+```python
+# ✅ GOOD — public methods first, private helper last
+class SqlUserProjection(UserProjection):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def find_by_email(self, email: str) -> UserReadModel | None:
+        ...
+
+    @staticmethod
+    def _to_read_model(row: User) -> UserReadModel:
+        ...
+
+# ❌ BAD — private method before public API
+class SqlUserProjection(UserProjection):
+    def _to_read_model(self, row: User) -> UserReadModel:
+        ...
+
+    async def find_by_email(self, email: str) -> UserReadModel | None:
+        ...
+```
+
+## Modules
+
+Order: public classes/functions → module-level private helpers.
+
+```python
+# ✅ GOOD — adapter class first, private helpers after
+class SqlEventStore(EventStore):
+    async def append(self, events: list, ...) -> None:
+        ...
+
+def _serialize_event(event: object) -> tuple[str, dict[str, Any], datetime]:
+    ...
+```
+
+Reference: `infrastructure/adapters/persistence/event_store.py`, `infrastructure/adapters/persistence/projections/user_projection.py`.

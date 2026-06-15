@@ -1,7 +1,8 @@
-from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
 
 
 class AdrStatus(StrEnum):
@@ -11,19 +12,31 @@ class AdrStatus(StrEnum):
     PROPOSED = "proposed"
 
 
-@dataclass(frozen=True, slots=True)
-class AdrId:
+class AdrId(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     value: UUID
 
+    def __init__(self, value: UUID) -> None:
+        super().__init__(value=value)
 
-@dataclass(frozen=True, slots=True)
-class AdrTitle:
+
+class AdrTitle(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     value: str
 
+    def __init__(self, value: str) -> None:
+        super().__init__(value=value)
 
-@dataclass(frozen=True, slots=True)
-class AdrContent:
+
+class AdrContent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     value: str
+
+    def __init__(self, value: str) -> None:
+        super().__init__(value=value)
 
 
 class ReviewAnnotationKind(StrEnum):
@@ -32,16 +45,18 @@ class ReviewAnnotationKind(StrEnum):
     CONCISENESS = "conciseness"
 
 
-@dataclass(frozen=True, slots=True)
-class ReviewAnnotation:
+class ReviewAnnotation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     kind: ReviewAnnotationKind
     message: str
     location: str | None = None
     suggestion: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class ReviewResult:
+class ReviewResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     annotations: tuple[ReviewAnnotation, ...]
     reviewed_at: datetime
     reviewed_content: str | None = None

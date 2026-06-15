@@ -19,10 +19,13 @@ In the devcontainer, point `DATABASE_URL` at the bundled Postgres service:
 postgresql://postgres:postgres@postgres:5432/adr_flow
 ```
 
+Integration tests use a separate database via `TEST_DATABASE_URL` (default in devcontainer: `adr_flow_test`). Post-create creates that database and applies migrations; after adding new revisions, run `just migrate-backend-test`.
+
 From the repository root:
 
 ```bash
 just migrate-backend          # apply pending migrations (alembic upgrade head)
+just migrate-backend-test     # same for the integration-test database
 just migrate-backend-current  # show current revision
 just migrate-backend-history  # list revision history
 ```

@@ -1,16 +1,14 @@
-from fastapi import FastAPI
+import logging
+import uvicorn
 
-app = FastAPI()
+from infrastructure.bootstrap import create_app
 
+logging.basicConfig(level=logging.INFO)
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+app = create_app()
 
 
 def main() -> None:
-    import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
 

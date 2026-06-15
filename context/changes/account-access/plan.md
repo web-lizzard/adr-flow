@@ -673,20 +673,20 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [x] 4.1 pnpm run build completes
-- [x] 4.2 pnpm run typecheck passes
-- [x] 4.3 pnpm run lint passes
-- [x] 4.4 Auth store unit tests pass
+- [x] 4.1 pnpm run build completes — 238f2f6
+- [x] 4.2 pnpm run typecheck passes — 238f2f6
+- [x] 4.3 pnpm run lint passes — 238f2f6
+- [x] 4.4 Auth store unit tests pass — 238f2f6
 
 #### Manual
 
-- [x] 4.5 Register form renders and validates
-- [x] 4.6 Successful registration lands on /workspace
-- [x] 4.7 Login form renders
-- [x] 4.8 Login with correct creds → /workspace
-- [x] 4.9 Login with wrong creds → error shown
-- [x] 4.10 /workspace without cookie → redirected to /login
-- [x] 4.11 /login while authenticated → redirected to /workspace
+- [x] 4.5 Register form renders and validates — 238f2f6
+- [x] 4.6 Successful registration lands on /workspace — 238f2f6
+- [x] 4.7 Login form renders — 238f2f6
+- [x] 4.8 Login with correct creds → /workspace — 238f2f6
+- [x] 4.9 Login with wrong creds → error shown — 238f2f6
+- [x] 4.10 /workspace without cookie → redirected to /login — 238f2f6
+- [x] 4.11 /login while authenticated → redirected to /workspace — 238f2f6
 
 ### Phase 5: Backend Unit Tests
 

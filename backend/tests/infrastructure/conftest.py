@@ -1,4 +1,4 @@
-"""Shared fixtures for persistence adapter tests."""
+"""Shared fixtures for infrastructure integration tests."""
 
 import os
 from collections.abc import Iterator
@@ -10,8 +10,8 @@ from sqlalchemy.engine import Engine
 from infrastructure.adapters.persistence.database_url import normalize_database_url
 
 
-def _resolve_database_url() -> str | None:
-    raw = os.environ.get("DATABASE_URL") or os.environ.get("TEST_DATABASE_URL")
+def _resolve_test_database_url() -> str | None:
+    raw = os.environ.get("TEST_DATABASE_URL")
     if not raw:
         return None
     return normalize_database_url(raw)
@@ -35,13 +35,13 @@ def _can_connect(url: str) -> bool:
 
 @pytest.fixture(scope="session")
 def postgres_url() -> str:
-    url = _resolve_database_url()
+    url = _resolve_test_database_url()
     if url is None:
-        pytest.skip("DATABASE_URL or TEST_DATABASE_URL is not set")
+        pytest.skip("TEST_DATABASE_URL is not set")
     if not _can_connect(url):
         pytest.fail(
-            "Postgres is unavailable at DATABASE_URL/TEST_DATABASE_URL. "
-            "Start the devcontainer postgres service or set a reachable test URL."
+            "Postgres is unavailable at TEST_DATABASE_URL. "
+            "Run post-create hooks or set a reachable test database URL."
         )
     return url
 

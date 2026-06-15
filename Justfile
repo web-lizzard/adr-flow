@@ -29,6 +29,9 @@ test:
 migrate-backend:
     cd backend && uv run alembic upgrade head
 
+migrate-backend-test:
+    cd backend && DATABASE_URL="${TEST_DATABASE_URL:?TEST_DATABASE_URL is not set}" uv run alembic upgrade head
+
 migrate-backend-current:
     cd backend && uv run alembic current
 

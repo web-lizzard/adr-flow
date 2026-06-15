@@ -223,26 +223,26 @@ No schema or data migration is required. This is a test-only plan.
 
 #### Automated
 
-- [x] 2.1 Added protected-endpoint rejection tests pass in `backend/tests/infrastructure/api/test_auth.py`
-- [x] 2.2 Existing happy-path auth tests remain green in `backend/tests/infrastructure/api/test_auth.py`
-- [x] 2.3 Ruff checks pass for backend with `uv run ruff check .`
-- [x] 2.4 Type checks pass for backend with `uv run ty check`
+- [x] 2.1 Added protected-endpoint rejection tests pass in `backend/tests/infrastructure/api/test_auth.py` — fd7c5b1
+- [x] 2.2 Existing happy-path auth tests remain green in `backend/tests/infrastructure/api/test_auth.py` — fd7c5b1
+- [x] 2.3 Ruff checks pass for backend with `uv run ruff check .` — fd7c5b1
+- [x] 2.4 Type checks pass for backend with `uv run ty check` — fd7c5b1
 
 #### Manual
 
-- [x] 2.5 Team review confirms all required rejection vectors map to Risk #7 closure criteria
-- [x] 2.6 Team review confirms optional `nbf` behavior is clearly labeled as non-blocking in test comments and plan tracking
+- [x] 2.5 Team review confirms all required rejection vectors map to Risk #7 closure criteria — fd7c5b1
+- [x] 2.6 Team review confirms optional `nbf` behavior is clearly labeled as non-blocking in test comments and plan tracking — fd7c5b1
 
 ### Phase 3: Cookie, Validation, and Public Route Guards
 
 #### Automated
 
-- [ ] 3.1 Cookie attribute, validation-boundary, and public-route tests pass in `backend/tests/infrastructure/api/test_auth.py`
-- [ ] 3.2 Unit auth token tests remain green in `backend/tests/unit/auth/test_jwt_token_service.py`
-- [ ] 3.3 Ruff checks pass for backend with `uv run ruff check .`
-- [ ] 3.4 Type checks pass for backend with `uv run ty check`
+- [x] 3.1 Cookie attribute, validation-boundary, and public-route tests pass in `backend/tests/infrastructure/api/test_auth.py`
+- [x] 3.2 Unit auth token tests remain green in `backend/tests/unit/auth/test_jwt_token_service.py`
+- [x] 3.3 Ruff checks pass for backend with `uv run ruff check .`
+- [x] 3.4 Type checks pass for backend with `uv run ty check`
 
 #### Manual
 
-- [ ] 3.5 Team review confirms error assertions enforce canonical auth semantics (`Not authenticated`, `Invalid email or password`) where applicable
-- [ ] 3.6 Team review confirms no accidental tightening of public endpoint behavior
+- [x] 3.5 Team review confirms error assertions enforce canonical auth semantics (`Not authenticated`, `Invalid email or password`) where applicable
+- [x] 3.6 Team review confirms no accidental tightening of public endpoint behavior

@@ -637,17 +637,17 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [x] 2.1 Type check passes
-- [x] 2.2 Lint passes
-- [x] 2.3 POST /api/auth/register → 201 + Set-Cookie
-- [x] 2.4 POST /api/auth/register duplicate → 400
-- [x] 2.5 POST /api/auth/login correct creds → 200 + Set-Cookie
-- [x] 2.6 POST /api/auth/login wrong password → 401
-- [x] 2.7 GET /api/auth/me with cookie → 200
-- [x] 2.8 GET /api/auth/me without cookie → 401
-- [x] 2.9 events table has UserRegistered row
-- [x] 2.10 users projection has new user row
-- [x] 2.11 Failed register leaves no orphan event or user row
+- [x] 2.1 Type check passes — 272f1ae
+- [x] 2.2 Lint passes — 272f1ae
+- [x] 2.3 POST /api/auth/register → 201 + Set-Cookie — 272f1ae
+- [x] 2.4 POST /api/auth/register duplicate → 400 — 272f1ae
+- [x] 2.5 POST /api/auth/login correct creds → 200 + Set-Cookie — 272f1ae
+- [x] 2.6 POST /api/auth/login wrong password → 401 — 272f1ae
+- [x] 2.7 GET /api/auth/me with cookie → 200 — 272f1ae
+- [x] 2.8 GET /api/auth/me without cookie → 401 — 272f1ae
+- [x] 2.9 events table has UserRegistered row — 272f1ae
+- [x] 2.10 users projection has new user row — 272f1ae
+- [x] 2.11 Failed register leaves no orphan event or user row — 272f1ae
 
 #### Manual
 

@@ -607,16 +607,16 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [x] 1.1 Application starts without errors
-- [x] 1.2 Type check passes
-- [x] 1.3 Lint passes
-- [x] 1.4 Import graph: application/ never imports infrastructure/
-- [x] 1.5 Import graph: domain/ never imports application/ or infrastructure/
+- [x] 1.1 Application starts without errors — 6fc32bb
+- [x] 1.2 Type check passes — 6fc32bb
+- [x] 1.3 Lint passes — 6fc32bb
+- [x] 1.4 Import graph: application/ never imports infrastructure/ — 6fc32bb
+- [x] 1.5 Import graph: domain/ never imports application/ or infrastructure/ — 6fc32bb
 
 #### Manual
 
-- [x] 1.6 GET /health returns {"status": "ok"}
-- [x] 1.7 Application logs show DB engine created on startup
+- [x] 1.6 GET /health returns {"status": "ok"} — 6fc32bb
+- [x] 1.7 Application logs show DB engine created on startup — 6fc32bb
 
 ### Phase 2: Backend Auth Pipeline
 

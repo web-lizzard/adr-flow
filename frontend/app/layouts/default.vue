@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const auth = useAuth();
+</script>
+
 <template>
   <div class="flex min-h-svh flex-col bg-background">
     <header class="border-b border-border bg-card px-4 py-3 shadow-sm sm:px-6">
@@ -6,7 +10,9 @@
           ADR Flow
         </NuxtLink>
         <div class="flex items-center gap-3">
-          <span class="text-sm text-muted-foreground">user@example.com</span>
+          <span v-if="auth.user" class="text-sm text-muted-foreground">
+            {{ auth.user.email }}
+          </span>
           <ThemeToggle />
         </div>
       </div>

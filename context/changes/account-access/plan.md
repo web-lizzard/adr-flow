@@ -658,35 +658,35 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [x] 3.1 pnpm run build completes
-- [x] 3.2 pnpm run typecheck passes
-- [x] 3.3 pnpm run lint passes
-- [x] 3.4 Tailwind classes render (not purged)
+- [x] 3.1 pnpm run build completes — c429a29
+- [x] 3.2 pnpm run typecheck passes — c429a29
+- [x] 3.3 pnpm run lint passes — c429a29
+- [x] 3.4 Tailwind classes render (not purged) — c429a29
 
 #### Manual
 
-- [x] 3.5 Tailwind styles applied, no FOUC
-- [x] 3.6 shadcn components render with correct theming
-- [x] 3.7 Both layouts render properly
+- [x] 3.5 Tailwind styles applied, no FOUC — c429a29
+- [x] 3.6 shadcn components render with correct theming — c429a29
+- [x] 3.7 Both layouts render properly — c429a29
 
 ### Phase 4: Frontend Auth Flow
 
 #### Automated
 
-- [ ] 4.1 pnpm run build completes
-- [ ] 4.2 pnpm run typecheck passes
-- [ ] 4.3 pnpm run lint passes
-- [ ] 4.4 Auth store unit tests pass
+- [x] 4.1 pnpm run build completes
+- [x] 4.2 pnpm run typecheck passes
+- [x] 4.3 pnpm run lint passes
+- [x] 4.4 Auth store unit tests pass
 
 #### Manual
 
-- [ ] 4.5 Register form renders and validates
-- [ ] 4.6 Successful registration lands on /workspace
-- [ ] 4.7 Login form renders
-- [ ] 4.8 Login with correct creds → /workspace
-- [ ] 4.9 Login with wrong creds → error shown
-- [ ] 4.10 /workspace without cookie → redirected to /login
-- [ ] 4.11 /login while authenticated → redirected to /workspace
+- [x] 4.5 Register form renders and validates
+- [x] 4.6 Successful registration lands on /workspace
+- [x] 4.7 Login form renders
+- [x] 4.8 Login with correct creds → /workspace
+- [x] 4.9 Login with wrong creds → error shown
+- [x] 4.10 /workspace without cookie → redirected to /login
+- [x] 4.11 /login while authenticated → redirected to /workspace
 
 ### Phase 5: Backend Unit Tests
 

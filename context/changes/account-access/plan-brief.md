@@ -24,7 +24,9 @@ A user can register with email + password, be auto-logged-in with a 24h httpOnly
 | Post-register UX | Auto-login (cookie set on register) | Eliminates unnecessary friction; user lands directly in workspace. |
 | Duplicate email error | Generic message ("Unable to create account") | Prevents email enumeration attacks. |
 | Password policy | Minimum 8 characters, no complexity rules | Simple for MVP; avoid false security of complexity rules. |
-| Port abstractions | Protocols introduced now | Enables test fakes and sets clean pattern for all future slices. |
+| Port abstractions | Protocols introduced now (incl. `UnitOfWork` in Phase 2) | Enables test fakes; command handlers stay DB-agnostic; UoW owns commit/rollback. |
+| Domain events | Pydantic models (`DomainEvent` base) | `model_dump(mode="json")` for event-store serialization. |
+| Runtime config | `pydantic-settings` (`Settings`) | Validated env vars; devcontainer default for `DATABASE_URL`. |
 | Dependency injection | Manual composition root (bootstrap.py) + FastAPI Depends | Explicit wiring, no framework magic, easy to reason about. |
 | Form validation | vee-validate + zod | Declarative, pairs well with shadcn form components. |
 | Protected route | /workspace | Matches PRD's "per-user ADR workspace" concept. |
@@ -33,7 +35,7 @@ A user can register with email + password, be auto-logged-in with a 24h httpOnly
 ## Scope
 
 **In scope:**
-- Backend: composition root, ports (EventStore, UserProjection, PasswordHasher, TokenService), register command, login/me queries, auth router, JWT cookie handling
+- Backend: composition root, ports (EventStore, UserProjection, PasswordHasher, TokenService, UnitOfWork), register command, login/me queries, auth router, JWT cookie handling
 - Frontend: Tailwind + shadcn-vue + Pinia setup, login/register pages, auth middleware, /workspace placeholder
 - Unit tests for auth pipeline
 
@@ -42,14 +44,14 @@ A user can register with email + password, be auto-logged-in with a 24h httpOnly
 
 ## Architecture / Approach
 
-Backend follows hexagonal CQRS-lite: `POST /auth/register` → router → `RegisterUserCommandHandler` → emit `UserRegistered` → append to `events` table + insert into `users` projection (same transaction) → set JWT cookie. Login is a query (no state mutation). Frontend stores user state in Pinia, hydrated on app init via `GET /auth/me`; route middleware redirects based on auth status.
+Backend follows hexagonal CQRS-lite: `POST /auth/register` → router → `RegisterUserCommandHandler` → `UnitOfWork.begin()` → emit `UserRegistered` → append to `events` + insert into `users` projection (single transaction, adapter commits) → set JWT cookie. Login is a query (no state mutation). Frontend stores user state in Pinia, hydrated on app init via `GET /auth/me`; route middleware redirects based on auth status.
 
 ## Phases at a Glance
 
 | Phase | What it delivers | Key risk |
 | --- | --- | --- |
 | 1. Backend Foundation | Composition root, ports, session management, lifespan | Over-engineering the bootstrap for MVP scope |
-| 2. Backend Auth Pipeline | Register/login/me endpoints, JWT cookies, event persistence | Transaction boundaries between event append and projection |
+| 2. Backend Auth Pipeline | Register/login/me endpoints, JWT cookies, event persistence, `UnitOfWork` transaction boundary | Adapter refactor: session-scoped writes vs standalone Phase 1 adapters |
 | 3. Frontend UI Stack | Tailwind + shadcn-vue + Pinia wired into Nuxt 4 | shadcn-vue compatibility with Nuxt 4 / Vue 3.5 |
 | 4. Frontend Auth Flow | Login/register pages, middleware, /workspace | Cookie handling through Nitro proxy in SSR context |
 | 5. Backend Unit Tests | Fakes + tests for handlers and services | Fakes drifting from real adapter behavior |

@@ -60,7 +60,9 @@ Add auth dependencies, create the `application/` layer skeleton with port Protoc
 
 **Intent**: Add runtime dependencies for password hashing and JWT token handling.
 
-**Contract**: Add `argon2-cffi`, `PyJWT` to `[project.dependencies]`. Run `uv lock`.
+**Contract**: Add `argon2-cffi`, `PyJWT`, `pydantic`, `pydantic-settings` to `[project.dependencies]`. Run `uv lock`.
+
+**Note**: Domain events are Pydantic models (`domain/events.py` base + per-aggregate events) for JSON serialization in the event store. Runtime config uses `pydantic-settings` (`infrastructure/config.py`).
 
 #### 2. Application ports
 
@@ -162,25 +164,62 @@ Add auth dependencies, create the `application/` layer skeleton with port Protoc
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
----
-
-## Phase 2: Backend Auth Pipeline
+**Phase 1 interim note**: `SqlEventStore.append()` and `SqlUserProjection.insert()` each open their own session and commit independently. That is acceptable for Phase 1 (no multi-step writes yet). Phase 2 refactors write paths behind `UnitOfWork` so register is atomic.
 
 ### Overview
 
 Implement register and login use cases end-to-end: command handler emitting `UserRegistered` event, event store append + user projection insert in same transaction, JWT cookie on response. Expose auth routes.
 
+**Transaction model:** Command handlers must not import SQLAlchemy or manage `AsyncSession` / `commit()` directly. Phase 2 introduces a `UnitOfWork` port (and `SqlUnitOfWork` adapter) that owns the write-side transaction boundary. `RegisterUserCommandHandler` opens a unit of work, performs event append + projection insert through session-scoped ports, and relies on the adapter to commit or roll back. Phase 1 persistence adapters self-commit per call as an interim convenience; Phase 2 refactors write paths to run inside a shared unit of work (read paths keep short-lived sessions).
+
 ### Changes Required:
 
-#### 1. Register command
+#### 1. Unit of work port
+
+**File**: `backend/application/ports/unit_of_work.py`
+
+**Intent**: Define the write-side transaction boundary so command handlers coordinate multi-step persistence without knowing about the database driver, sessions, or commit semantics.
+
+**Contract**:
+
+- `UnitOfWork` `Protocol` exposing:
+  - `event_store: EventStore` — store bound to the current transaction
+  - `user_projection: UserProjection` — projection bound to the current transaction
+  - `async def commit() -> None`
+  - `async def rollback() -> None`
+- `UnitOfWorkFactory` `Protocol` with `begin()` returning an async context manager that yields a `UnitOfWork`. On clean exit the adapter commits; on exception it rolls back.
+
+Command handlers depend on `UnitOfWorkFactory`, not on `AsyncSession`.
+
+#### 2. Unit of work adapter and persistence refactor
+
+**File**: `backend/infrastructure/adapters/persistence/unit_of_work.py`
+
+**Intent**: Implement the transaction boundary with SQLAlchemy + asyncpg.
+
+**Contract**: `SqlUnitOfWorkFactory` accepts `async_sessionmaker`. `begin()` opens one `AsyncSession`, starts one transaction (`session.begin()`), constructs session-scoped `SqlEventStore` and `SqlUserProjection` instances sharing that session, yields `SqlUnitOfWork`, and commits or rolls back on context exit.
+
+**File**: `backend/infrastructure/adapters/persistence/event_store.py` (modify)
+
+**Intent**: Stop self-committing when participating in a unit of work.
+
+**Contract**: `SqlEventStore` accepts an optional `AsyncSession` at construction. When constructed with a session (from `SqlUnitOfWork`), `append()` only adds rows — no `session_factory()` / `session.begin()`. When constructed with only a session factory (Phase 1 standalone use), retain current self-contained behavior for backward compatibility until all write paths use UoW.
+
+**File**: `backend/infrastructure/adapters/persistence/projections/user_projection.py` (modify)
+
+**Intent**: Same session-scoped write behavior as the event store.
+
+**Contract**: `SqlUserProjection.insert()` follows the same session-injection rule as `SqlEventStore.append()`. Read methods (`find_by_email`, `find_by_id`) continue to open their own short-lived sessions — queries do not need a unit of work.
+
+#### 3. Register command
 
 **File**: `backend/application/commands/register_user.py`
 
-**Intent**: Handle user registration — validate email not taken, hash password, emit `UserRegistered`, persist event + projection.
+**Intent**: Handle user registration — validate email not taken, hash password, emit `UserRegistered`, persist event + projection atomically.
 
-**Contract**: `RegisterUserCommand` dataclass (email: str, password: str). `RegisterUserCommandHandler` with deps: `EventStore`, `UserProjection`, `PasswordHasher`. Returns `UUID` (new user_id). Raises domain-specific error if email taken (catch at router level).
+**Contract**: `RegisterUserCommand` dataclass (email: str, password: str). `RegisterUserCommandHandler` with deps: `UnitOfWorkFactory`, `PasswordHasher`. `handle()` uses `async with uow_factory.begin() as uow:` then checks `uow.user_projection.find_by_email`, hashes password, appends `UserRegistered` via `uow.event_store`, inserts via `uow.user_projection`. Returns `UUID` (new user_id). Raises `EmailAlreadyTaken` if email taken. Handler never calls `commit()` directly — the unit-of-work adapter owns that.
 
-#### 2. Auth query
+#### 4. Auth query
 
 **File**: `backend/application/queries/authenticate_user.py`
 
@@ -188,7 +227,7 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 
 **Contract**: `AuthenticateUserQuery` dataclass (email: str, password: str). `AuthenticateUserQueryHandler` with deps: `UserProjection`, `PasswordHasher`. Returns `UUID` (user_id) on success, raises error on invalid credentials.
 
-#### 3. Current user query
+#### 5. Current user query
 
 **File**: `backend/application/queries/get_current_user.py`
 
@@ -196,7 +235,7 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 
 **Contract**: `GetCurrentUserQuery` dataclass (user_id: UUID). `GetCurrentUserQueryHandler` with deps: `UserProjection`. Returns user read model or raises not-found.
 
-#### 4. Auth router
+#### 6. Auth router
 
 **File**: `backend/infrastructure/api/routers/auth.py`
 
@@ -208,7 +247,7 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 - `GET /auth/me` — extracts user_id from cookie via `TokenService`, calls `GetCurrentUserQueryHandler`, returns 200 with user info.
 - Cookie config: `httpOnly=True`, `secure=True` (configurable for dev), `samesite="lax"`, `path="/api"`, `max_age=86400`.
 
-#### 5. API schemas
+#### 7. API schemas
 
 **File**: `backend/infrastructure/api/schemas/auth.py`
 
@@ -216,7 +255,7 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 
 **Contract**: `RegisterRequest(email: str, password: str)`, `LoginRequest(email: str, password: str)`, `UserResponse(id: UUID, email: str, created_at: datetime)`. Password validation (min 8 chars) via Pydantic `field_validator`.
 
-#### 6. Auth dependency
+#### 8. Auth dependency
 
 **File**: `backend/infrastructure/api/dependencies.py`
 
@@ -224,13 +263,21 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 
 **Contract**: Function `get_current_user_id(request: Request) -> UUID` — reads cookie, decodes via `TokenService`, raises `HTTPException(401)` if missing/invalid/expired. Registered as a dependency that protected routes use.
 
-#### 7. Domain error types
+#### 9. Domain error types
 
 **File**: `backend/domain/errors.py`
 
 **Intent**: Shared domain exceptions that command/query handlers raise and routers translate to HTTP status codes.
 
 **Contract**: `EmailAlreadyTaken`, `InvalidCredentials`, `UserNotFound` — simple exception classes.
+
+#### 10. Bootstrap wiring
+
+**File**: `backend/infrastructure/bootstrap.py` (modify)
+
+**Intent**: Wire `SqlUnitOfWorkFactory` and inject it into `RegisterUserCommandHandler`. Query handlers continue to receive standalone `SqlUserProjection` (read-only, no UoW).
+
+**Contract**: Bootstrap constructs `SqlUnitOfWorkFactory(session_factory)`, registers auth router, and exposes `UnitOfWorkFactory` to the register handler. Standalone `event_store` / `user_projection` on `app.state` may remain for health/debug or be removed if unused — register must go through UoW only.
 
 ### Success Criteria:
 
@@ -246,6 +293,7 @@ Implement register and login use cases end-to-end: command handler emitting `Use
 - `GET /api/auth/me` without cookie → 401
 - `events` table contains a `UserRegistered` row after registration
 - `users` projection contains the new user row
+- Failed registration (e.g. duplicate email) leaves no orphan row in `events` or `users` — unit of work rolled back
 
 #### Manual Verification:
 
@@ -460,7 +508,7 @@ Add unit tests for the auth pipeline: command handler, password hasher, JWT toke
 
 **Intent**: In-memory fake implementations of ports for unit testing.
 
-**Contract**: `FakeEventStore` (appends to list), `FakeUserProjection` (in-memory dict), `FakePasswordHasher` (identity or simple prefix), `FakeTokenService` (returns predictable tokens).
+**Contract**: `FakeUnitOfWork` / `FakeUnitOfWorkFactory` (coordinates fake event store + projection in one logical transaction; commit/rollback semantics for tests), `FakeEventStore` (appends to list), `FakeUserProjection` (in-memory dict), `FakePasswordHasher` (identity or simple prefix), `FakeTokenService` (returns predictable tokens).
 
 #### 2. Register command handler tests
 
@@ -468,7 +516,7 @@ Add unit tests for the auth pipeline: command handler, password hasher, JWT toke
 
 **Intent**: Test registration logic: happy path, duplicate email, password hashing called.
 
-**Contract**: Tests using fakes — verify `UserRegistered` event emitted with correct fields, user projection populated, password hash stored (not plain text). Verify `EmailAlreadyTaken` raised on duplicate.
+**Contract**: Tests using `FakeUnitOfWorkFactory` — verify `UserRegistered` event emitted with correct fields, user projection populated, password hash stored (not plain text). Verify `EmailAlreadyTaken` raised on duplicate and no partial writes remain after failure.
 
 #### 3. Authenticate user query tests
 
@@ -559,16 +607,16 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [ ] 1.1 Application starts without errors
-- [ ] 1.2 Type check passes
-- [ ] 1.3 Lint passes
-- [ ] 1.4 Import graph: application/ never imports infrastructure/
-- [ ] 1.5 Import graph: domain/ never imports application/ or infrastructure/
+- [x] 1.1 Application starts without errors
+- [x] 1.2 Type check passes
+- [x] 1.3 Lint passes
+- [x] 1.4 Import graph: application/ never imports infrastructure/
+- [x] 1.5 Import graph: domain/ never imports application/ or infrastructure/
 
 #### Manual
 
-- [ ] 1.6 GET /health returns {"status": "ok"}
-- [ ] 1.7 Application logs show DB engine created on startup
+- [x] 1.6 GET /health returns {"status": "ok"}
+- [x] 1.7 Application logs show DB engine created on startup
 
 ### Phase 2: Backend Auth Pipeline
 
@@ -584,11 +632,12 @@ No new migrations needed — F-02 already created the `events` and `users` table
 - [ ] 2.8 GET /api/auth/me without cookie → 401
 - [ ] 2.9 events table has UserRegistered row
 - [ ] 2.10 users projection has new user row
+- [ ] 2.11 Failed register leaves no orphan event or user row
 
 #### Manual
 
-- [ ] 2.11 Full curl flow: register → login → me
-- [ ] 2.12 Verify cookie attributes in browser devtools
+- [ ] 2.12 Full curl flow: register → login → me
+- [ ] 2.13 Verify cookie attributes in browser devtools
 
 ### Phase 3: Frontend UI Stack
 

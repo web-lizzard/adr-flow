@@ -10,8 +10,8 @@ Layer map and flows: @context/foundation/application-architecture.md.
 
 ## Layer boundaries
 
-- `domain/` — pure Python only. No FastAPI, SQL drivers, HTTP clients, or Pydantic.
-- `application/` — commands, queries, event handlers, ports. No framework imports. Command/query file layout: @.cursor/rules/backend-application.mdc.
+- `domain/` — pure business logic. Domain events and value objects use Pydantic models; aggregates may use dataclasses. No FastAPI, SQL drivers, or HTTP clients.
+- `application/` — commands, queries, event handlers, ports. Pydantic is allowed. No FastAPI imports. Command/query file layout: @.cursor/rules/backend-application.mdc.
 - `infrastructure/` — adapters (routers, persistence, LLM, messaging) and `bootstrap.py`.
 
 ## Writes
@@ -40,4 +40,4 @@ await submit_adr_for_review(cmd, deps)
 ## Schemas
 
 - Pydantic request/response models live in `infrastructure/api/schemas/`.
-- Domain types stay in `domain/` (dataclasses, enums, value objects).
+- Domain types stay in `domain/` (Pydantic events and value objects, dataclass aggregates).

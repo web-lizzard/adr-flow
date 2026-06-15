@@ -1,7 +1,7 @@
 ---
 change_id: account-access
 title: Account access for S-01
-status: planned
+status: implementing
 created: 2026-06-14
 updated: 2026-06-15
 archived_at: null

@@ -18,13 +18,13 @@ from infrastructure.adapters.persistence.repositories.user_repository import (
 )
 from infrastructure.adapters.persistence.unit_of_work import SqlUnitOfWorkFactory
 from infrastructure.api.routers.auth import router as auth_router
-from infrastructure.config import Settings
+from infrastructure.config import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    settings = settings or Settings()
+    settings = settings or load_settings()
 
     engine = create_async_engine(
         settings.async_database_url,

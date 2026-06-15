@@ -5,6 +5,10 @@
 # Build (set on deploy command, not in this file):
 #   --set-build-env-vars=GOOGLE_PYTHON_PACKAGE_MANAGER=uv
 #
+# Runtime env: deploy-api.sh resolves CORS_ORIGINS from the live adr-flow-web URL.
+# On first deploy (web not yet live) CORS_ORIGINS uses the fallback below;
+# redeploy API after web is up to pick up the real origin.
+#
 --region=europe-west1
 --min-instances=0
 --max-instances=1
@@ -14,4 +18,5 @@
 --network=default
 --subnet=adr-flow-cloud-run
 --allow-unauthenticated
---set-secrets=DATABASE_URL=db-url:latest,OPENROUTER_API_KEY=openrouter-key:latest
+--set-secrets=DATABASE_URL=db-url:latest,JWT_SECRET=jwt-secret:latest,OPENROUTER_API_KEY=openrouter-key:latest
+--set-env-vars=CORS_ORIGINS=https://placeholder.run.app,COOKIE_SECURE=true,COOKIE_PATH=/api

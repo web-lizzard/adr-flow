@@ -23,7 +23,10 @@ def clean_auth_tables(db_engine: Engine) -> None:
 def auth_client(postgres_url: str) -> Iterator[TestClient]:
     settings = Settings(
         database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
         cookie_secure=False,
+        cookie_path="/api",
     )
     app = create_app(settings=settings)
     with TestClient(app) as client:

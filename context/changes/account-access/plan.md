@@ -658,16 +658,16 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [ ] 3.1 pnpm run build completes
-- [ ] 3.2 pnpm run typecheck passes
-- [ ] 3.3 pnpm run lint passes
-- [ ] 3.4 Tailwind classes render (not purged)
+- [x] 3.1 pnpm run build completes
+- [x] 3.2 pnpm run typecheck passes
+- [x] 3.3 pnpm run lint passes
+- [x] 3.4 Tailwind classes render (not purged)
 
 #### Manual
 
-- [ ] 3.5 Tailwind styles applied, no FOUC
-- [ ] 3.6 shadcn components render with correct theming
-- [ ] 3.7 Both layouts render properly
+- [x] 3.5 Tailwind styles applied, no FOUC
+- [x] 3.6 shadcn components render with correct theming
+- [x] 3.7 Both layouts render properly
 
 ### Phase 4: Frontend Auth Flow
 

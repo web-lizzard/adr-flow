@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: "default",
+});
+
 const {
   data: health,
   error,
@@ -9,48 +13,35 @@ const {
 </script>
 
 <template>
-  <div class="page">
-    <h1>ADR Flow</h1>
-    <section class="health" aria-live="polite">
-      <h2>API health</h2>
-      <p v-if="status === 'pending'">Checking backend…</p>
-      <p v-else-if="error" class="health--error">
-        Unreachable: {{ error.message }}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">ADR Flow</h1>
+      <p class="text-muted-foreground">
+        Architecture Decision Records with AI-assisted review.
       </p>
-      <p v-else class="health--ok">status: {{ health?.status }}</p>
-    </section>
+    </div>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>API health</CardTitle>
+        <CardDescription>Backend connectivity via Nitro proxy.</CardDescription>
+      </CardHeader>
+      <CardContent aria-live="polite">
+        <p v-if="status === 'pending'" class="text-muted-foreground">
+          Checking backend…
+        </p>
+        <p v-else-if="error" class="text-destructive">
+          Unreachable: {{ error.message }}
+        </p>
+        <p v-else class="font-medium text-primary">
+          status: {{ health?.status }}
+        </p>
+      </CardContent>
+      <CardFooter>
+        <Button variant="outline" as-child>
+          <NuxtLink to="/auth">Preview auth layout</NuxtLink>
+        </Button>
+      </CardFooter>
+    </Card>
   </div>
 </template>
-
-<style scoped>
-.page {
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
-  margin: 2rem auto;
-  max-width: 40rem;
-  padding: 0 1rem;
-}
-
-.health {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
-}
-
-.health h2 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-}
-
-.health--ok {
-  color: #15803d;
-}
-
-.health--error {
-  color: #b91c1c;
-}
-</style>

@@ -45,6 +45,19 @@ deploy_flag() {
 deploy_flag "--region" "${GCP_REGION}"
 deploy_flag "--subnet" "${CLOUD_RUN_SUBNET}"
 
+WEB_SERVICE="${WEB_SERVICE:-adr-flow-web}"
+WEB_URL="$(
+	gcloud run services describe "${WEB_SERVICE}" \
+		--project="${GCP_PROJECT_ID}" \
+		--region="${GCP_REGION}" \
+		--format='value(status.url)' 2>/dev/null || true
+)"
+if [[ -n "${WEB_URL}" ]]; then
+	WEB_URL="${WEB_URL%/}"
+	deploy_flag "--set-env-vars" "CORS_ORIGINS=${WEB_URL},COOKIE_SECURE=true,COOKIE_PATH=/api"
+	gcp_info "CORS_ORIGINS set to ${WEB_URL} (from live ${WEB_SERVICE})"
+fi
+
 gcp_info "Deploying ${API_SERVICE} from ${WORKSPACE_ROOT}/backend (uv buildpack)"
 gcloud run deploy "${API_SERVICE}" \
 	--source "${WORKSPACE_ROOT}/backend" \

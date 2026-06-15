@@ -47,6 +47,11 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 	fi
 fi
 
+if [[ -z "${JWT_SECRET:-}" ]]; then
+	echo "error: JWT_SECRET required in deploy/gcp/secrets.env (generate with: openssl rand -base64 32)" >&2
+	exit 1
+fi
+
 if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
 	echo "error: OPENROUTER_API_KEY required in deploy/gcp/secrets.env" >&2
 	exit 1
@@ -54,6 +59,7 @@ fi
 
 gcp_info "Creating/updating Secret Manager secrets"
 secret_upsert "db-url" "${DATABASE_URL}"
+secret_upsert "jwt-secret" "${JWT_SECRET}"
 secret_upsert "openrouter-key" "${OPENROUTER_API_KEY}"
 
 API_RUN_SA_EMAIL="${API_RUN_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
@@ -65,7 +71,7 @@ if ! gcloud iam service-accounts describe "${API_RUN_SA_EMAIL}" \
 		--display-name="ADR Flow API (Cloud Run runtime)"
 fi
 
-for secret_id in db-url openrouter-key; do
+for secret_id in db-url jwt-secret openrouter-key; do
 	gcloud secrets add-iam-policy-binding "${secret_id}" \
 		--project="${GCP_PROJECT_ID}" \
 		--member="serviceAccount:${API_RUN_SA_EMAIL}" \
@@ -75,5 +81,5 @@ done
 
 gcp_save_bootstrap_state "API_RUN_SA_EMAIL" "${API_RUN_SA_EMAIL}"
 
-gcp_info "Secrets ready. API deploy: --service-account=${API_RUN_SA_EMAIL} --set-secrets=DATABASE_URL=db-url:latest,OPENROUTER_API_KEY=openrouter-key:latest"
+gcp_info "Secrets ready. API deploy: --service-account=${API_RUN_SA_EMAIL} --set-secrets=DATABASE_URL=db-url:latest,JWT_SECRET=jwt-secret:latest,OPENROUTER_API_KEY=openrouter-key:latest"
 gcp_info "Next: ${SCRIPT_DIR}/05-wif-github.sh"

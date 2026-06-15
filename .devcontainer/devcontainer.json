@@ -22,7 +22,11 @@
 	"remoteEnv": {
 		"REDIS_URL": "redis://redis:6379",
 		"DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow",
-		"TEST_DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow_test"
+		"TEST_DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow_test",
+		"JWT_SECRET": "dev-insecure-jwt-secret-change-me-32b",
+		"CORS_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000",
+		"COOKIE_SECURE": "false",
+		"COOKIE_PATH": "/api"
 	},
 	"customizations": {
 		"vscode": {

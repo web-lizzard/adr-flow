@@ -72,7 +72,7 @@ Complete these before bootstrap or first deploy.
 | File | Purpose |
 |------|---------|
 | Root `.env` (from [`.env.example`](../../.env.example)) | Optional `GCP_PROJECT_ID`, `GCP_REGION=europe-west1` for `just` and scripts |
-| `deploy/gcp/secrets.env` (from `secrets.env.example`, gitignored) | Bootstrap-only: `GCP_BILLING_ACCOUNT`, `OPENROUTER_API_KEY`, optional `POSTGRES_PASSWORD` |
+| `deploy/gcp/secrets.env` (from `secrets.env.example`, gitignored) | Bootstrap-only: `GCP_BILLING_ACCOUNT`, `JWT_SECRET`, `OPENROUTER_API_KEY`, optional `POSTGRES_PASSWORD` |
 
 ---
 
@@ -248,12 +248,20 @@ Repeat for `adr-flow-web` if needed.
 - Weekly check: `gsutil ls gs://adr-flow-backups-eu/`
 - Quarterly: test restore from a dump
 
-### Secrets
+### Secrets and required environment variables
 
-| Secret | Used by | Notes |
-|--------|---------|-------|
-| `db-url` | API (`DATABASE_URL`) | GCE **internal** IP in connection string |
-| `openrouter-key` | API (`OPENROUTER_API_KEY`) | When AI review is implemented |
+`backend/infrastructure/config.py` has **no default values** — every setting must be provided via environment variables or Secret Manager. The API will fail to start if any are missing.
+
+| Variable | Secret Manager | Required | Notes |
+|----------|---------------|----------|-------|
+| `DATABASE_URL` | `db-url` | **yes** | GCE **internal** IP in connection string |
+| `JWT_SECRET` | `jwt-secret` | **yes** | ≥32-char random secret; **never** reuse the dev placeholder |
+| `CORS_ORIGINS` | — | **yes** | Comma-separated origins, e.g. `https://adr-flow-web-xxxx.run.app` |
+| `COOKIE_SECURE` | — | **yes** | `true` for production (HTTPS) |
+| `COOKIE_PATH` | — | **yes** | `/api` (matches API route prefix) |
+| `OPENROUTER_API_KEY` | `openrouter-key` | when AI review ships | [openrouter.ai](https://openrouter.ai/) |
+
+Set non-secret variables (`CORS_ORIGINS`, `COOKIE_SECURE`, `COOKIE_PATH`) via `--set-env-vars` in deploy flags (`run-api.flags`) or the deploy script. Secrets (`DATABASE_URL`, `JWT_SECRET`) come from Secret Manager via `--set-secrets` in the flags file.
 
 Rotate: add new version in Secret Manager → redeploy API so Cloud Run picks up `:latest` or pin a version in deploy flags.
 
@@ -268,6 +276,7 @@ Rotate: add new version in Secret Manager → redeploy API so Cloud Run picks up
 
 | Risk | Detection | Mitigation |
 |------|-----------|------------|
+| Missing env vars at startup | `ValidationError` in Cloud Run logs | All settings required (no defaults in `config.py`) — check `--set-secrets` and `--set-env-vars` in `run-api.flags`; see [required env vars](#secrets-and-required-environment-variables) |
 | Container failed to start (PORT) | Deploy fails, “failed to listen” | API: buildpack → 8080; Web: `PORT=8080`, `HOST=0.0.0.0` in Dockerfile |
 | uv buildpack ignores lock | Nondeterministic deps | Keep `uv.lock`; set `GOOGLE_PYTHON_PACKAGE_MANAGER=uv` |
 | Postgres connection exhaustion | API 500, `too many connections` | Pool `max_size` ≤ 5; tune VM `max_connections`; consider e2-small |

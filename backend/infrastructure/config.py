@@ -1,7 +1,9 @@
 """Runtime configuration loaded from environment variables."""
 
+from typing import Annotated
+
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from infrastructure.adapters.persistence.database_url import (
     normalize_runtime_database_url,
@@ -16,20 +18,13 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    database_url: str = Field(
-        default="postgresql://postgres:postgres@postgres:5432/adr_flow",
-        validation_alias="DATABASE_URL",
+    database_url: str = Field(validation_alias="DATABASE_URL")
+    jwt_secret: str = Field(validation_alias="JWT_SECRET")
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        validation_alias="CORS_ORIGINS"
     )
-    jwt_secret: str = Field(
-        default="dev-insecure-jwt-secret-change-me-32b",
-        validation_alias="JWT_SECRET",
-    )
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
-        validation_alias="CORS_ORIGINS",
-    )
-    cookie_secure: bool = Field(default=False, validation_alias="COOKIE_SECURE")
-    cookie_path: str = Field(default="/api", validation_alias="COOKIE_PATH")
+    cookie_secure: bool = Field(validation_alias="COOKIE_SECURE")
+    cookie_path: str = Field(validation_alias="COOKIE_PATH")
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -48,3 +43,8 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         return normalize_runtime_database_url(self.database_url)
+
+
+def load_settings() -> Settings:
+    """Load settings from environment variables and optional `.env` file."""
+    return Settings()  # ty: ignore[missing-argument]

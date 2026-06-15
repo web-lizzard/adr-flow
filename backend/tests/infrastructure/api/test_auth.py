@@ -25,7 +25,13 @@ def test_register_returns_201_and_sets_cookie(auth_client) -> None:
 def test_register_default_cookie_path_matches_browser_api_contract(
     postgres_url,
 ) -> None:
-    settings = Settings(database_url=postgres_url, cookie_secure=False)
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        cookie_secure=False,
+        cookie_path="/api",
+    )
     app = create_app(settings=settings)
 
     with TestClient(app) as client:

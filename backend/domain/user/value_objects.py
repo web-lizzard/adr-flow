@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class UserId(BaseModel):
@@ -19,6 +19,15 @@ class EmailAddress(BaseModel):
 
     def __init__(self, value: str) -> None:
         super().__init__(value=value)
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized or "@" not in normalized:
+            msg = "Invalid email address"
+            raise ValueError(msg)
+        return normalized
 
 
 class PasswordHash(BaseModel):

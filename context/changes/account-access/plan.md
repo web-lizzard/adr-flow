@@ -231,7 +231,7 @@ Command handlers depend on `UnitOfWorkFactory`, not on `AsyncSession`.
 
 **File**: `backend/application/queries/get_current_user.py`
 
-**Intent**: Fetch user profile by ID (for `GET /auth/me`).
+**Intent**: Fetch user profile by ID (for `GET /api/auth/me`).
 
 **Contract**: `GetCurrentUserQuery` dataclass (user_id: UUID). `GetCurrentUserQueryHandler` with deps: `UserProjection`. Returns user read model or raises not-found.
 
@@ -242,9 +242,9 @@ Command handlers depend on `UnitOfWorkFactory`, not on `AsyncSession`.
 **Intent**: HTTP layer for registration, login, and current-user retrieval.
 
 **Contract**:
-- `POST /auth/register` — accepts `{email, password}`, calls `RegisterUserCommandHandler`, sets httpOnly cookie, returns 201 with user info.
-- `POST /auth/login` — accepts `{email, password}`, calls `AuthenticateUserQueryHandler`, sets httpOnly cookie, returns 200 with user info.
-- `GET /auth/me` — extracts user_id from cookie via `TokenService`, calls `GetCurrentUserQueryHandler`, returns 200 with user info.
+- `POST /api/auth/register` — accepts `{email, password}`, calls `RegisterUserCommandHandler`, sets httpOnly cookie, returns 201 with user info.
+- `POST /api/auth/login` — accepts `{email, password}`, calls `AuthenticateUserQueryHandler`, sets httpOnly cookie, returns 200 with user info.
+- `GET /api/auth/me` — extracts user_id from cookie via `TokenService`, calls `GetCurrentUserQueryHandler`, returns 200 with user info.
 - Cookie config: `httpOnly=True`, `secure=True` (configurable for dev), `samesite="lax"`, `path="/api"`, `max_age=86400`.
 
 #### 7. API schemas
@@ -278,6 +278,21 @@ Command handlers depend on `UnitOfWorkFactory`, not on `AsyncSession`.
 **Intent**: Wire `SqlUnitOfWorkFactory` and inject it into `RegisterUserCommandHandler`. Query handlers continue to receive standalone `SqlUserProjection` (read-only, no UoW).
 
 **Contract**: Bootstrap constructs `SqlUnitOfWorkFactory(session_factory)`, registers auth router, and exposes `UnitOfWorkFactory` to the register handler. Standalone `event_store` / `user_projection` on `app.state` may remain for health/debug or be removed if unused — register must go through UoW only.
+
+### Phase 2 implementation addendum — read/write projection split
+
+During implementation, read access was split from `UserProjection` into a dedicated
+`UserRepository` port and SQL adapter. `UserProjection` is now the write-side
+projection port used by the unit of work; `UserRepository` is the read-side port used
+by auth queries and the duplicate-email pre-check.
+
+This keeps command writes coordinated by `UnitOfWork` while preserving short-lived
+read sessions for query handlers. The accepted drift from the original contract is:
+
+- `UserProjection` exposes `insert()` only.
+- `UserRepository` owns `find_by_email()` and `find_by_id()`.
+- `RegisterUserCommandHandler`, `AuthenticateUserQueryHandler`, and
+  `GetCurrentUserQueryHandler` depend on `UserRepository` for reads.
 
 ### Success Criteria:
 
@@ -622,17 +637,17 @@ No new migrations needed — F-02 already created the `events` and `users` table
 
 #### Automated
 
-- [ ] 2.1 Type check passes
-- [ ] 2.2 Lint passes
-- [ ] 2.3 POST /api/auth/register → 201 + Set-Cookie
-- [ ] 2.4 POST /api/auth/register duplicate → 400
-- [ ] 2.5 POST /api/auth/login correct creds → 200 + Set-Cookie
-- [ ] 2.6 POST /api/auth/login wrong password → 401
-- [ ] 2.7 GET /api/auth/me with cookie → 200
-- [ ] 2.8 GET /api/auth/me without cookie → 401
-- [ ] 2.9 events table has UserRegistered row
-- [ ] 2.10 users projection has new user row
-- [ ] 2.11 Failed register leaves no orphan event or user row
+- [x] 2.1 Type check passes
+- [x] 2.2 Lint passes
+- [x] 2.3 POST /api/auth/register → 201 + Set-Cookie
+- [x] 2.4 POST /api/auth/register duplicate → 400
+- [x] 2.5 POST /api/auth/login correct creds → 200 + Set-Cookie
+- [x] 2.6 POST /api/auth/login wrong password → 401
+- [x] 2.7 GET /api/auth/me with cookie → 200
+- [x] 2.8 GET /api/auth/me without cookie → 401
+- [x] 2.9 events table has UserRegistered row
+- [x] 2.10 users projection has new user row
+- [x] 2.11 Failed register leaves no orphan event or user row
 
 #### Manual
 

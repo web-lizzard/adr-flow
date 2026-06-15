@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     database_url: str = Field(
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
     jwt_secret: str = Field(
-        default="dev-insecure-jwt-secret",
+        default="dev-insecure-jwt-secret-change-me-32b",
         validation_alias="JWT_SECRET",
     )
     cors_origins: list[str] = Field(
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGINS",
     )
     cookie_secure: bool = Field(default=False, validation_alias="COOKIE_SECURE")
+    cookie_path: str = Field(default="/api", validation_alias="COOKIE_PATH")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

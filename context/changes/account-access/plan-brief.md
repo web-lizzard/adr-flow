@@ -44,7 +44,7 @@ A user can register with email + password, be auto-logged-in with a 24h httpOnly
 
 ## Architecture / Approach
 
-Backend follows hexagonal CQRS-lite: `POST /auth/register` → router → `RegisterUserCommandHandler` → `UnitOfWork.begin()` → emit `UserRegistered` → append to `events` + insert into `users` projection (single transaction, adapter commits) → set JWT cookie. Login is a query (no state mutation). Frontend stores user state in Pinia, hydrated on app init via `GET /auth/me`; route middleware redirects based on auth status.
+Backend follows hexagonal CQRS-lite: `POST /api/auth/register` → router → `RegisterUserCommandHandler` → `UnitOfWork.begin()` → emit `UserRegistered` → append to `events` + insert into `users` projection (single transaction, adapter commits) → set JWT cookie. Login is a query (no state mutation). Frontend stores user state in Pinia, hydrated on app init via `GET /api/auth/me`; route middleware redirects based on auth status.
 
 ## Phases at a Glance
 

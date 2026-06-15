@@ -1,7 +1,7 @@
 ---
 change_id: testing-critical-path-domain-auth
 title: Testing critical path domain auth
-status: implementing
+status: implemented
 created: 2026-06-15
 updated: 2026-06-16
 

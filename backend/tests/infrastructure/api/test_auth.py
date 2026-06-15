@@ -1,11 +1,40 @@
 """Auth API integration tests."""
 
+import base64
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
+
+import jwt
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from infrastructure.api.dependencies import SESSION_COOKIE_NAME
 from infrastructure.bootstrap import create_app
 from infrastructure.config import Settings
+
+_JWT_SECRET = "test-jwt-secret-at-least-32-characters"
+_OTHER_JWT_SECRET = "other-jwt-secret-also-32-chars-min"
+
+
+def _future_exp(hours: int = 24) -> datetime:
+    return datetime.now(UTC) + timedelta(hours=hours)
+
+
+def _past_exp(hours: int = 24) -> datetime:
+    return datetime.now(UTC) - timedelta(hours=hours)
+
+
+def _me_with_session_cookie(client: TestClient, token: str):
+    client.cookies.set(SESSION_COOKIE_NAME, token)
+    return client.get("/api/auth/me")
+
+
+def _tampered_token(token: str) -> str:
+    header, payload, signature = token.split(".", 2)
+    payload_bytes = bytearray(base64.urlsafe_b64decode(payload + "=="))
+    payload_bytes[0] ^= 0x01
+    tampered_payload = base64.urlsafe_b64encode(payload_bytes).rstrip(b"=").decode()
+    return f"{header}.{tampered_payload}.{signature}"
 
 
 def test_register_returns_201_and_sets_cookie(auth_client) -> None:
@@ -114,6 +143,109 @@ def test_me_with_valid_cookie_returns_200(auth_client) -> None:
 def test_me_without_cookie_returns_401(auth_client) -> None:
     response = auth_client.get("/api/auth/me")
     assert response.status_code == 401
+
+
+def test_me_with_tampered_session_cookie_returns_401(auth_client) -> None:
+    register = auth_client.post(
+        "/api/auth/register",
+        json={"email": "alice@example.com", "password": "password123"},
+    )
+    assert register.status_code == 201
+    valid_token = register.cookies[SESSION_COOKIE_NAME]
+
+    response = _me_with_session_cookie(auth_client, _tampered_token(valid_token))
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_malformed_session_cookie_returns_401(auth_client) -> None:
+    response = _me_with_session_cookie(auth_client, "not.a.jwt.at.all")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_expired_session_cookie_returns_401(auth_client) -> None:
+    user_id = uuid4()
+    expired_token = jwt.encode(
+        {"sub": str(user_id), "exp": _past_exp()},
+        _JWT_SECRET,
+        algorithm="HS256",
+    )
+
+    response = _me_with_session_cookie(auth_client, expired_token)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_wrong_secret_session_cookie_returns_401(auth_client) -> None:
+    user_id = uuid4()
+    token = jwt.encode(
+        {"sub": str(user_id), "exp": _future_exp()},
+        _OTHER_JWT_SECRET,
+        algorithm="HS256",
+    )
+
+    response = _me_with_session_cookie(auth_client, token)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_alg_none_session_cookie_returns_401(auth_client) -> None:
+    user_id = uuid4()
+    token = jwt.encode(
+        {"sub": str(user_id), "exp": _future_exp()},
+        "",
+        algorithm="none",
+    )
+
+    response = _me_with_session_cookie(auth_client, token)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_valid_token_for_deleted_user_returns_401(
+    auth_client, db_engine
+) -> None:
+    register = auth_client.post(
+        "/api/auth/register",
+        json={"email": "deleted@example.com", "password": "password123"},
+    )
+    assert register.status_code == 201
+    token = register.cookies[SESSION_COOKIE_NAME]
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM users"))
+
+    response = _me_with_session_cookie(auth_client, token)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_me_with_future_nbf_session_cookie_returns_401_non_blocking(
+    auth_client,
+) -> None:
+    """Non-blocking regression guard: PyJWT rejects not-yet-valid tokens by default."""
+    user_id = uuid4()
+    token = jwt.encode(
+        {
+            "sub": str(user_id),
+            "exp": _future_exp(),
+            "nbf": _future_exp(hours=48),
+        },
+        _JWT_SECRET,
+        algorithm="HS256",
+    )
+
+    response = _me_with_session_cookie(auth_client, token)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
 
 
 def test_register_persists_user_registered_event(auth_client, db_engine) -> None:

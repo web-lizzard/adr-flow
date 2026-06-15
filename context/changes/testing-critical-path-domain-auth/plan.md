@@ -209,29 +209,29 @@ No schema or data migration is required. This is a test-only plan.
 
 #### Automated
 
-- [x] 1.1 Unit auth token tests pass in `backend/tests/unit/auth/test_jwt_token_service.py`
-- [x] 1.2 Existing backend auth integration tests still pass in `backend/tests/infrastructure/api/test_auth.py`
-- [x] 1.3 Ruff checks pass for backend with `uv run ruff check .`
-- [x] 1.4 Type checks pass for backend with `uv run ty check`
+- [x] 1.1 Unit auth token tests pass in `backend/tests/unit/auth/test_jwt_token_service.py` — a32ab25
+- [x] 1.2 Existing backend auth integration tests still pass in `backend/tests/infrastructure/api/test_auth.py` — a32ab25
+- [x] 1.3 Ruff checks pass for backend with `uv run ruff check .` — a32ab25
+- [x] 1.4 Type checks pass for backend with `uv run ty check` — a32ab25
 
 #### Manual
 
-- [x] 1.5 Team review confirms each JWT rejection class in Risk #7 has a direct unit assertion
-- [x] 1.6 Team review confirms token-time assertions are deterministic and non-flaky
+- [x] 1.5 Team review confirms each JWT rejection class in Risk #7 has a direct unit assertion — a32ab25
+- [x] 1.6 Team review confirms token-time assertions are deterministic and non-flaky — a32ab25
 
 ### Phase 2: Protected Endpoint Rejection Coverage
 
 #### Automated
 
-- [ ] 2.1 Added protected-endpoint rejection tests pass in `backend/tests/infrastructure/api/test_auth.py`
-- [ ] 2.2 Existing happy-path auth tests remain green in `backend/tests/infrastructure/api/test_auth.py`
-- [ ] 2.3 Ruff checks pass for backend with `uv run ruff check .`
-- [ ] 2.4 Type checks pass for backend with `uv run ty check`
+- [x] 2.1 Added protected-endpoint rejection tests pass in `backend/tests/infrastructure/api/test_auth.py`
+- [x] 2.2 Existing happy-path auth tests remain green in `backend/tests/infrastructure/api/test_auth.py`
+- [x] 2.3 Ruff checks pass for backend with `uv run ruff check .`
+- [x] 2.4 Type checks pass for backend with `uv run ty check`
 
 #### Manual
 
-- [ ] 2.5 Team review confirms all required rejection vectors map to Risk #7 closure criteria
-- [ ] 2.6 Team review confirms optional `nbf` behavior is clearly labeled as non-blocking in test comments and plan tracking
+- [x] 2.5 Team review confirms all required rejection vectors map to Risk #7 closure criteria
+- [x] 2.6 Team review confirms optional `nbf` behavior is clearly labeled as non-blocking in test comments and plan tracking
 
 ### Phase 3: Cookie, Validation, and Public Route Guards
 

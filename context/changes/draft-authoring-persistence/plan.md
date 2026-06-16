@@ -481,24 +481,24 @@ No new database migrations needed — the `adrs` table already exists from F-02 
 
 #### Automated
 
-- [x] 1.1 All new files pass ruff check and ruff format
-- [x] 1.2 Type checking passes: ty check
-- [x] 1.3 Existing tests still pass: pytest
-- [x] 1.4 UoW protocol structurally compatible: RegisterUser tests pass unchanged
+- [x] 1.1 All new files pass ruff check and ruff format — 9e461b0
+- [x] 1.2 Type checking passes: ty check — 9e461b0
+- [x] 1.3 Existing tests still pass: pytest — 9e461b0
+- [x] 1.4 UoW protocol structurally compatible: RegisterUser tests pass unchanged — 9e461b0
 
 #### Manual
 
-- [ ] 1.5 Code review confirms AdrProjection mirrors UserProjection pattern
-- [ ] 1.6 Code review confirms AdrRepository mirrors UserRepository pattern
-- [ ] 1.7 UoW extension is additive — no changes to existing User projection
+- [x] 1.5 Code review confirms AdrProjection mirrors UserProjection pattern — 9e461b0
+- [x] 1.6 Code review confirms AdrRepository mirrors UserRepository pattern — 9e461b0
+- [x] 1.7 UoW extension is additive — no changes to existing User projection — 9e461b0
 
 ### Phase 2: Backend Command + Query Handlers
 
 #### Automated
 
-- [ ] 2.1 All new files pass ruff check and ruff format
-- [ ] 2.2 Type checking passes: ty check
-- [ ] 2.3 Existing tests still pass: pytest
+- [x] 2.1 All new files pass ruff check and ruff format
+- [x] 2.2 Type checking passes: ty check
+- [x] 2.3 Existing tests still pass: pytest
 
 #### Manual
 

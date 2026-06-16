@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from domain.errors import EmailAlreadyTaken
+from domain.errors import AdrTitleAlreadyExists, EmailAlreadyTaken
 from infrastructure.adapters.persistence.database_url import (
     normalize_runtime_database_url,
 )
@@ -80,6 +80,53 @@ def test_unit_of_work_translates_duplicate_user_email(
                         email="duplicate@example.com",
                         password_hash="hash",
                         created_at=datetime.now(UTC),
+                    )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run_scenario())
+
+
+def test_unit_of_work_translates_duplicate_active_adr_title(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    user_id = uuid4()
+    now = datetime(2026, 6, 16, 10, 0, tzinfo=UTC)
+
+    async def run_scenario() -> None:
+        engine = create_async_engine(normalize_runtime_database_url(postgres_url))
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        uow_factory = SqlUnitOfWorkFactory(session_factory)
+        try:
+            async with uow_factory.begin() as uow:
+                await uow.adr_projection.insert(
+                    draft_adr(
+                        adr_id=uuid4(),
+                        user_id=user_id,
+                        title="Duplicate ADR",
+                        content="## Context",
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+
+            with pytest.raises(AdrTitleAlreadyExists):
+                async with uow_factory.begin() as uow:
+                    await uow.adr_projection.insert(
+                        draft_adr(
+                            adr_id=uuid4(),
+                            user_id=user_id,
+                            title="duplicate adr",
+                            content="## Context",
+                            created_at=now,
+                            updated_at=now,
+                        )
                     )
         finally:
             await engine.dispose()

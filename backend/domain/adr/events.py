@@ -12,6 +12,7 @@ class ADRCreated(DomainEvent):
 
 class ADRContentUpdated(DomainEvent):
     adr_id: AdrId
+    title: AdrTitle
     content: AdrContent
 
 

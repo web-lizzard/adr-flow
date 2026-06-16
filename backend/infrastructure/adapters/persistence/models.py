@@ -67,4 +67,13 @@ class Adr(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    __table_args__ = (Index("ix_adrs_user_id", "user_id"),)
+    __table_args__ = (
+        Index("ix_adrs_user_id", "user_id"),
+        Index(
+            "uq_adrs_active_user_title_ci",
+            "user_id",
+            func.lower(title),
+            unique=True,
+            postgresql_where=is_deleted.is_(False),
+        ),
+    )

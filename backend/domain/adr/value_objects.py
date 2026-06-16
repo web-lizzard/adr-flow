@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class AdrStatus(StrEnum):
@@ -28,6 +28,15 @@ class AdrTitle(BaseModel):
 
     def __init__(self, value: str) -> None:
         super().__init__(value=value)
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            msg = "ADR title is required"
+            raise ValueError(msg)
+        return normalized
 
 
 class AdrContent(BaseModel):

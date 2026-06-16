@@ -78,4 +78,9 @@ def test_adrs_table_columns_jsonb_and_soft_delete() -> None:
     assert not table.c.status.nullable
 
     index_names = {index.name for index in table.indexes}
-    assert index_names == {"ix_adrs_user_id"}
+    assert index_names == {"ix_adrs_user_id", "uq_adrs_active_user_title_ci"}
+
+    title_index = next(
+        index for index in table.indexes if index.name == "uq_adrs_active_user_title_ci"
+    )
+    assert title_index.unique is True

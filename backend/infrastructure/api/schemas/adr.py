@@ -12,7 +12,11 @@ class CreateAdrRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def strip_title(cls, value: str) -> str:
-        return value.strip()
+        title = value.strip()
+        if not title:
+            msg = "ADR title is required"
+            raise ValueError(msg)
+        return title
 
 
 class UpdateAdrRequest(BaseModel):
@@ -24,7 +28,11 @@ class UpdateAdrRequest(BaseModel):
     def strip_title(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        return value.strip()
+        title = value.strip()
+        if not title:
+            msg = "ADR title is required"
+            raise ValueError(msg)
+        return title
 
 
 class AdrResponse(BaseModel):

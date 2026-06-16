@@ -60,6 +60,7 @@ class UpdateAdrContentCommandHandler:
         async with self._uow_factory.begin() as uow:
             event = ADRContentUpdated(
                 adr_id=AdrId(command.adr_id),
+                title=title,
                 content=content,
                 occurred_at=updated_at,
             )

@@ -3,6 +3,9 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
+from pydantic import ValidationError
+
 from domain.adr import (
     ADR,
     ADRContentUpdated,
@@ -47,6 +50,13 @@ def test_adr_event_vocabulary_includes_content_updated() -> None:
     assert ADRContentUpdated.__name__ == "ADRContentUpdated"
 
 
+def test_adr_title_strips_and_rejects_blank_values() -> None:
+    assert AdrTitle("  Choose event store  ").value == "Choose event store"
+
+    with pytest.raises(ValidationError):
+        AdrTitle("   ")
+
+
 def test_adr_aggregate_and_events_construct() -> None:
     adr_id = AdrId(uuid4())
     user_id = UserId(uuid4())
@@ -79,6 +89,7 @@ def test_adr_aggregate_and_events_construct() -> None:
     )
     content_updated = ADRContentUpdated(
         adr_id=adr_id,
+        title=title,
         content=AdrContent("## Context\n\nUpdated"),
         occurred_at=now,
     )

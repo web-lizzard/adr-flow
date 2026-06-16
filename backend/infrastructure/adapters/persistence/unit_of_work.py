@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.exc import IntegrityError
 
 from application.ports.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from domain.errors import EmailAlreadyTaken
+from domain.errors import AdrTitleAlreadyExists, EmailAlreadyTaken
 from infrastructure.adapters.persistence.event_store import SqlEventStore
 from infrastructure.adapters.persistence.projections.adr_projection import (
     SqlAdrProjection,
@@ -58,6 +58,8 @@ class SqlUnitOfWorkFactory(UnitOfWorkFactory):
             except IntegrityError as exc:
                 if _is_users_email_unique_violation(exc):
                     raise EmailAlreadyTaken() from exc
+                if _is_adrs_active_user_title_unique_violation(exc):
+                    raise AdrTitleAlreadyExists() from exc
                 raise
 
 
@@ -65,6 +67,13 @@ def _is_users_email_unique_violation(exc: IntegrityError) -> bool:
     if _constraint_name(exc.orig) == "users_email_key":
         return True
     return "users_email_key" in str(exc.orig) or "users_email_key" in str(exc)
+
+
+def _is_adrs_active_user_title_unique_violation(exc: IntegrityError) -> bool:
+    constraint = "uq_adrs_active_user_title_ci"
+    if _constraint_name(exc.orig) == constraint:
+        return True
+    return constraint in str(exc.orig) or constraint in str(exc)
 
 
 def _constraint_name(error: object) -> str | None:

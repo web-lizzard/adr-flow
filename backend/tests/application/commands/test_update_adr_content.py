@@ -142,6 +142,7 @@ def test_update_adr_content_emits_event_and_updates_projection() -> None:
     event = events[0]
     assert isinstance(event, ADRContentUpdated)
     assert event.content.value == "## Context\n\nUpdated"
+    assert event.title.value == "My ADR"
 
     updated = uow.adr_projection.updated[0]
     assert updated.content.value == "## Context\n\nUpdated"

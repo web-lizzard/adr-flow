@@ -46,6 +46,14 @@ def test_create_adr_without_title_returns_422(auth_client) -> None:
     assert response.status_code == 422
 
 
+def test_create_adr_with_blank_title_returns_422(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.post("/api/adrs", json={"title": "   "})
+
+    assert response.status_code == 422
+
+
 def test_create_adr_with_duplicate_title_returns_409(auth_client) -> None:
     _register_user(auth_client)
     auth_client.post("/api/adrs", json={"title": "Duplicate Title"})
@@ -112,6 +120,15 @@ def test_patch_adr_with_duplicate_title_returns_409(auth_client) -> None:
     )
 
     assert response.status_code == 409
+
+
+def test_patch_adr_with_blank_title_returns_422(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.patch(f"/api/adrs/{adr_id}", json={"title": "   "})
+
+    assert response.status_code == 422
 
 
 def test_beacon_save_updates_content_and_returns_204(auth_client) -> None:

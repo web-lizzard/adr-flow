@@ -135,6 +135,22 @@ async function onSubmit() {
       <p v-else-if="adr.listError.value" class="text-sm text-destructive">
         {{ adr.listError.value }}
       </p>
+      <p
+        v-else-if="adr.adrs.value.length === 0"
+        class="text-sm text-muted-foreground"
+      >
+        No ADRs yet — create your first one above.
+      </p>
+      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AdrCard
+          v-for="item in adr.adrs.value"
+          :key="item.id"
+          :id="item.id"
+          :title="item.title"
+          :status="item.status"
+          :updated-at="item.updatedAt"
+        />
+      </div>
     </section>
   </div>
 </template>

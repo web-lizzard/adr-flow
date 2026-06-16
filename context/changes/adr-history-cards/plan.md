@@ -378,9 +378,9 @@ None. Uses existing `adrs` table and `AdrSummary` shape. Soft-deleted rows (`is_
 
 #### Automated
 
-- [x] 2.1 `cd frontend && pnpm run typecheck`
-- [x] 2.2 `cd frontend && pnpm run lint`
-- [x] 2.3 `cd frontend && pnpm run test -- adr.store.test.ts`
+- [x] 2.1 `cd frontend && pnpm run typecheck` — 3e7015e
+- [x] 2.2 `cd frontend && pnpm run lint` — 3e7015e
+- [x] 2.3 `cd frontend && pnpm run test -- adr.store.test.ts` — 3e7015e
 
 #### Manual
 
@@ -390,9 +390,9 @@ None. Uses existing `adrs` table and `AdrSummary` shape. Soft-deleted rows (`is_
 
 #### Automated
 
-- [ ] 3.1 `cd frontend && pnpm run typecheck`
-- [ ] 3.2 `cd frontend && pnpm run lint`
-- [ ] 3.3 `cd frontend && pnpm run test -- adr-card.test.ts`
+- [x] 3.1 `cd frontend && pnpm run typecheck`
+- [x] 3.2 `cd frontend && pnpm run lint`
+- [x] 3.3 `cd frontend && pnpm run test -- adr-card.test.ts`
 
 #### Manual
 

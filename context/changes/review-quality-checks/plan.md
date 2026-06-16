@@ -308,13 +308,13 @@ Not applicable — no schema changes, no data migration. Pure additive code unde
 
 #### Automated
 
-- [x] 1.1 Domain parser tests pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py`
-- [x] 1.2 Linting passes: `cd backend && uv run ruff check .`
-- [x] 1.3 Type checking passes: `cd backend && uv run ty check`
+- [x] 1.1 Domain parser tests pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py` — 6a7ac13
+- [x] 1.2 Linting passes: `cd backend && uv run ruff check .` — 6a7ac13
+- [x] 1.3 Type checking passes: `cd backend && uv run ty check` — 6a7ac13
 
 #### Manual
 
-- [x] 1.4 Parser output for starter template and one complete fixture verified manually
+- [x] 1.4 Parser output for starter template and one complete fixture verified manually — 6a7ac13
 
 ### Phase 2: Grader Module
 
@@ -326,7 +326,7 @@ Not applicable — no schema changes, no data migration. Pure additive code unde
 
 #### Manual
 
-- [ ] 2.4 `grade_review_output` verified in REPL with hand-crafted case
+- [x] 2.4 `grade_review_output` verified in REPL with hand-crafted case
 
 ### Phase 3: Fixtures & Harness Tests
 

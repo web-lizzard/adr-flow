@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-08
-updated: 2026-06-10
+updated: 2026-06-16
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -30,7 +30,7 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 | F-02 | persistence-scaffold | (foundation) Postgres driver, migration tooling, and initial schema contract for users and ADRs are in place | — | NFR: Per-user data isolation, NFR: Data retention, NFR: No draft loss, Access Control | ready |
 | F-01 | review-quality-checks | (foundation) review output can be checked against required-section and actionability guardrails | — | NFR: Section gap detection accuracy, NFR: Annotation actionability | ready |
 | S-01 | account-access | register, log in, and reach a protected per-user ADR workspace | F-02 | US-03, FR-001, FR-003, Access Control, NFR: Per-user data isolation | proposed |
-| S-02 | draft-authoring-persistence | create an ADR from the starter template, edit markdown, and recover saved draft content | S-01 | US-01, FR-004, FR-005, FR-006, NFR: No draft loss | proposed |
+| S-02 | draft-authoring-persistence | create an ADR from the starter template, edit markdown, and recover saved draft content | S-01 | US-01, FR-004, FR-005, FR-006, NFR: No draft loss | done |
 | S-04 | first-ai-review-annotations | submit a draft for AI review and see actionable annotations in `after_review` | S-02, F-01 | US-01, FR-007, FR-008, FR-010, FR-011, FR-012 | proposed |
 | S-05 | publish-after-review | edit the reviewed ADR without re-review and publish it as `proposed` | S-04 | US-01, US-04, FR-005, FR-007, FR-009 | proposed |
 | S-03 | adr-history-cards | return later, browse owned ADR cards, and reopen an existing ADR | S-02 | US-02, FR-013, NFR: Data retention | proposed |
@@ -111,7 +111,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Does save-on-blur plus save-on-unload actually suffice against draft loss? — Owner: user. Block: no.
 - **Risk:** This slice introduces the first real ADR state on top of the F-02 schema; if persistence is unreliable, the later review loop will hide the most important failure. Kept simple under `speed` — save-on-blur + save-on-unload, no continuous autosave.
-- **Status:** proposed
+- **Status:** done
 
 ### S-04: First AI Review Annotations
 
@@ -202,3 +202,5 @@ Foundations below assume these are present and do NOT re-scaffold them.
 ## Done
 
 <!-- Empty on first generation. `/archive` appends entries here when matching changes are archived. -->
+
+- **S-02: user can create an ADR from the starter template, edit markdown, and recover saved draft content after leaving or refreshing.** — Archived 2026-06-16 → `context/archive/2026-06-16-draft-authoring-persistence/`. Lesson: —.

@@ -365,9 +365,9 @@ None. Uses existing `adrs` table and `AdrSummary` shape. Soft-deleted rows (`is_
 
 #### Automated
 
-- [x] 1.1 `cd backend && uv run ruff check .`
-- [x] 1.2 `cd backend && uv run ty check`
-- [x] 1.3 `cd backend && uv run pytest tests/application/queries/test_list_adrs.py tests/infrastructure/api/test_adr_api.py tests/infrastructure/adapters/persistence/test_adr_repository.py -k list`
+- [x] 1.1 `cd backend && uv run ruff check .` — 504af37
+- [x] 1.2 `cd backend && uv run ty check` — 504af37
+- [x] 1.3 `cd backend && uv run pytest tests/application/queries/test_list_adrs.py tests/infrastructure/api/test_adr_api.py tests/infrastructure/adapters/persistence/test_adr_repository.py -k list` — 504af37
 
 #### Manual
 

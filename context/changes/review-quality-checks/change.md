@@ -1,7 +1,7 @@
 ---
 change_id: review-quality-checks
 title: Review quality checks for required-section and actionability guardrails
-status: implementing
+status: implemented
 created: 2026-06-16
 updated: 2026-06-17
 archived_at: null

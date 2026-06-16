@@ -332,12 +332,12 @@ Not applicable — no schema changes, no data migration. Pure additive code unde
 
 #### Automated
 
-- [x] 3.1 Full review quality suite passes: `cd backend && uv run pytest tests/review_quality/`
-- [x] 3.2 Domain parser tests still pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py`
-- [x] 3.3 Full backend suite passes: `just test-backend`
-- [x] 3.4 Linting passes: `cd backend && uv run ruff check .`
-- [x] 3.5 Type checking passes: `cd backend && uv run ty check`
+- [x] 3.1 Full review quality suite passes: `cd backend && uv run pytest tests/review_quality/` — 2450c9f
+- [x] 3.2 Domain parser tests still pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py` — 2450c9f
+- [x] 3.3 Full backend suite passes: `just test-backend` — 2450c9f
+- [x] 3.4 Linting passes: `cd backend && uv run ruff check .` — 2450c9f
+- [x] 3.5 Type checking passes: `cd backend && uv run ty check` — 2450c9f
 
 #### Manual
 
-- [ ] 3.6 Aggregate metrics output reviewed; confirm no LLM/DB/API additions
+- [x] 3.6 Aggregate metrics output reviewed; confirm no LLM/DB/API additions — 2450c9f

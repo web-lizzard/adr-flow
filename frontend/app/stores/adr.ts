@@ -99,14 +99,31 @@ export const useAdrStore = defineStore("adr", () => {
       return;
     }
 
+    const savedAdrId = currentAdr.value.id;
+    const savedTitle = currentAdr.value.title;
+    const savedContent = currentAdr.value.content;
+
     loading.value = true;
     try {
-      const response = await updateAdr(currentAdr.value.id, {
-        title: currentAdr.value.title,
-        content: currentAdr.value.content,
+      const response = await updateAdr(savedAdrId, {
+        title: savedTitle,
+        content: savedContent,
       });
-      currentAdr.value = toAdr(response);
-      syncSavedBaseline();
+
+      if (
+        currentAdr.value &&
+        currentAdr.value.id === savedAdrId &&
+        currentAdr.value.title === savedTitle &&
+        currentAdr.value.content === savedContent
+      ) {
+        currentAdr.value = toAdr(response);
+        syncSavedBaseline();
+        return;
+      }
+
+      lastSavedTitle.value = savedTitle;
+      lastSavedContent.value = savedContent;
+      recomputeDirty();
     } finally {
       loading.value = false;
     }

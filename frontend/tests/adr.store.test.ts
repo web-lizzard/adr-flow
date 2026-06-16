@@ -114,6 +114,38 @@ describe("useAdrStore", () => {
     expect(updateAdrMock).not.toHaveBeenCalled();
   });
 
+  it("save() preserves edits made while a PATCH is in flight", async () => {
+    fetchAdrMock.mockResolvedValue(sampleAdr);
+    let resolveUpdate: (value: typeof sampleAdr) => void = () => {};
+    updateAdrMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    store.updateContent("first edit");
+
+    const savePromise = store.save();
+    store.updateContent("second edit");
+
+    resolveUpdate({
+      ...sampleAdr,
+      content: "first edit",
+      updated_at: "2026-06-16T11:00:00Z",
+    });
+    await savePromise;
+
+    expect(updateAdrMock).toHaveBeenCalledWith("adr-1", {
+      title: "My ADR",
+      content: "first edit",
+    });
+    expect(store.currentAdr?.content).toBe("second edit");
+    expect(store.isDirty).toBe(true);
+  });
+
   it("searchByTitle(query) calls GET /api/adrs/search and returns results", async () => {
     searchAdrsMock.mockResolvedValue({
       results: [

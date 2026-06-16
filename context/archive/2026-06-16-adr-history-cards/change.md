@@ -1,10 +1,10 @@
 ---
 change_id: adr-history-cards
 title: ADR history cards
-status: implemented
+status: archived
 created: 2026-06-16
-updated: 2026-06-17
-archived_at: null
+updated: 2026-06-16
+archived_at: 2026-06-16T23:11:12Z
 ---
 
 ## Notes

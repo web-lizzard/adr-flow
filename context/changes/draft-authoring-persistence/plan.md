@@ -481,10 +481,10 @@ No new database migrations needed — the `adrs` table already exists from F-02 
 
 #### Automated
 
-- [ ] 1.1 All new files pass ruff check and ruff format
-- [ ] 1.2 Type checking passes: ty check
-- [ ] 1.3 Existing tests still pass: pytest
-- [ ] 1.4 UoW protocol structurally compatible: RegisterUser tests pass unchanged
+- [x] 1.1 All new files pass ruff check and ruff format
+- [x] 1.2 Type checking passes: ty check
+- [x] 1.3 Existing tests still pass: pytest
+- [x] 1.4 UoW protocol structurally compatible: RegisterUser tests pass unchanged
 
 #### Manual
 

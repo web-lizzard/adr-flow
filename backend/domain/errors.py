@@ -37,3 +37,15 @@ class InvalidCredentials(DomainError):
 
 class UserNotFound(DomainError):
     pass
+
+
+class AdrNotFound(DomainError):
+    pass
+
+
+class AdrAccessDenied(DomainError):
+    pass
+
+
+class AdrTitleAlreadyExists(DomainError):
+    pass

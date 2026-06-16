@@ -9,6 +9,7 @@ from domain.adr.events import (
     ADRSubmittedForReview,
     AIReviewCompleted,
 )
+from domain.adr.template import ADR_STARTER_TEMPLATE
 from domain.adr.value_objects import (
     AdrContent,
     AdrId,
@@ -20,6 +21,7 @@ from domain.adr.value_objects import (
 )
 
 __all__ = [
+    "ADR_STARTER_TEMPLATE",
     "ADR",
     "ADRContentUpdated",
     "ADRCreated",

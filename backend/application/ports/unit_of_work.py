@@ -1,6 +1,7 @@
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 
+from application.ports.adr_projection import AdrProjection
 from application.ports.event_store import EventStore
 from application.ports.user_projection import UserProjection
 
@@ -8,6 +9,7 @@ from application.ports.user_projection import UserProjection
 class UnitOfWork(Protocol):
     event_store: EventStore
     user_projection: UserProjection
+    adr_projection: AdrProjection
 
     async def commit(self) -> None: ...
 

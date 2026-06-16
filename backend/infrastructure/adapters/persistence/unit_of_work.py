@@ -9,6 +9,9 @@ from sqlalchemy.exc import IntegrityError
 from application.ports.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from domain.errors import EmailAlreadyTaken
 from infrastructure.adapters.persistence.event_store import SqlEventStore
+from infrastructure.adapters.persistence.projections.adr_projection import (
+    SqlAdrProjection,
+)
 from infrastructure.adapters.persistence.projections.user_projection import (
     SqlUserProjection,
 )
@@ -20,9 +23,11 @@ class SqlUnitOfWork(UnitOfWork):
         session: AsyncSession,
         event_store: SqlEventStore,
         user_projection: SqlUserProjection,
+        adr_projection: SqlAdrProjection,
     ) -> None:
         self.event_store = event_store
         self.user_projection = user_projection
+        self.adr_projection = adr_projection
         self._session = session
 
     async def commit(self) -> None:
@@ -43,10 +48,12 @@ class SqlUnitOfWorkFactory(UnitOfWorkFactory):
                 async with session.begin():
                     event_store = SqlEventStore(session)
                     user_projection = SqlUserProjection(session)
+                    adr_projection = SqlAdrProjection(session)
                     yield SqlUnitOfWork(
                         session=session,
                         event_store=event_store,
                         user_projection=user_projection,
+                        adr_projection=adr_projection,
                     )
             except IntegrityError as exc:
                 if _is_users_email_unique_violation(exc):

@@ -6,12 +6,14 @@ const createAdrMock = vi.fn();
 const fetchAdrMock = vi.fn();
 const updateAdrMock = vi.fn();
 const searchAdrsMock = vi.fn();
+const listAdrsMock = vi.fn();
 
 vi.mock("../composables/useApi", () => ({
   createAdr: (...args: unknown[]) => createAdrMock(...args),
   fetchAdr: (...args: unknown[]) => fetchAdrMock(...args),
   updateAdr: (...args: unknown[]) => updateAdrMock(...args),
   searchAdrs: (...args: unknown[]) => searchAdrsMock(...args),
+  listAdrs: (...args: unknown[]) => listAdrsMock(...args),
 }));
 
 const navigateToMock = vi.fn();
@@ -33,6 +35,7 @@ describe("useAdrStore", () => {
     fetchAdrMock.mockReset();
     updateAdrMock.mockReset();
     searchAdrsMock.mockReset();
+    listAdrsMock.mockReset();
     navigateToMock.mockReset();
   });
 
@@ -164,6 +167,70 @@ describe("useAdrStore", () => {
     expect(searchAdrsMock).toHaveBeenCalledWith("My");
     expect(results).toHaveLength(1);
     expect(results[0]?.title).toBe("My ADR");
+  });
+
+  it("fetchList() populates adrs and clears listError on success", async () => {
+    listAdrsMock.mockResolvedValue({
+      results: [
+        {
+          id: "adr-2",
+          title: "Second ADR",
+          status: "proposed",
+          updated_at: "2026-06-16T11:00:00Z",
+        },
+      ],
+    });
+
+    const store = useAdrStore();
+    await store.fetchList();
+
+    expect(listAdrsMock).toHaveBeenCalledTimes(1);
+    expect(store.adrs).toEqual([
+      {
+        id: "adr-2",
+        title: "Second ADR",
+        status: "proposed",
+        updatedAt: "2026-06-16T11:00:00Z",
+      },
+    ]);
+    expect(store.listError).toBeNull();
+    expect(store.listLoading).toBe(false);
+  });
+
+  it("fetchList() sets listLoading while request is in flight", async () => {
+    let resolveList: (value: {
+      results: Array<{
+        id: string;
+        title: string;
+        status: string;
+        updated_at: string;
+      }>;
+    }) => void = () => {};
+    listAdrsMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveList = resolve;
+        }),
+    );
+
+    const store = useAdrStore();
+    const fetchPromise = store.fetchList();
+    expect(store.listLoading).toBe(true);
+
+    resolveList({ results: [] });
+    await fetchPromise;
+    expect(store.listLoading).toBe(false);
+  });
+
+  it("fetchList() stores a readable error and resets listLoading on failure", async () => {
+    listAdrsMock.mockRejectedValue(new Error("Backend unavailable"));
+
+    const store = useAdrStore();
+    await store.fetchList();
+
+    expect(store.adrs).toEqual([]);
+    expect(store.listError).toBe("Failed to load ADR history");
+    expect(store.listLoading).toBe(false);
   });
 
   it("dirty tracking: changes to content/title set isDirty", async () => {

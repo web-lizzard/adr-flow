@@ -26,6 +26,10 @@ export type SearchAdrsResponse = {
   results: AdrSummary[];
 };
 
+export type ListAdrsResponse = {
+  results: AdrSummary[];
+};
+
 /** Build a same-origin API path (e.g. `/api/health`). */
 export function apiPath(segment: string): string {
   const base = useRuntimeConfig().public.apiBase.replace(/\/$/, "");
@@ -62,4 +66,8 @@ export function searchAdrs(query: string) {
   return $fetch<SearchAdrsResponse>(apiPath("/adrs/search"), {
     query: { q: query },
   });
+}
+
+export function listAdrs() {
+  return $fetch<ListAdrsResponse>(apiPath("/adrs"));
 }

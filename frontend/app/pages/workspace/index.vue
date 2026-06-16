@@ -22,6 +22,10 @@ const canSubmit = computed(
     !adr.loading.value,
 );
 
+onMounted(() => {
+  void adr.fetchList();
+});
+
 const checkTitleUniqueness = useDebounceFn(async (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -121,5 +125,16 @@ async function onSubmit() {
         </form>
       </CardContent>
     </Card>
+
+    <section class="space-y-3" aria-label="Your ADRs">
+      <h2 class="text-xl font-semibold tracking-tight">Your ADRs</h2>
+
+      <p v-if="adr.listLoading.value" class="text-sm text-muted-foreground">
+        Loading ADR history...
+      </p>
+      <p v-else-if="adr.listError.value" class="text-sm text-destructive">
+        {{ adr.listError.value }}
+      </p>
+    </section>
   </div>
 </template>

@@ -1,6 +1,7 @@
 import {
   createAdr,
   fetchAdr,
+  listAdrs,
   searchAdrs,
   updateAdr,
   type AdrResponse,
@@ -16,6 +17,13 @@ export type Adr = {
   updatedAt: string;
 };
 
+export type AdrListItem = {
+  id: string;
+  title: string;
+  status: string;
+  updatedAt: string;
+};
+
 function toAdr(response: AdrResponse): Adr {
   return {
     id: response.id,
@@ -27,9 +35,21 @@ function toAdr(response: AdrResponse): Adr {
   };
 }
 
+function toAdrListItem(summary: AdrSummary): AdrListItem {
+  return {
+    id: summary.id,
+    title: summary.title,
+    status: summary.status,
+    updatedAt: summary.updated_at,
+  };
+}
+
 export const useAdrStore = defineStore("adr", () => {
   const currentAdr = ref<Adr | null>(null);
+  const adrs = ref<AdrListItem[]>([]);
   const loading = ref(false);
+  const listLoading = ref(false);
+  const listError = ref<string | null>(null);
   const isDirty = ref(false);
   const lastSavedTitle = ref("");
   const lastSavedContent = ref("");
@@ -134,11 +154,29 @@ export const useAdrStore = defineStore("adr", () => {
     return response.results;
   }
 
+  async function fetchList(): Promise<void> {
+    listLoading.value = true;
+    listError.value = null;
+    try {
+      const response = await listAdrs();
+      adrs.value = response.results.map(toAdrListItem);
+    } catch {
+      adrs.value = [];
+      listError.value = "Failed to load ADR history";
+    } finally {
+      listLoading.value = false;
+    }
+  }
+
   return {
     currentAdr,
+    adrs,
     loading,
+    listLoading,
+    listError,
     isDirty,
     create,
+    fetchList,
     load,
     save,
     searchByTitle,

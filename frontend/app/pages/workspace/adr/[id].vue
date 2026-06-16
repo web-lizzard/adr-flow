@@ -1,0 +1,99 @@
+<script setup lang="ts">
+definePageMeta({
+  layout: "default",
+  middleware: ["auth"],
+});
+
+const route = useRoute();
+const adr = useAdr();
+const adrStore = useAdrStore();
+
+const adrId = computed(() => String(route.params.id));
+const titleError = ref<string | null>(null);
+
+const { saveOnBlur } = useAdrPersistence(adrId, adrStore);
+
+onMounted(async () => {
+  await adr.load(adrId.value);
+});
+
+async function onTitleBlur() {
+  try {
+    titleError.value = null;
+    await saveOnBlur();
+  } catch (error) {
+    titleError.value = getAdrErrorMessage(error, "Failed to save title");
+  }
+}
+
+async function onEditorBlur() {
+  try {
+    titleError.value = null;
+    await saveOnBlur();
+  } catch (error) {
+    titleError.value = getAdrErrorMessage(error, "Failed to save content");
+  }
+}
+
+function onTitleInput(value: string | number) {
+  titleError.value = null;
+  adr.updateTitle(String(value));
+}
+
+function onContentInput(value: string) {
+  titleError.value = null;
+  adr.updateContent(value);
+}
+
+function getAdrErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null && "data" in error) {
+    const detail = (error as { data?: { detail?: unknown } }).data?.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+  return fallback;
+}
+</script>
+
+<template>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Edit ADR</h1>
+      <p class="text-muted-foreground">
+        Draft changes save when you click away or leave this tab.
+      </p>
+    </div>
+
+    <div v-if="adr.loading.value && !adr.currentAdr.value" class="space-y-4">
+      <div class="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div class="h-96 w-full animate-pulse rounded-md bg-muted" />
+    </div>
+
+    <div v-else-if="adr.currentAdr.value" class="space-y-4">
+      <div class="space-y-2">
+        <Label for="adr-title">Title</Label>
+        <Input
+          id="adr-title"
+          :model-value="adr.currentAdr.value.title"
+          @update:model-value="onTitleInput"
+          @blur="onTitleBlur"
+        />
+        <p v-if="titleError" class="text-sm text-destructive">
+          {{ titleError }}
+        </p>
+      </div>
+
+      <ClientOnly>
+        <AdrMarkdownEditor
+          :model-value="adr.currentAdr.value.content"
+          @update:model-value="onContentInput"
+          @blur="onEditorBlur"
+        />
+        <template #fallback>
+          <div class="h-96 w-full animate-pulse rounded-md bg-muted" />
+        </template>
+      </ClientOnly>
+    </div>
+  </div>
+</template>

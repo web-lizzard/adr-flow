@@ -529,18 +529,18 @@ No new database migrations needed — the `adrs` table already exists from F-02 
 
 #### Automated
 
-- [ ] 4.1 All new files pass lint and format:check
-- [ ] 4.2 Type checking passes: typecheck
-- [ ] 4.3 Frontend tests pass: pnpm run test
-- [ ] 4.4 Build succeeds: pnpm run build
+- [x] 4.1 All new files pass lint and format:check
+- [x] 4.2 Type checking passes: typecheck
+- [x] 4.3 Frontend tests pass: pnpm run test
+- [x] 4.4 Build succeeds: pnpm run build
 
 #### Manual
 
-- [ ] 4.5 Enter title, create ADR from workspace → editor shows starter template
-- [ ] 4.6 Attempt duplicate title → inline error shown, submit disabled
-- [ ] 4.7 Edit content, blur → PATCH fires in network tab
-- [ ] 4.8 Refresh page → content recovered
-- [ ] 4.9 Edit content, close tab → reopen URL → content recovered
-- [ ] 4.10 Title input saves alongside content
-- [ ] 4.11 Change title to existing title → error shown
-- [ ] 4.12 Markdown syntax highlighting visible in editor
+- [x] 4.5 Enter title, create ADR from workspace → editor shows starter template
+- [x] 4.6 Attempt duplicate title → inline error shown, submit disabled
+- [x] 4.7 Edit content, blur → PATCH fires in network tab
+- [x] 4.8 Refresh page → content recovered
+- [x] 4.9 Edit content, close tab → reopen URL → content recovered
+- [x] 4.10 Title input saves alongside content
+- [x] 4.11 Change title to existing title → error shown
+- [x] 4.12 Markdown syntax highlighting visible in editor

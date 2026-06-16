@@ -496,17 +496,17 @@ No new database migrations needed — the `adrs` table already exists from F-02 
 
 #### Automated
 
-- [x] 2.1 All new files pass ruff check and ruff format
-- [x] 2.2 Type checking passes: ty check
-- [x] 2.3 Existing tests still pass: pytest
+- [x] 2.1 All new files pass ruff check and ruff format — 644012a
+- [x] 2.2 Type checking passes: ty check — 644012a
+- [x] 2.3 Existing tests still pass: pytest — 644012a
 
 #### Manual
 
-- [ ] 2.4 Code review confirms CreateAdr follows RegisterUser pattern
-- [ ] 2.5 Code review confirms CreateAdr checks title uniqueness before write
-- [ ] 2.6 Code review confirms UpdateAdrContent validates ownership and title uniqueness
-- [ ] 2.7 Code review confirms GetAdr filters by user_id and is_deleted
-- [ ] 2.8 Code review confirms SearchAdrsByTitle returns matches for calling user only
+- [x] 2.4 Code review confirms CreateAdr follows RegisterUser pattern — 644012a
+- [x] 2.5 Code review confirms CreateAdr checks title uniqueness before write — 644012a
+- [x] 2.6 Code review confirms UpdateAdrContent validates ownership and title uniqueness — 644012a
+- [x] 2.7 Code review confirms GetAdr filters by user_id and is_deleted — 644012a
+- [x] 2.8 Code review confirms SearchAdrsByTitle returns matches for calling user only — 644012a
 
 ### Phase 3: Backend API Layer + Integration Tests
 

@@ -4,10 +4,14 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
 
+from application.commands.create_adr import CreateAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
+from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.ports.token_service import TokenService
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
+from application.queries.get_adr import GetAdrQueryHandler
 from application.queries.get_current_user import GetCurrentUserQueryHandler
+from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
 from infrastructure.config import Settings
 
 SESSION_COOKIE_NAME = "session"
@@ -31,6 +35,24 @@ def get_authenticate_user_handler(request: Request) -> AuthenticateUserQueryHand
 
 def get_current_user_handler(request: Request) -> GetCurrentUserQueryHandler:
     return request.app.state.get_current_user_handler
+
+
+def get_create_adr_handler(request: Request) -> CreateAdrCommandHandler:
+    return request.app.state.create_adr_handler
+
+
+def get_update_adr_content_handler(
+    request: Request,
+) -> UpdateAdrContentCommandHandler:
+    return request.app.state.update_adr_content_handler
+
+
+def get_get_adr_handler(request: Request) -> GetAdrQueryHandler:
+    return request.app.state.get_adr_handler
+
+
+def get_search_adrs_handler(request: Request) -> SearchAdrsByTitleQueryHandler:
+    return request.app.state.search_adrs_handler
 
 
 def get_current_user_id(

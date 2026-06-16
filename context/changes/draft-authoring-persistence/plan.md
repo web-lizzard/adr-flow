@@ -512,18 +512,18 @@ No new database migrations needed — the `adrs` table already exists from F-02 
 
 #### Automated
 
-- [ ] 3.1 All new files pass ruff check and ruff format
-- [ ] 3.2 Type checking passes: ty check
-- [ ] 3.3 All tests pass: pytest (existing + new integration tests)
-- [ ] 3.4 ADR integration tests verify create → update → reload cycle
+- [x] 3.1 All new files pass ruff check and ruff format
+- [x] 3.2 Type checking passes: ty check
+- [x] 3.3 All tests pass: pytest (existing + new integration tests)
+- [x] 3.4 ADR integration tests verify create → update → reload cycle
 
 #### Manual
 
-- [ ] 3.5 curl POST /api/adrs with title returns 201 with id
-- [ ] 3.6 curl POST /api/adrs with same title returns 409
-- [ ] 3.7 curl GET /api/adrs/{id} returns starter template content
-- [ ] 3.8 curl GET /api/adrs/search?q=partial returns matching results
-- [ ] 3.9 curl PATCH /api/adrs/{id} updates content, GET confirms
+- [x] 3.5 curl POST /api/adrs with title returns 201 with id
+- [x] 3.6 curl POST /api/adrs with same title returns 409
+- [x] 3.7 curl GET /api/adrs/{id} returns starter template content
+- [x] 3.8 curl GET /api/adrs/search?q=partial returns matching results
+- [x] 3.9 curl PATCH /api/adrs/{id} updates content, GET confirms
 
 ### Phase 4: Frontend Editor + Save Persistence
 

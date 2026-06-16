@@ -8,15 +8,23 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from application.commands.create_adr import CreateAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
+from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
+from application.queries.get_adr import GetAdrQueryHandler
 from application.queries.get_current_user import GetCurrentUserQueryHandler
+from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
 from infrastructure.adapters.auth.password_hasher import Argon2PasswordHasher
 from infrastructure.adapters.auth.token_service import JwtTokenService
+from infrastructure.adapters.persistence.repositories.adr_repository import (
+    SqlAdrRepository,
+)
 from infrastructure.adapters.persistence.repositories.user_repository import (
     SqlUserRepository,
 )
 from infrastructure.adapters.persistence.unit_of_work import SqlUnitOfWorkFactory
+from infrastructure.api.routers.adr import router as adr_router
 from infrastructure.api.routers.auth import router as auth_router
 from infrastructure.config import Settings, load_settings
 
@@ -34,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     uow_factory = SqlUnitOfWorkFactory(session_factory)
     user_repository = SqlUserRepository(session_factory)
+    adr_repository = SqlAdrRepository(session_factory)
     password_hasher = Argon2PasswordHasher()
     token_service = JwtTokenService(secret_key=settings.jwt_secret)
 
@@ -44,6 +53,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         user_repository, password_hasher
     )
     get_current_user_handler = GetCurrentUserQueryHandler(user_repository)
+    create_adr_handler = CreateAdrCommandHandler(uow_factory, adr_repository)
+    update_adr_content_handler = UpdateAdrContentCommandHandler(
+        uow_factory, adr_repository
+    )
+    get_adr_handler = GetAdrQueryHandler(adr_repository)
+    search_adrs_handler = SearchAdrsByTitleQueryHandler(adr_repository)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -60,6 +75,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.register_user_handler = register_user_handler
     app.state.authenticate_user_handler = authenticate_user_handler
     app.state.get_current_user_handler = get_current_user_handler
+    app.state.create_adr_handler = create_adr_handler
+    app.state.update_adr_content_handler = update_adr_content_handler
+    app.state.get_adr_handler = get_adr_handler
+    app.state.search_adrs_handler = search_adrs_handler
 
     app.add_middleware(
         CORSMiddleware,
@@ -75,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     api_router = APIRouter(prefix="/api")
     api_router.include_router(auth_router)
+    api_router.include_router(adr_router)
 
     @api_router.get("/health")
     def api_health() -> dict[str, str]:

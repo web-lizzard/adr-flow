@@ -403,10 +403,10 @@ None. Uses existing `adrs` table and `AdrSummary` shape. Soft-deleted rows (`is_
 
 #### Automated
 
-- [ ] 4.1 `cd frontend && pnpm run typecheck`
-- [ ] 4.2 `cd frontend && pnpm run lint`
-- [ ] 4.3 `cd frontend && pnpm run test`
-- [ ] 4.4 `just test-backend`
+- [x] 4.1 `cd frontend && pnpm run typecheck`
+- [x] 4.2 `cd frontend && pnpm run lint`
+- [x] 4.3 `cd frontend && pnpm run test`
+- [x] 4.4 `just test-backend`
 
 #### Manual
 

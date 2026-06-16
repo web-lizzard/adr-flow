@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AdrStatusBadge from "@/components/adr/AdrStatusBadge.vue";
+
 definePageMeta({
   layout: "default",
   middleware: ["auth"],
@@ -10,6 +12,7 @@ const adrStore = useAdrStore();
 
 const adrId = computed(() => String(route.params.id));
 const titleError = ref<string | null>(null);
+const isReadOnly = computed(() => adr.currentAdr.value?.status === "in_review");
 
 const { saveOnBlur } = useAdrPersistence(adrId, adrStore);
 
@@ -18,6 +21,9 @@ onMounted(async () => {
 });
 
 async function onTitleBlur() {
+  if (isReadOnly.value) {
+    return;
+  }
   try {
     titleError.value = null;
     await saveOnBlur();
@@ -27,6 +33,9 @@ async function onTitleBlur() {
 }
 
 async function onEditorBlur() {
+  if (isReadOnly.value) {
+    return;
+  }
   try {
     titleError.value = null;
     await saveOnBlur();
@@ -36,11 +45,17 @@ async function onEditorBlur() {
 }
 
 function onTitleInput(value: string | number) {
+  if (isReadOnly.value) {
+    return;
+  }
   titleError.value = null;
   adr.updateTitle(String(value));
 }
 
 function onContentInput(value: string) {
+  if (isReadOnly.value) {
+    return;
+  }
   titleError.value = null;
   adr.updateContent(value);
 }
@@ -58,12 +73,27 @@ function getAdrErrorMessage(error: unknown, fallback: string): string {
 
 <template>
   <div class="space-y-6">
-    <div>
+    <NuxtLink
+      to="/workspace"
+      class="inline-flex items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      ← Back to workspace
+    </NuxtLink>
+
+    <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-3xl font-bold tracking-tight">Edit ADR</h1>
-      <p class="text-muted-foreground">
-        Draft changes save when you click away or leave this tab.
-      </p>
+      <AdrStatusBadge
+        v-if="adr.currentAdr.value"
+        :status="adr.currentAdr.value.status"
+      />
     </div>
+
+    <p v-if="isReadOnly" class="text-muted-foreground">
+      This ADR is being reviewed and cannot be edited.
+    </p>
+    <p v-else class="text-muted-foreground">
+      Draft changes save when you click away or leave this tab.
+    </p>
 
     <div v-if="adr.loading.value && !adr.currentAdr.value" class="space-y-4">
       <div class="h-9 w-full animate-pulse rounded-md bg-muted" />
@@ -76,6 +106,7 @@ function getAdrErrorMessage(error: unknown, fallback: string): string {
         <Input
           id="adr-title"
           :model-value="adr.currentAdr.value.title"
+          :disabled="isReadOnly"
           @update:model-value="onTitleInput"
           @blur="onTitleBlur"
         />
@@ -87,6 +118,7 @@ function getAdrErrorMessage(error: unknown, fallback: string): string {
       <ClientOnly>
         <AdrMarkdownEditor
           :model-value="adr.currentAdr.value.content"
+          :readonly="isReadOnly"
           @update:model-value="onContentInput"
           @blur="onEditorBlur"
         />

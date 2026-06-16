@@ -2,9 +2,15 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import CodeMirror from "vue-codemirror6";
 
-const props = defineProps<{
-  modelValue: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    readonly?: boolean;
+  }>(),
+  {
+    readonly: false,
+  },
+);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
@@ -14,13 +20,14 @@ const emit = defineEmits<{
 const extensions = [markdown({ base: markdownLanguage })];
 
 function onUpdate(value?: string) {
-  if (typeof value === "string") {
-    emit("update:modelValue", value);
+  if (props.readonly || typeof value !== "string") {
+    return;
   }
+  emit("update:modelValue", value);
 }
 
 function onFocus(focused: boolean) {
-  if (!focused) {
+  if (!focused && !props.readonly) {
     emit("blur");
   }
 }
@@ -29,6 +36,7 @@ function onFocus(focused: boolean) {
 <template>
   <CodeMirror
     :model-value="props.modelValue"
+    :readonly="props.readonly"
     :extensions="extensions"
     basic
     wrap

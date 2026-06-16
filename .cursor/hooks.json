@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/lint-after-edit.sh",
+        "matcher": "Write|TabWrite",
+        "timeout": 90
+      },
+      {
+        "command": ".cursor/hooks/test-after-edit.sh",
+        "matcher": "Write|TabWrite",
+        "timeout": 180
+      }
+    ]
+  }
+}

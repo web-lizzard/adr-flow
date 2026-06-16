@@ -320,23 +320,23 @@ Not applicable — no schema changes, no data migration. Pure additive code unde
 
 #### Automated
 
-- [x] 2.1 Grader tests pass: `cd backend && uv run pytest tests/review_quality/test_grader.py`
-- [x] 2.2 Linting passes: `cd backend && uv run ruff check .`
-- [x] 2.3 Type checking passes: `cd backend && uv run ty check`
+- [x] 2.1 Grader tests pass: `cd backend && uv run pytest tests/review_quality/test_grader.py` — 4c64328
+- [x] 2.2 Linting passes: `cd backend && uv run ruff check .` — 4c64328
+- [x] 2.3 Type checking passes: `cd backend && uv run ty check` — 4c64328
 
 #### Manual
 
-- [x] 2.4 `grade_review_output` verified in REPL with hand-crafted case
+- [x] 2.4 `grade_review_output` verified in REPL with hand-crafted case — 4c64328
 
 ### Phase 3: Fixtures & Harness Tests
 
 #### Automated
 
-- [ ] 3.1 Full review quality suite passes: `cd backend && uv run pytest tests/review_quality/`
-- [ ] 3.2 Domain parser tests still pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py`
-- [ ] 3.3 Full backend suite passes: `just test-backend`
-- [ ] 3.4 Linting passes: `cd backend && uv run ruff check .`
-- [ ] 3.5 Type checking passes: `cd backend && uv run ty check`
+- [x] 3.1 Full review quality suite passes: `cd backend && uv run pytest tests/review_quality/`
+- [x] 3.2 Domain parser tests still pass: `cd backend && uv run pytest tests/domain/adr/test_required_sections.py`
+- [x] 3.3 Full backend suite passes: `just test-backend`
+- [x] 3.4 Linting passes: `cd backend && uv run ruff check .`
+- [x] 3.5 Type checking passes: `cd backend && uv run ty check`
 
 #### Manual
 

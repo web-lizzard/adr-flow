@@ -40,6 +40,15 @@ class FakeAdrRepository:
         self.searches.append((user_id, query))
         return self._results
 
+    async def list_for_owner(
+        self,
+        user_id,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ):
+        return []
+
 
 def test_search_adrs_by_title_returns_repository_matches_for_user() -> None:
     user_id = uuid4()

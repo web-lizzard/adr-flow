@@ -57,3 +57,7 @@ class AdrSummary(BaseModel):
 
 class SearchAdrsResponse(BaseModel):
     results: list[AdrSummary]
+
+
+class ListAdrsResponse(BaseModel):
+    results: list[AdrSummary]

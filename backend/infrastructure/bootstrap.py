@@ -14,6 +14,7 @@ from application.commands.update_adr_content import UpdateAdrContentCommandHandl
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
 from application.queries.get_adr import GetAdrQueryHandler
 from application.queries.get_current_user import GetCurrentUserQueryHandler
+from application.queries.list_adrs import ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
 from infrastructure.adapters.auth.password_hasher import Argon2PasswordHasher
 from infrastructure.adapters.auth.token_service import JwtTokenService
@@ -59,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     get_adr_handler = GetAdrQueryHandler(adr_repository)
     search_adrs_handler = SearchAdrsByTitleQueryHandler(adr_repository)
+    list_adrs_handler = ListAdrsQueryHandler(adr_repository)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -79,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.update_adr_content_handler = update_adr_content_handler
     app.state.get_adr_handler = get_adr_handler
     app.state.search_adrs_handler = search_adrs_handler
+    app.state.list_adrs_handler = list_adrs_handler
 
     app.add_middleware(
         CORSMiddleware,

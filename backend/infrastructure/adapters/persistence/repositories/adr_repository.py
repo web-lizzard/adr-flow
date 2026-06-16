@@ -57,6 +57,27 @@ class SqlAdrRepository(AdrRepository):
             rows = result.scalars().all()
             return [_to_read_model(row) for row in rows]
 
+    async def list_for_owner(
+        self,
+        user_id: UUID,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[AdrReadModel]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(Adr)
+                .where(
+                    Adr.user_id == user_id,
+                    Adr.is_deleted.is_(False),
+                )
+                .order_by(Adr.updated_at.desc(), Adr.id.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            rows = result.scalars().all()
+            return [_to_read_model(row) for row in rows]
+
 
 def _to_read_model(row: Adr) -> AdrReadModel:
     return AdrReadModel(

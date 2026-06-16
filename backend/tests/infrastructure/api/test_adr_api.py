@@ -247,3 +247,76 @@ def test_patch_in_review_status_returns_error(auth_client, db_engine) -> None:
 
     assert response.status_code == 400
     assert "review" in response.json()["detail"].lower()
+
+
+def test_list_adrs_returns_empty_for_new_user(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.get("/api/adrs")
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+def test_list_adrs_returns_owned_adrs_sorted_by_updated_at_desc(auth_client) -> None:
+    _register_user(auth_client)
+    first_id = _create_adr(auth_client, "First ADR")
+    second_id = _create_adr(auth_client, "Second ADR")
+
+    auth_client.patch(
+        f"/api/adrs/{first_id}",
+        json={"content": "Updated first"},
+    )
+
+    response = auth_client.get("/api/adrs")
+
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert len(results) == 2
+    assert results[0]["id"] == str(first_id)
+    assert results[1]["id"] == str(second_id)
+    assert results[0]["title"] == "First ADR"
+    assert results[0]["status"] == "draft"
+    assert "updated_at" in results[0]
+
+
+def test_list_adrs_respects_limit_and_offset(auth_client) -> None:
+    _register_user(auth_client)
+    _create_adr(auth_client, "ADR One")
+    _create_adr(auth_client, "ADR Two")
+    _create_adr(auth_client, "ADR Three")
+
+    full_response = auth_client.get("/api/adrs")
+    response = auth_client.get("/api/adrs", params={"limit": 1, "offset": 1})
+
+    assert full_response.status_code == 200
+    assert response.status_code == 200
+    full_results = full_response.json()["results"]
+    results = response.json()["results"]
+    assert len(full_results) == 3
+    assert len(results) == 1
+    assert results[0]["id"] == full_results[1]["id"]
+
+
+def test_list_adrs_does_not_return_other_users_adrs(auth_client) -> None:
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "owner@example.com", "password": "password123"},
+    )
+    auth_client.post("/api/adrs", json={"title": "Owner Only ADR"})
+    auth_client.cookies.clear()
+
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "other@example.com", "password": "password123"},
+    )
+    response = auth_client.get("/api/adrs")
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+def test_unauthenticated_list_returns_401(auth_client) -> None:
+    response = auth_client.get("/api/adrs")
+
+    assert response.status_code == 401

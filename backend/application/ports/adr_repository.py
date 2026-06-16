@@ -28,3 +28,11 @@ class AdrRepository(Protocol):
     async def search_by_title(
         self, user_id: UUID, query: str
     ) -> list[AdrReadModel]: ...
+
+    async def list_for_owner(
+        self,
+        user_id: UUID,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[AdrReadModel]: ...

@@ -1,4 +1,4 @@
-"""HTTP routes for ADR create, read, update, beacon-save, and search."""
+"""HTTP routes for ADR create, list, read, update, beacon-save, and search."""
 
 from uuid import UUID
 
@@ -11,6 +11,7 @@ from application.commands.update_adr_content import (
 )
 from application.ports.adr_repository import AdrReadModel
 from application.queries.get_adr import GetAdrQuery, GetAdrQueryHandler
+from application.queries.list_adrs import ListAdrsQuery, ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import (
     SearchAdrsByTitleQuery,
     SearchAdrsByTitleQueryHandler,
@@ -25,6 +26,7 @@ from infrastructure.api.dependencies import (
     get_create_adr_handler,
     get_current_user_id,
     get_get_adr_handler,
+    get_list_adrs_handler,
     get_search_adrs_handler,
     get_update_adr_content_handler,
 )
@@ -33,6 +35,7 @@ from infrastructure.api.schemas.adr import (
     AdrSummary,
     CreateAdrRequest,
     CreateAdrResponse,
+    ListAdrsResponse,
     SearchAdrsResponse,
     UpdateAdrRequest,
 )
@@ -57,6 +60,19 @@ async def create_adr(
         ) from None
 
     return CreateAdrResponse(id=adr_id)
+
+
+@router.get("", response_model=ListAdrsResponse)
+async def list_adrs(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user_id: UUID = Depends(get_current_user_id),
+    handler: ListAdrsQueryHandler = Depends(get_list_adrs_handler),
+) -> ListAdrsResponse:
+    results = await handler.handle(
+        ListAdrsQuery(user_id=user_id, limit=limit, offset=offset)
+    )
+    return ListAdrsResponse(results=[_to_adr_summary(adr) for adr in results])
 
 
 @router.get("/search", response_model=SearchAdrsResponse)

@@ -93,6 +93,15 @@ class FakeAdrRepository:
     async def search_by_title(self, user_id: UUID, query: str) -> list[AdrReadModel]:
         return []
 
+    async def list_for_owner(
+        self,
+        user_id: UUID,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[AdrReadModel]:
+        return []
+
 
 def _adr_read_model(
     *,

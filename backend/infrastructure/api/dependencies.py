@@ -11,6 +11,7 @@ from application.ports.token_service import TokenService
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
 from application.queries.get_adr import GetAdrQueryHandler
 from application.queries.get_current_user import GetCurrentUserQueryHandler
+from application.queries.list_adrs import ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
 from infrastructure.config import Settings
 
@@ -53,6 +54,10 @@ def get_get_adr_handler(request: Request) -> GetAdrQueryHandler:
 
 def get_search_adrs_handler(request: Request) -> SearchAdrsByTitleQueryHandler:
     return request.app.state.search_adrs_handler
+
+
+def get_list_adrs_handler(request: Request) -> ListAdrsQueryHandler:
+    return request.app.state.list_adrs_handler
 
 
 def get_current_user_id(

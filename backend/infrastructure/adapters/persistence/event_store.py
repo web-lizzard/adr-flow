@@ -18,6 +18,7 @@ from domain.adr.events import (
     AIReviewFailed,
 )
 from domain.events import DomainEvent
+from domain.user.events import UserRegistered
 from infrastructure.adapters.persistence.models import Event
 
 _EVENT_TYPES: dict[str, type[DomainEvent]] = {
@@ -28,7 +29,20 @@ _EVENT_TYPES: dict[str, type[DomainEvent]] = {
     "AIReviewFailed": AIReviewFailed,
     "ADRPublished": ADRPublished,
     "ADRSoftDeleted": ADRSoftDeleted,
+    "UserRegistered": UserRegistered,
 }
+
+# Command handlers apply these to projections in the same transaction; no async dispatch.
+SYNC_PROJECTION_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "UserRegistered",
+        "ADRCreated",
+        "ADRContentUpdated",
+    }
+)
+
+# Only these event types are replayed by the async dispatcher.
+ASYNC_DISPATCH_EVENT_TYPES: frozenset[str] = frozenset({"ADRSubmittedForReview"})
 
 
 class SqlEventStore(EventStore):
@@ -40,15 +54,17 @@ class SqlEventStore(EventStore):
         events: list,
         aggregate_id: UUID,
         aggregate_type: str,
-    ) -> None:
+    ) -> list[StoredEvent]:
         if not events:
-            return
+            return []
 
+        stored: list[StoredEvent] = []
         for event in events:
             event_type, payload, occurred_at = _serialize_event(event)
+            event_id = uuid4()
             self._session.add(
                 Event(
-                    id=uuid4(),
+                    id=event_id,
                     aggregate_type=aggregate_type,
                     aggregate_id=aggregate_id,
                     event_type=event_type,
@@ -57,11 +73,22 @@ class SqlEventStore(EventStore):
                     processed_at=None,
                 )
             )
+            stored.append(
+                StoredEvent(
+                    id=event_id,
+                    aggregate_type=aggregate_type,
+                    aggregate_id=aggregate_id,
+                    event=event,
+                    occurred_at=occurred_at,
+                )
+            )
+        return stored
 
     async def load_unprocessed(self, *, limit: int = 100) -> list[StoredEvent]:
         result = await self._session.execute(
             select(Event)
             .where(Event.processed_at.is_(None))
+            .where(Event.event_type.in_(ASYNC_DISPATCH_EVENT_TYPES))
             .order_by(Event.occurred_at.asc(), Event.id.asc())
             .limit(limit)
         )
@@ -71,6 +98,16 @@ class SqlEventStore(EventStore):
     async def mark_processed(self, event_id: UUID, *, processed_at: datetime) -> None:
         await self._session.execute(
             update(Event).where(Event.id == event_id).values(processed_at=processed_at)
+        )
+
+    async def mark_sync_projection_events_processed(
+        self, *, processed_at: datetime
+    ) -> None:
+        await self._session.execute(
+            update(Event)
+            .where(Event.processed_at.is_(None))
+            .where(Event.event_type.in_(SYNC_PROJECTION_EVENT_TYPES))
+            .values(processed_at=processed_at)
         )
 
 

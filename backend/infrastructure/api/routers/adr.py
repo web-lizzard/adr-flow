@@ -5,12 +5,21 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from application.commands.create_adr import CreateAdrCommand, CreateAdrCommandHandler
+from application.commands.submit_adr_for_review import (
+    SubmitAdrForReviewCommand,
+    SubmitAdrForReviewCommandHandler,
+)
 from application.commands.update_adr_content import (
     UpdateAdrContentCommand,
     UpdateAdrContentCommandHandler,
 )
 from application.ports.adr_repository import AdrReadModel
 from application.queries.get_adr import GetAdrQuery, GetAdrQueryHandler
+from application.queries.get_adr_review_status import (
+    AdrReviewStatus,
+    GetAdrReviewStatusQuery,
+    GetAdrReviewStatusQueryHandler,
+)
 from application.queries.list_adrs import ListAdrsQuery, ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import (
     SearchAdrsByTitleQuery,
@@ -26,8 +35,10 @@ from infrastructure.api.dependencies import (
     get_create_adr_handler,
     get_current_user_id,
     get_get_adr_handler,
+    get_get_adr_review_status_handler,
     get_list_adrs_handler,
     get_search_adrs_handler,
+    get_submit_adr_for_review_handler,
     get_update_adr_content_handler,
 )
 from infrastructure.api.schemas.adr import (
@@ -38,11 +49,51 @@ from infrastructure.api.schemas.adr import (
     ListAdrsResponse,
     ReviewAnnotationResponse,
     ReviewErrorResponse,
+    ReviewStatusResponse,
     SearchAdrsResponse,
     UpdateAdrRequest,
 )
 
 router = APIRouter(prefix="/adrs", tags=["adrs"])
+
+
+@router.post("/{adr_id}/submit-review", status_code=202)
+async def submit_adr_for_review(
+    adr_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    handler: SubmitAdrForReviewCommandHandler = Depends(
+        get_submit_adr_for_review_handler
+    ),
+) -> Response:
+    try:
+        await handler.handle(SubmitAdrForReviewCommand(adr_id=adr_id, user_id=user_id))
+    except AdrNotFound:
+        raise HTTPException(status_code=404, detail="ADR not found") from None
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=exc.message or exc.kind,
+        ) from None
+
+    return Response(status_code=202)
+
+
+@router.get("/{adr_id}/review-status", response_model=ReviewStatusResponse)
+async def get_adr_review_status(
+    adr_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    handler: GetAdrReviewStatusQueryHandler = Depends(
+        get_get_adr_review_status_handler
+    ),
+) -> ReviewStatusResponse:
+    try:
+        status = await handler.handle(
+            GetAdrReviewStatusQuery(adr_id=adr_id, user_id=user_id)
+        )
+    except AdrNotFound:
+        raise HTTPException(status_code=404, detail="ADR not found") from None
+
+    return _to_review_status_response(status)
 
 
 @router.post("", status_code=201, response_model=CreateAdrResponse)
@@ -170,6 +221,17 @@ async def _handle_update(
             status_code=400,
             detail=exc.message or exc.kind,
         ) from None
+
+
+def _to_review_status_response(status: AdrReviewStatus) -> ReviewStatusResponse:
+    return ReviewStatusResponse(
+        status=status.status,
+        reviewed_at=status.reviewed_at,
+        review_error=ReviewErrorResponse.from_metadata(status.review_error)
+        if status.review_error is not None
+        else None,
+        annotation_counts=status.annotation_counts,
+    )
 
 
 def _to_adr_response(adr: AdrReadModel) -> AdrResponse:

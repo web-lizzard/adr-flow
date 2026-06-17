@@ -1,5 +1,6 @@
 """ADR API integration tests."""
 
+import time
 from uuid import UUID
 
 from domain.adr.template import ADR_STARTER_TEMPLATE
@@ -320,3 +321,97 @@ def test_unauthenticated_list_returns_401(auth_client) -> None:
     response = auth_client.get("/api/adrs")
 
     assert response.status_code == 401
+
+
+def _wait_for_review_status(
+    auth_client, adr_id: UUID, *, expected: str, timeout: float = 3.0
+) -> dict:
+    deadline = time.monotonic() + timeout
+    drain_event_bus_once = getattr(
+        auth_client.app.state,
+        "drain_event_bus_once",
+        None,
+    )
+    event_bus = getattr(auth_client.app.state, "event_bus", None)
+    if event_bus is not None:
+        auth_client.portal.call(event_bus.stop_worker)
+    while time.monotonic() < deadline:
+        if drain_event_bus_once is not None:
+            auth_client.portal.call(drain_event_bus_once)
+        response = auth_client.get(f"/api/adrs/{adr_id}/review-status")
+        assert response.status_code == 200
+        body = response.json()
+        if body["status"] == expected:
+            return body
+        time.sleep(0.05)
+    msg = f"Timed out waiting for review status {expected}"
+    raise AssertionError(msg)
+
+
+def test_submit_review_moves_draft_to_in_review_and_completes(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+
+    assert response.status_code == 202
+    assert response.content == b""
+
+    in_review = auth_client.get(f"/api/adrs/{adr_id}/review-status").json()
+    assert in_review["status"] == "in_review"
+    assert in_review["review_error"] is None
+
+    completed = _wait_for_review_status(auth_client, adr_id, expected="after_review")
+    assert completed["reviewed_at"] is not None
+    assert completed["annotation_counts"] is not None
+    assert completed["annotation_counts"].get("missing_section", 0) >= 1
+
+    adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert adr["status"] == "after_review"
+    assert adr["review_annotations"] is not None
+
+
+def test_submit_review_rejects_non_draft_status(auth_client, db_engine) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    with db_engine.begin() as connection:
+        connection.execute(
+            text("UPDATE adrs SET status = 'after_review' WHERE id = :id"),
+            {"id": str(adr_id)},
+        )
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+
+    assert response.status_code == 400
+
+
+def test_submit_review_returns_404_for_missing_adr(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/submit-review")
+
+    assert response.status_code == 404
+
+
+def test_unauthenticated_submit_review_returns_401(auth_client) -> None:
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/submit-review")
+
+    assert response.status_code == 401
+
+
+def test_review_status_returns_404_for_other_users_adr(auth_client) -> None:
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "owner@example.com", "password": "password123"},
+    )
+    adr_id = _create_adr(auth_client, "Private ADR")
+    auth_client.cookies.clear()
+
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "intruder@example.com", "password": "password123"},
+    )
+    response = auth_client.get(f"/api/adrs/{adr_id}/review-status")
+
+    assert response.status_code == 404

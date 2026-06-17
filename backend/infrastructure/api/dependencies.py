@@ -6,10 +6,12 @@ from fastapi import Depends, HTTPException, Request
 
 from application.commands.create_adr import CreateAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
+from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.ports.token_service import TokenService
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
 from application.queries.get_adr import GetAdrQueryHandler
+from application.queries.get_adr_review_status import GetAdrReviewStatusQueryHandler
 from application.queries.get_current_user import GetCurrentUserQueryHandler
 from application.queries.list_adrs import ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
@@ -46,6 +48,18 @@ def get_update_adr_content_handler(
     request: Request,
 ) -> UpdateAdrContentCommandHandler:
     return request.app.state.update_adr_content_handler
+
+
+def get_submit_adr_for_review_handler(
+    request: Request,
+) -> SubmitAdrForReviewCommandHandler:
+    return request.app.state.submit_adr_for_review_handler
+
+
+def get_get_adr_review_status_handler(
+    request: Request,
+) -> GetAdrReviewStatusQueryHandler:
+    return request.app.state.get_adr_review_status_handler
 
 
 def get_get_adr_handler(request: Request) -> GetAdrQueryHandler:

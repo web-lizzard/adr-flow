@@ -573,7 +573,7 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 - [x] 2.8 With fake reviewer or local OpenAI-compatible provider enabled, submit a draft via API and confirm status moves to `in_review` immediately, the `202` response is not delayed by review work, then status moves to `after_review` with annotations
 - [x] 2.9 Simulate an invalid fake/provider output and confirm status remains `in_review` with review error metadata visible from `review-status`
-- [ ] 2.10 Restart the API with an unprocessed review event and confirm replay processes it once
+- [x] 2.10 Restart the API with an unprocessed review event and confirm replay processes it once
 
 ### Phase 3: Frontend Submit, Polling, And Annotation Panel
 
@@ -587,29 +587,29 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Manual
 
-- [ ] 3.6 Draft page shows "Publish for review"; clicking it saves pending edits and starts review
-- [ ] 3.7 `in_review` page is read-only and shows simple reviewing copy while polling
-- [ ] 3.8 When polling sees completion, the page refetches and shows `after_review` annotations
-- [ ] 3.9 `after_review` ADR remains editable and saving does not trigger another review
-- [ ] 3.10 Review failure metadata appears as a clear recoverable error state
+- [x] 3.6 Draft page shows "Publish for review"; clicking it saves pending edits and starts review
+- [x] 3.7 `in_review` page is read-only and shows simple reviewing copy while polling
+- [x] 3.8 When polling sees completion, the page refetches and shows `after_review` annotations
+- [x] 3.9 `after_review` ADR remains editable and saving does not trigger another review
+- [x] 3.10 Review failure metadata appears as a clear recoverable error state
 
 ### Phase 4: End-to-End Verification And Guardrails
 
 #### Automated
 
-- [ ] 4.1 Backend review-quality tests pass: `cd backend && uv run pytest tests/review_quality/`
-- [ ] 4.2 Backend API and runtime tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py tests/application/`
-- [ ] 4.3 TaskGroup bus lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py`
-- [ ] 4.4 Provider adapter tests pass: `cd backend && uv run pytest tests/infrastructure/llm/`
-- [ ] 4.5 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 4.6 Backend type check passes: `cd backend && uv run ty check`
-- [ ] 4.7 Frontend review tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts tests/adr-editor-page.test.ts tests/adr-review-annotations.test.ts`
-- [ ] 4.8 Frontend lint passes: `cd frontend && pnpm run lint`
-- [ ] 4.9 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 4.1 Backend review-quality tests pass: `cd backend && uv run pytest tests/review_quality/`
+- [x] 4.2 Backend API and runtime tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py tests/application/`
+- [x] 4.3 TaskGroup bus lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py`
+- [x] 4.4 Provider adapter tests pass: `cd backend && uv run pytest tests/infrastructure/llm/`
+- [x] 4.5 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 4.6 Backend type check passes: `cd backend && uv run ty check`
+- [x] 4.7 Frontend review tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts tests/adr-editor-page.test.ts tests/adr-review-annotations.test.ts`
+- [x] 4.8 Frontend lint passes: `cd frontend && pnpm run lint`
+- [x] 4.9 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
 
 #### Manual
 
-- [ ] 4.10 Run the full local flow with the local OpenAI-compatible provider or fake reviewer: create ADR, edit, publish for review, wait, see `after_review` annotations, edit after review, and confirm no re-review starts
-- [ ] 4.11 Run one failure scenario with fake invalid output and confirm the page shows recoverable review error metadata
-- [ ] 4.12 Confirm submit returns quickly and review work continues after the request returns
-- [ ] 4.13 Confirm no live OpenRouter key is required for automated tests or local OpenAI-compatible development
+- [x] 4.10 Run the full local flow with the local OpenAI-compatible provider or fake reviewer: create ADR, edit, publish for review, wait, see `after_review` annotations, edit after review, and confirm no re-review starts
+- [x] 4.11 Run one failure scenario with fake invalid output and confirm the page shows recoverable review error metadata
+- [x] 4.12 Confirm submit returns quickly and review work continues after the request returns
+- [x] 4.13 Confirm no live OpenRouter key is required for automated tests or local OpenAI-compatible development

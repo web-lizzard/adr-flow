@@ -116,4 +116,23 @@ describe("useAdrReviewPolling", () => {
     expect(pollError.value).toContain("Refresh the page");
     expect(pauseMock).toHaveBeenCalled();
   });
+
+  it("loads full ADR after polling sees after_review status", async () => {
+    const { adr, currentAdr, refreshReviewStatus, load } = createAdrStub();
+    const adrId = ref("adr-1");
+
+    refreshReviewStatus.mockImplementation(async () => {
+      currentAdr.value = {
+        ...currentAdr.value,
+        status: "after_review",
+        reviewedAt: "2026-06-16T12:00:00Z",
+      };
+    });
+
+    useAdrReviewPolling(adrId, adr as never);
+    await pollTick?.();
+
+    expect(load).toHaveBeenCalledWith("adr-1");
+    expect(refreshReviewStatus).toHaveBeenCalledWith("adr-1");
+  });
 });

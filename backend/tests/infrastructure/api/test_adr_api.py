@@ -1,8 +1,10 @@
 """ADR API integration tests."""
 
 import time
+from typing import Any, cast
 from uuid import UUID
 
+import pytest
 from domain.adr.template import ADR_STARTER_TEMPLATE
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -323,6 +325,26 @@ def test_unauthenticated_list_returns_401(auth_client) -> None:
     assert response.status_code == 401
 
 
+def _portal_call(client: TestClient, fn, *args):
+    portal = client.portal
+    assert portal is not None
+    return portal.call(fn, *args)
+
+
+def _stop_event_worker(client: TestClient) -> None:
+    app = cast(Any, client.app)
+    event_bus = getattr(app.state, "event_bus", None)
+    if event_bus is not None:
+        _portal_call(client, event_bus.stop_worker)
+
+
+def _drain_event_bus(client: TestClient) -> int:
+    app = cast(Any, client.app)
+    drain = getattr(app.state, "drain_event_bus_once", None)
+    assert drain is not None
+    return _portal_call(client, drain)
+
+
 def _wait_for_review_status(
     auth_client, adr_id: UUID, *, expected: str, timeout: float = 3.0
 ) -> dict:
@@ -415,3 +437,216 @@ def test_review_status_returns_404_for_other_users_adr(auth_client) -> None:
     response = auth_client.get(f"/api/adrs/{adr_id}/review-status")
 
     assert response.status_code == 404
+
+
+def test_submit_review_returns_404_for_other_users_adr(auth_client) -> None:
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "owner@example.com", "password": "password123"},
+    )
+    adr_id = _create_adr(auth_client, "Private ADR")
+    auth_client.cookies.clear()
+
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "intruder@example.com", "password": "password123"},
+    )
+    response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+
+    assert response.status_code == 404
+
+
+def test_review_status_exposes_failure_metadata_after_invalid_review(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime
+
+    from domain.adr.value_objects import ReviewResult
+    from fastapi.testclient import TestClient
+
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class InvalidReviewer:
+        async def review(self, markdown: str) -> ReviewResult:
+            return ReviewResult(
+                annotations=(),
+                reviewed_at=datetime.now(UTC),
+            )
+
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_llm_reviewer",
+        lambda _settings: InvalidReviewer(),
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        cookie_secure=False,
+        cookie_path="/api",
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        client.post(
+            "/api/auth/register",
+            json={"email": "invalid-review@example.com", "password": "password123"},
+        )
+        adr_id = _create_adr(client, "Invalid Review ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        failed = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert failed["status"] == "in_review"
+        assert failed["review_error"] is not None
+        assert failed["review_error"]["code"] == "validation_failed"
+        assert failed["review_error"]["message"]
+
+        adr = client.get(f"/api/adrs/{adr_id}").json()
+        assert adr["status"] == "in_review"
+        assert adr["review_error"] is not None
+
+
+def test_submit_review_returns_202_before_review_work_completes(auth_client) -> None:
+    _stop_event_worker(auth_client)
+
+    _register_user(auth_client, email="fast-submit@example.com")
+    adr_id = _create_adr(auth_client, "Fast Submit ADR")
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+    assert response.status_code == 202
+
+    in_review = auth_client.get(f"/api/adrs/{adr_id}/review-status").json()
+    assert in_review["status"] == "in_review"
+    assert in_review["review_error"] is None
+    assert in_review["reviewed_at"] is None
+
+
+class _CountingInvalidReviewer:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def review(self, markdown: str):
+        from datetime import UTC, datetime
+
+        from domain.adr.value_objects import ReviewResult
+
+        self.calls += 1
+        return ReviewResult(
+            annotations=(),
+            reviewed_at=datetime.now(UTC),
+        )
+
+
+def test_replay_processes_unprocessed_submit_event(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    reviewer = _CountingInvalidReviewer()
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_llm_reviewer",
+        lambda _settings: reviewer,
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        cookie_secure=False,
+        cookie_path="/api",
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        client.post(
+            "/api/auth/register",
+            json={"email": "replay@example.com", "password": "password123"},
+        )
+        adr_id = _create_adr(client, "Replay ADR")
+        response = client.post(f"/api/adrs/{adr_id}/submit-review")
+        assert response.status_code == 202
+
+        status = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert status["status"] == "in_review"
+        assert reviewer.calls == 0
+
+        _drain_event_bus(client)
+
+        assert reviewer.calls == 2
+        failed = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert failed["status"] == "in_review"
+        assert failed["review_error"] is not None
+
+
+def test_replay_does_not_duplicate_completed_review(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        cookie_secure=False,
+        cookie_path="/api",
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        client.post(
+            "/api/auth/register",
+            json={"email": "idempotent@example.com", "password": "password123"},
+        )
+        adr_id = _create_adr(client, "Idempotent ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        completed = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert completed["status"] == "after_review"
+
+        with db_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE events SET processed_at = NULL "
+                    "WHERE event_type = 'ADRSubmittedForReview' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            )
+
+        _drain_event_bus(client)
+
+        adr = client.get(f"/api/adrs/{adr_id}").json()
+        assert adr["status"] == "after_review"
+        annotation_count = len(adr["review_annotations"] or [])
+        assert annotation_count >= 1
+
+        _drain_event_bus(client)
+        adr_after_replay = client.get(f"/api/adrs/{adr_id}").json()
+        assert len(adr_after_replay["review_annotations"] or []) == annotation_count

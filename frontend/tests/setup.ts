@@ -7,3 +7,10 @@ Object.assign(globalThis, {
   onMounted,
   defineStore,
 });
+
+import { onUnmounted, watch } from "vue";
+
+Object.assign(globalThis, {
+  onUnmounted,
+  watch,
+});

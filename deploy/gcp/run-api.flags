@@ -19,4 +19,4 @@
 --subnet=adr-flow-cloud-run
 --allow-unauthenticated
 --set-secrets=DATABASE_URL=db-url:latest,JWT_SECRET=jwt-secret:latest,OPENROUTER_API_KEY=openrouter-key:latest
---set-env-vars=CORS_ORIGINS=https://placeholder.run.app,COOKIE_SECURE=true,COOKIE_PATH=/api
+--set-env-vars=CORS_ORIGINS=https://placeholder.run.app,COOKIE_SECURE=true,COOKIE_PATH=/api,LLM_PROVIDER=openrouter,LLM_MODEL=openai/gpt-4o-mini,LLM_TIMEOUT_SECONDS=60

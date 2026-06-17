@@ -249,6 +249,33 @@ describe("ADR editor page", () => {
     expect(wrapper.text()).not.toContain("Checking for review results");
   });
 
+  it("shows annotations after review completes via polling", async () => {
+    currentAdr.value = baseAdr({ status: "in_review" });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Checking for review results");
+
+    currentAdr.value = baseAdr({
+      status: "after_review",
+      reviewAnnotations: [
+        {
+          kind: "missing_section",
+          message: "Add a Decision section",
+          location: "## Decision",
+          suggestion: "Document the chosen option.",
+        },
+      ],
+      reviewedAt: "2026-06-16T12:00:00Z",
+    });
+    await flushPromises();
+
+    expect(wrapper.findComponent(AdrReviewAnnotations).exists()).toBe(true);
+    expect(wrapper.text()).toContain("Add a Decision section");
+    expect(wrapper.text()).not.toContain("Checking for review results");
+  });
+
   it("links back to the workspace", async () => {
     currentAdr.value = baseAdr({ title: "My ADR" });
 

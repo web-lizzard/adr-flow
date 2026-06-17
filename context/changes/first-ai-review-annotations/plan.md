@@ -546,16 +546,16 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Automated
 
-- [x] 1.1 Migration applies cleanly: `cd backend && uv run alembic upgrade head`
-- [x] 1.2 Metadata and persistence tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/`
-- [x] 1.3 Review validation tests pass: `cd backend && uv run pytest tests/review_quality/ tests/domain/adr/test_required_sections.py`
-- [x] 1.4 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 1.5 Backend type check passes: `cd backend && uv run ty check`
+- [x] 1.1 Migration applies cleanly: `cd backend && uv run alembic upgrade head` — 79c4428
+- [x] 1.2 Metadata and persistence tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/` — 79c4428
+- [x] 1.3 Review validation tests pass: `cd backend && uv run pytest tests/review_quality/ tests/domain/adr/test_required_sections.py` — 79c4428
+- [x] 1.4 Backend lint passes: `cd backend && uv run ruff check .` — 79c4428
+- [x] 1.5 Backend type check passes: `cd backend && uv run ty check` — 79c4428
 
 #### Manual
 
-- [ ] 1.6 Inspect the generated API schema for review annotation and review-status response fields
-- [ ] 1.7 Confirm production code imports no modules from `backend/tests/`
+- [x] 1.6 Inspect the generated API schema for review annotation and review-status response fields — 79c4428
+- [x] 1.7 Confirm production code imports no modules from `backend/tests/` — 79c4428
 
 ### Phase 2: Submit API, Async Worker, And LLM Adapter
 

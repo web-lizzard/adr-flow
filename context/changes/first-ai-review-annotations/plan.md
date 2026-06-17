@@ -597,19 +597,19 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Automated
 
-- [x] 4.1 Backend review-quality tests pass: `cd backend && uv run pytest tests/review_quality/`
-- [x] 4.2 Backend API and runtime tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py tests/application/`
-- [x] 4.3 TaskGroup bus lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py`
-- [x] 4.4 Provider adapter tests pass: `cd backend && uv run pytest tests/infrastructure/llm/`
-- [x] 4.5 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 4.6 Backend type check passes: `cd backend && uv run ty check`
-- [x] 4.7 Frontend review tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts tests/adr-editor-page.test.ts tests/adr-review-annotations.test.ts`
-- [x] 4.8 Frontend lint passes: `cd frontend && pnpm run lint`
-- [x] 4.9 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 4.1 Backend review-quality tests pass: `cd backend && uv run pytest tests/review_quality/` — 5dea29a
+- [x] 4.2 Backend API and runtime tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py tests/application/` — 5dea29a
+- [x] 4.3 TaskGroup bus lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py` — 5dea29a
+- [x] 4.4 Provider adapter tests pass: `cd backend && uv run pytest tests/infrastructure/llm/` — 5dea29a
+- [x] 4.5 Backend lint passes: `cd backend && uv run ruff check .` — 5dea29a
+- [x] 4.6 Backend type check passes: `cd backend && uv run ty check` — 5dea29a
+- [x] 4.7 Frontend review tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts tests/adr-editor-page.test.ts tests/adr-review-annotations.test.ts` — 5dea29a
+- [x] 4.8 Frontend lint passes: `cd frontend && pnpm run lint` — 5dea29a
+- [x] 4.9 Frontend typecheck passes: `cd frontend && pnpm run typecheck` — 5dea29a
 
 #### Manual
 
-- [x] 4.10 Run the full local flow with the local OpenAI-compatible provider or fake reviewer: create ADR, edit, publish for review, wait, see `after_review` annotations, edit after review, and confirm no re-review starts
-- [x] 4.11 Run one failure scenario with fake invalid output and confirm the page shows recoverable review error metadata
-- [x] 4.12 Confirm submit returns quickly and review work continues after the request returns
-- [x] 4.13 Confirm no live OpenRouter key is required for automated tests or local OpenAI-compatible development
+- [x] 4.10 Run the full local flow with the local OpenAI-compatible provider or fake reviewer: create ADR, edit, publish for review, wait, see `after_review` annotations, edit after review, and confirm no re-review starts — 5dea29a
+- [x] 4.11 Run one failure scenario with fake invalid output and confirm the page shows recoverable review error metadata — 5dea29a
+- [x] 4.12 Confirm submit returns quickly and review work continues after the request returns — 5dea29a
+- [x] 4.13 Confirm no live OpenRouter key is required for automated tests or local OpenAI-compatible development — 5dea29a

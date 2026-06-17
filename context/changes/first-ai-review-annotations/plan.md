@@ -579,11 +579,11 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Automated
 
-- [x] 3.1 Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts`
-- [x] 3.2 Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
-- [x] 3.3 Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts`
-- [x] 3.4 Frontend lint passes: `cd frontend && pnpm run lint`
-- [x] 3.5 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 3.1 Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts` — 7d6dcf3
+- [x] 3.2 Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts` — 7d6dcf3
+- [x] 3.3 Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts` — 7d6dcf3
+- [x] 3.4 Frontend lint passes: `cd frontend && pnpm run lint` — 7d6dcf3
+- [x] 3.5 Frontend typecheck passes: `cd frontend && pnpm run typecheck` — 7d6dcf3
 
 #### Manual
 

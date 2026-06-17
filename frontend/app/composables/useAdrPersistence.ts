@@ -7,15 +7,23 @@ const BEACON_PAYLOAD_WARNING_BYTES = 60 * 1024;
 export function useAdrPersistence(
   adrId: Ref<string>,
   store: ReturnType<typeof useAdrStore>,
+  isSubmitting?: Ref<boolean>,
 ) {
+  const isReviewEditable = computed(
+    () =>
+      store.currentAdr?.status !== "in_review" &&
+      !(isSubmitting?.value ?? false),
+  );
+
   async function saveOnBlur() {
-    if (store.isDirty) {
-      await store.save();
+    if (!isReviewEditable.value || !store.isDirty) {
+      return;
     }
+    await store.save();
   }
 
   function beaconSave() {
-    if (!store.isDirty || !store.currentAdr) {
+    if (!isReviewEditable.value || !store.isDirty || !store.currentAdr) {
       return;
     }
 
@@ -42,7 +50,7 @@ export function useAdrPersistence(
   }
 
   function warnIfBeaconIsRisky(event: BeforeUnloadEvent) {
-    if (!store.isDirty || !store.currentAdr) {
+    if (!isReviewEditable.value || !store.isDirty || !store.currentAdr) {
       return;
     }
 
@@ -69,5 +77,6 @@ export function useAdrPersistence(
 
   return {
     saveOnBlur,
+    isReviewEditable,
   };
 }

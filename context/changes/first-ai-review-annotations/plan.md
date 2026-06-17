@@ -359,7 +359,7 @@ Add the user-facing review workflow in Nuxt: submit CTA, read-only wait state, p
 
 **Intent**: Add the submit/review UX to the existing ADR editor.
 
-**Contract**: Show "Publish for review" only for `draft`, disable it while loading/dirty save is pending, save dirty changes before submit, show simple read-only reviewing copy while `in_review`, poll using the new composable, keep `after_review` editable, prevent autosave/beacon persistence while `in_review`, and display the annotation panel when review annotations or review error metadata exist.
+**Contract**: Show "Publish for review" only for `draft`, disable it while loading/dirty save is pending, save dirty changes before submit, show simple read-only reviewing copy while `in_review`, poll using the new composable, keep `after_review` editable, prevent autosave/beacon persistence while `in_review`, and display the annotation panel when review annotations or review error metadata exist. **Addendum (impl-review):** also show the panel for all `after_review` ADRs so the component can render its "No review annotations" empty state after a clean review.
 
 ### Success Criteria:
 
@@ -571,19 +571,19 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Manual
 
-- [ ] 2.8 With fake reviewer or local OpenAI-compatible provider enabled, submit a draft via API and confirm status moves to `in_review` immediately, the `202` response is not delayed by review work, then status moves to `after_review` with annotations
-- [ ] 2.9 Simulate an invalid fake/provider output and confirm status remains `in_review` with review error metadata visible from `review-status`
+- [x] 2.8 With fake reviewer or local OpenAI-compatible provider enabled, submit a draft via API and confirm status moves to `in_review` immediately, the `202` response is not delayed by review work, then status moves to `after_review` with annotations
+- [x] 2.9 Simulate an invalid fake/provider output and confirm status remains `in_review` with review error metadata visible from `review-status`
 - [ ] 2.10 Restart the API with an unprocessed review event and confirm replay processes it once
 
 ### Phase 3: Frontend Submit, Polling, And Annotation Panel
 
 #### Automated
 
-- [ ] 3.1 Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts`
-- [ ] 3.2 Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
-- [ ] 3.3 Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts`
-- [ ] 3.4 Frontend lint passes: `cd frontend && pnpm run lint`
-- [ ] 3.5 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 3.1 Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts`
+- [x] 3.2 Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
+- [x] 3.3 Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts`
+- [x] 3.4 Frontend lint passes: `cd frontend && pnpm run lint`
+- [x] 3.5 Frontend typecheck passes: `cd frontend && pnpm run typecheck`
 
 #### Manual
 

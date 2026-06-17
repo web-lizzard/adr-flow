@@ -7,6 +7,8 @@ const fetchAdrMock = vi.fn();
 const updateAdrMock = vi.fn();
 const searchAdrsMock = vi.fn();
 const listAdrsMock = vi.fn();
+const submitAdrForReviewMock = vi.fn();
+const fetchAdrReviewStatusMock = vi.fn();
 
 vi.mock("../composables/useApi", () => ({
   createAdr: (...args: unknown[]) => createAdrMock(...args),
@@ -14,6 +16,9 @@ vi.mock("../composables/useApi", () => ({
   updateAdr: (...args: unknown[]) => updateAdrMock(...args),
   searchAdrs: (...args: unknown[]) => searchAdrsMock(...args),
   listAdrs: (...args: unknown[]) => listAdrsMock(...args),
+  submitAdrForReview: (...args: unknown[]) => submitAdrForReviewMock(...args),
+  fetchAdrReviewStatus: (...args: unknown[]) =>
+    fetchAdrReviewStatusMock(...args),
 }));
 
 const navigateToMock = vi.fn();
@@ -36,6 +41,8 @@ describe("useAdrStore", () => {
     updateAdrMock.mockReset();
     searchAdrsMock.mockReset();
     listAdrsMock.mockReset();
+    submitAdrForReviewMock.mockReset();
+    fetchAdrReviewStatusMock.mockReset();
     navigateToMock.mockReset();
   });
 
@@ -55,6 +62,9 @@ describe("useAdrStore", () => {
       status: "draft",
       createdAt: "2026-06-16T10:00:00Z",
       updatedAt: "2026-06-16T10:00:00Z",
+      reviewAnnotations: null,
+      reviewedAt: null,
+      reviewError: null,
     });
     expect(store.isDirty).toBe(false);
     expect(navigateToMock).toHaveBeenCalledWith("/workspace/adr/adr-1");
@@ -249,5 +259,73 @@ describe("useAdrStore", () => {
 
     store.updateTitle("Renamed ADR");
     expect(store.isDirty).toBe(true);
+  });
+
+  it("load(id) maps review annotations, reviewedAt, and reviewError from API", async () => {
+    fetchAdrMock.mockResolvedValue({
+      ...sampleAdr,
+      status: "after_review",
+      review_annotations: [
+        {
+          kind: "missing_section",
+          message: "Add a Consequences section",
+          location: "## Consequences",
+          suggestion: "Describe trade-offs",
+        },
+      ],
+      reviewed_at: "2026-06-16T12:00:00Z",
+      review_error: null,
+    });
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+
+    expect(store.currentAdr?.reviewAnnotations).toEqual([
+      {
+        kind: "missing_section",
+        message: "Add a Consequences section",
+        location: "## Consequences",
+        suggestion: "Describe trade-offs",
+      },
+    ]);
+    expect(store.currentAdr?.reviewedAt).toBe("2026-06-16T12:00:00Z");
+    expect(store.currentAdr?.reviewError).toBeNull();
+  });
+
+  it("submitForReview(id) calls submit-review and reloads the ADR", async () => {
+    fetchAdrMock.mockResolvedValueOnce(sampleAdr).mockResolvedValueOnce({
+      ...sampleAdr,
+      status: "in_review",
+      review_annotations: null,
+      reviewed_at: null,
+      review_error: null,
+    });
+    submitAdrForReviewMock.mockResolvedValue(undefined);
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    await store.submitForReview("adr-1");
+
+    expect(submitAdrForReviewMock).toHaveBeenCalledWith("adr-1");
+    expect(fetchAdrMock).toHaveBeenCalledTimes(2);
+    expect(store.currentAdr?.status).toBe("in_review");
+  });
+
+  it("refreshReviewStatus(id) updates status metadata from review-status endpoint", async () => {
+    fetchAdrMock.mockResolvedValue(sampleAdr);
+    fetchAdrReviewStatusMock.mockResolvedValue({
+      status: "after_review",
+      reviewed_at: "2026-06-16T12:00:00Z",
+      review_error: null,
+      annotation_counts: { missing_section: 1 },
+    });
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    await store.refreshReviewStatus("adr-1");
+
+    expect(fetchAdrReviewStatusMock).toHaveBeenCalledWith("adr-1");
+    expect(store.currentAdr?.status).toBe("after_review");
+    expect(store.currentAdr?.reviewedAt).toBe("2026-06-16T12:00:00Z");
   });
 });

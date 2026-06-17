@@ -1,12 +1,18 @@
 import {
   createAdr,
   fetchAdr,
+  fetchAdrReviewStatus,
   listAdrs,
   searchAdrs,
+  submitAdrForReview,
   updateAdr,
   type AdrResponse,
   type AdrSummary,
+  type ReviewAnnotation,
+  type ReviewError,
 } from "../../composables/useApi";
+
+export type { ReviewAnnotation, ReviewError };
 
 export type Adr = {
   id: string;
@@ -15,6 +21,9 @@ export type Adr = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  reviewAnnotations: ReviewAnnotation[] | null;
+  reviewedAt: string | null;
+  reviewError: ReviewError | null;
 };
 
 export type AdrListItem = {
@@ -32,6 +41,9 @@ function toAdr(response: AdrResponse): Adr {
     status: response.status,
     createdAt: response.created_at,
     updatedAt: response.updated_at,
+    reviewAnnotations: response.review_annotations ?? null,
+    reviewedAt: response.reviewed_at ?? null,
+    reviewError: response.review_error ?? null,
   };
 }
 
@@ -168,6 +180,29 @@ export const useAdrStore = defineStore("adr", () => {
     }
   }
 
+  async function submitForReview(id: string): Promise<void> {
+    loading.value = true;
+    try {
+      await submitAdrForReview(id);
+      await load(id);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function refreshReviewStatus(id: string): Promise<void> {
+    const status = await fetchAdrReviewStatus(id);
+    if (!currentAdr.value || currentAdr.value.id !== id) {
+      return;
+    }
+    currentAdr.value = {
+      ...currentAdr.value,
+      status: status.status,
+      reviewedAt: status.reviewed_at ?? null,
+      reviewError: status.review_error ?? null,
+    };
+  }
+
   return {
     currentAdr,
     adrs,
@@ -180,6 +215,8 @@ export const useAdrStore = defineStore("adr", () => {
     load,
     save,
     searchByTitle,
+    submitForReview,
+    refreshReviewStatus,
     updateTitle,
     updateContent,
   };

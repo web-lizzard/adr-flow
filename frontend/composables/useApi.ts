@@ -2,6 +2,25 @@ export type HealthResponse = {
   status: string;
 };
 
+export type ReviewAnnotationKind =
+  | "missing_section"
+  | "inconsistency"
+  | "conciseness";
+
+export type ReviewAnnotation = {
+  kind: ReviewAnnotationKind;
+  message: string;
+  location?: string | null;
+  suggestion?: string | null;
+};
+
+export type ReviewError = {
+  source_event_id: string;
+  code: string;
+  message: string;
+  failed_at: string;
+};
+
 export type AdrResponse = {
   id: string;
   title: string;
@@ -9,6 +28,16 @@ export type AdrResponse = {
   status: string;
   created_at: string;
   updated_at: string;
+  review_annotations?: ReviewAnnotation[] | null;
+  reviewed_at?: string | null;
+  review_error?: ReviewError | null;
+};
+
+export type ReviewStatusResponse = {
+  status: string;
+  reviewed_at?: string | null;
+  review_error?: ReviewError | null;
+  annotation_counts?: Record<string, number> | null;
 };
 
 export type CreateAdrResponse = {
@@ -70,4 +99,14 @@ export function searchAdrs(query: string) {
 
 export function listAdrs() {
   return $fetch<ListAdrsResponse>(apiPath("/adrs"));
+}
+
+export function submitAdrForReview(id: string) {
+  return $fetch<void>(apiPath(`/adrs/${id}/submit-review`), {
+    method: "POST",
+  });
+}
+
+export function fetchAdrReviewStatus(id: string) {
+  return $fetch<ReviewStatusResponse>(apiPath(`/adrs/${id}/review-status`));
 }

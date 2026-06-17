@@ -14,6 +14,7 @@ from domain.adr import (
     ADRSoftDeleted,
     ADRSubmittedForReview,
     AIReviewCompleted,
+    AIReviewFailed,
     AdrContent,
     AdrId,
     AdrStatus,
@@ -30,6 +31,7 @@ ADR_EVENT_NAMES = frozenset(
         "ADRContentUpdated",
         "ADRSubmittedForReview",
         "AIReviewCompleted",
+        "AIReviewFailed",
         "ADRPublished",
         "ADRSoftDeleted",
     }
@@ -93,7 +95,12 @@ def test_adr_aggregate_and_events_construct() -> None:
         content=AdrContent("## Context\n\nUpdated"),
         occurred_at=now,
     )
-    submitted = ADRSubmittedForReview(adr_id=adr_id, occurred_at=now)
+    submitted = ADRSubmittedForReview(
+        adr_id=adr_id,
+        user_id=user_id,
+        content=content,
+        occurred_at=now,
+    )
     annotation = ReviewAnnotation(
         kind=ReviewAnnotationKind.MISSING_SECTION,
         message="Missing Consequences section",
@@ -109,6 +116,13 @@ def test_adr_aggregate_and_events_construct() -> None:
         review_result=review_result,
         occurred_at=now,
     )
+    review_failed = AIReviewFailed(
+        adr_id=adr_id,
+        source_event_id=uuid4(),
+        code="validation_failed",
+        message="Invalid review output",
+        occurred_at=now,
+    )
     published = ADRPublished(adr_id=adr_id, occurred_at=now)
     deleted = ADRSoftDeleted(adr_id=adr_id, occurred_at=now)
 
@@ -117,6 +131,7 @@ def test_adr_aggregate_and_events_construct() -> None:
         content_updated.__class__.__name__,
         submitted.__class__.__name__,
         reviewed.__class__.__name__,
+        review_failed.__class__.__name__,
         published.__class__.__name__,
         deleted.__class__.__name__,
     }

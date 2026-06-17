@@ -1,7 +1,7 @@
 ---
 change_id: first-ai-review-annotations
 title: First AI review annotations
-status: planned
+status: implementing
 created: 2026-06-17
 updated: 2026-06-17
 archived_at: null

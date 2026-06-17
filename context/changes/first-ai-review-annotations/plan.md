@@ -66,7 +66,7 @@ Add the durable contracts the rest of the slice depends on: review response fiel
 
 **Intent**: Store recoverable review failure details without inventing another status or overloading annotation payloads.
 
-**Contract**: Add nullable `adrs.review_error` JSONB. The payload represents the last terminal worker failure for the current review attempt, with fields such as `code`, `message`, and `failed_at`.
+**Contract**: Add nullable `adrs.review_error` JSONB. The payload represents the last terminal worker failure for the current review attempt, with fields such as `source_event_id`, `code`, `message`, and `failed_at`.
 
 #### 2. ORM and metadata tests
 
@@ -82,7 +82,7 @@ Add the durable contracts the rest of the slice depends on: review response fiel
 
 **Intent**: Make submitted review work self-contained and record terminal failures as events.
 
-**Contract**: Extend `ADRSubmittedForReview` to include the submitting `user_id` and `content` snapshot. Add `AIReviewFailed` carrying `adr_id`, `code`, and `message`. Keep `AIReviewCompleted` carrying `ReviewResult`.
+**Contract**: Extend `ADRSubmittedForReview` to include the submitting `user_id` and `content` snapshot. Add `AIReviewFailed` carrying `adr_id`, `source_event_id`, `code`, and `message`. Keep `AIReviewCompleted` carrying `ReviewResult`.
 
 #### 4. Read models and API schemas
 
@@ -124,7 +124,7 @@ Add the durable contracts the rest of the slice depends on: review response fiel
 
 **Intent**: Support at-least-once async processing with startup replay.
 
-**Contract**: Add an event envelope/read model plus methods to load unprocessed events and mark an event processed.
+**Contract**: Add an event envelope/read model that exposes the durable event row ID plus methods to load unprocessed events and mark an event processed.
 
 **File**: `backend/infrastructure/adapters/persistence/event_store.py`
 
@@ -211,7 +211,7 @@ Implement the backend review workflow: submit command and route, post-response a
 
 **Intent**: Process `ADRSubmittedForReview` asynchronously and persist either completed review output or terminal failure.
 
-**Contract**: The handler calls `LlmReviewer`, validates output, retries once on provider/validation failure, appends `AIReviewCompleted` on success, applies the review projection, appends `AIReviewFailed` on terminal failure, records failure metadata, and remains idempotent if the ADR is already `after_review` or already has terminal failure metadata for the same event.
+**Contract**: The handler calls `LlmReviewer`, validates output, retries once on provider/validation failure, appends `AIReviewCompleted` on success, applies the review projection, appends `AIReviewFailed` on terminal failure, records failure metadata with the triggering envelope ID, and remains idempotent if the ADR is already `after_review` or already has terminal failure metadata whose `source_event_id` matches the triggering envelope ID.
 
 #### 5. Runtime dispatcher
 
@@ -329,7 +329,15 @@ Add the user-facing review workflow in Nuxt: submit CTA, read-only wait state, p
 
 **Contract**: Re-export submit and review-status actions plus current review fields through existing computed wrappers.
 
-#### 4. Polling composable
+#### 4. Persistence gating
+
+**File**: `frontend/app/composables/useAdrPersistence.ts`
+
+**Intent**: Prevent background autosave paths from fighting the review lock state.
+
+**Contract**: Gate blur, `pagehide`, and `visibilitychange` persistence on review editability so no `/save` request is attempted after an ADR enters `in_review`. The submit flow must await any dirty save before calling `submit-review`, then reload or clear dirty state from the server response path.
+
+#### 5. Polling composable
 
 **File**: `frontend/app/composables/useAdrReviewPolling.ts`
 
@@ -337,7 +345,7 @@ Add the user-facing review workflow in Nuxt: submit CTA, read-only wait state, p
 
 **Contract**: Use `@vueuse/core` interval utilities or Nuxt lifecycle hooks to poll every few seconds, optionally back off after repeated polls, stop on unmount, stop when status is no longer `in_review`, and call `adr.load(id)` after completion to fetch full annotations.
 
-#### 5. Annotation panel component
+#### 6. Annotation panel component
 
 **File**: `frontend/app/components/adr/AdrReviewAnnotations.vue`
 
@@ -345,20 +353,20 @@ Add the user-facing review workflow in Nuxt: submit CTA, read-only wait state, p
 
 **Contract**: Render grouped or clearly labeled annotations by kind. Each item shows message, optional location, and optional suggestion. Empty state is allowed only when `after_review` has no annotations.
 
-#### 6. Editor page integration
+#### 7. Editor page integration
 
 **File**: `frontend/app/pages/workspace/adr/[id].vue`
 
 **Intent**: Add the submit/review UX to the existing ADR editor.
 
-**Contract**: Show "Publish for review" only for `draft`, disable it while loading/dirty save is pending, save dirty changes before submit, show simple read-only reviewing copy while `in_review`, poll using the new composable, keep `after_review` editable, and display the annotation panel when review annotations or review error metadata exist.
+**Contract**: Show "Publish for review" only for `draft`, disable it while loading/dirty save is pending, save dirty changes before submit, show simple read-only reviewing copy while `in_review`, poll using the new composable, keep `after_review` editable, prevent autosave/beacon persistence while `in_review`, and display the annotation panel when review annotations or review error metadata exist.
 
 ### Success Criteria:
 
 #### Automated Verification:
 
 - Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts`
-- Editor page tests pass: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
+- Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
 - Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts`
 - Frontend lint passes: `cd frontend && pnpm run lint`
 - Frontend typecheck passes: `cd frontend && pnpm run typecheck`
@@ -538,11 +546,11 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Automated
 
-- [ ] 1.1 Migration applies cleanly: `cd backend && uv run alembic upgrade head`
-- [ ] 1.2 Metadata and persistence tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/`
-- [ ] 1.3 Review validation tests pass: `cd backend && uv run pytest tests/review_quality/ tests/domain/adr/test_required_sections.py`
-- [ ] 1.4 Backend lint passes: `cd backend && uv run ruff check .`
-- [ ] 1.5 Backend type check passes: `cd backend && uv run ty check`
+- [x] 1.1 Migration applies cleanly: `cd backend && uv run alembic upgrade head`
+- [x] 1.2 Metadata and persistence tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/`
+- [x] 1.3 Review validation tests pass: `cd backend && uv run pytest tests/review_quality/ tests/domain/adr/test_required_sections.py`
+- [x] 1.4 Backend lint passes: `cd backend && uv run ruff check .`
+- [x] 1.5 Backend type check passes: `cd backend && uv run ty check`
 
 #### Manual
 
@@ -572,7 +580,7 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 #### Automated
 
 - [ ] 3.1 Store tests pass: `cd frontend && pnpm run test -- tests/adr.store.test.ts`
-- [ ] 3.2 Editor page tests pass: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
+- [ ] 3.2 Editor page tests pass, including no blur/beacon-style save while `in_review`: `cd frontend && pnpm run test -- tests/adr-editor-page.test.ts`
 - [ ] 3.3 Annotation component tests pass: `cd frontend && pnpm run test -- tests/adr-review-annotations.test.ts`
 - [ ] 3.4 Frontend lint passes: `cd frontend && pnpm run lint`
 - [ ] 3.5 Frontend typecheck passes: `cd frontend && pnpm run typecheck`

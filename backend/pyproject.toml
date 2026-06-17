@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "email-validator>=2.2.0",
     "fastapi>=0.136.0",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.3.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
@@ -20,7 +21,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "pre-commit>=4.0.0",
     "pytest>=9.0.3",
     "ruff>=0.15.0",

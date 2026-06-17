@@ -3,6 +3,9 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from application.review_metadata import ReviewErrorMetadata
+from domain.adr.value_objects import ReviewResult
+
 
 @dataclass(frozen=True, slots=True)
 class AdrReadModel:
@@ -14,6 +17,9 @@ class AdrReadModel:
     is_deleted: bool
     created_at: datetime
     updated_at: datetime
+    review_annotations: ReviewResult | None = None
+    reviewed_at: datetime | None = None
+    review_error: ReviewErrorMetadata | None = None
 
 
 class AdrRepository(Protocol):

@@ -36,6 +36,8 @@ from infrastructure.api.schemas.adr import (
     CreateAdrRequest,
     CreateAdrResponse,
     ListAdrsResponse,
+    ReviewAnnotationResponse,
+    ReviewErrorResponse,
     SearchAdrsResponse,
     UpdateAdrRequest,
 )
@@ -178,6 +180,21 @@ def _to_adr_response(adr: AdrReadModel) -> AdrResponse:
         status=adr.status,
         created_at=adr.created_at,
         updated_at=adr.updated_at,
+        review_annotations=[
+            ReviewAnnotationResponse(
+                kind=annotation.kind,
+                message=annotation.message,
+                location=annotation.location,
+                suggestion=annotation.suggestion,
+            )
+            for annotation in adr.review_annotations.annotations
+        ]
+        if adr.review_annotations is not None
+        else None,
+        reviewed_at=adr.reviewed_at,
+        review_error=ReviewErrorResponse.from_metadata(adr.review_error)
+        if adr.review_error is not None
+        else None,
     )
 
 

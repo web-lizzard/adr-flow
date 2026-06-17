@@ -1,11 +1,14 @@
 """ADR read repository adapter."""
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from application.ports.adr_repository import AdrReadModel, AdrRepository
+from application.review_metadata import ReviewErrorMetadata
+from domain.adr.value_objects import ReviewResult
 from infrastructure.adapters.persistence.models import Adr
 
 
@@ -89,4 +92,27 @@ def _to_read_model(row: Adr) -> AdrReadModel:
         is_deleted=row.is_deleted,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        review_annotations=_deserialize_review_result(row.review_annotations),
+        reviewed_at=row.reviewed_at,
+        review_error=_deserialize_review_error(row.review_error),
+    )
+
+
+def _deserialize_review_result(payload: dict | list | None) -> ReviewResult | None:
+    if payload is None:
+        return None
+    return ReviewResult.model_validate(payload)
+
+
+def _deserialize_review_error(payload: dict | None) -> ReviewErrorMetadata | None:
+    if payload is None:
+        return None
+    failed_at = payload["failed_at"]
+    if isinstance(failed_at, str):
+        failed_at = datetime.fromisoformat(failed_at)
+    return ReviewErrorMetadata(
+        source_event_id=UUID(str(payload["source_event_id"])),
+        code=str(payload["code"]),
+        message=str(payload["message"]),
+        failed_at=failed_at,
     )

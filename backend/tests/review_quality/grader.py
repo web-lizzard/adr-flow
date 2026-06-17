@@ -1,27 +1,9 @@
 """Deterministic graders for ReviewResult quality evaluation."""
 
-from domain.adr import SectionName
-from domain.adr.value_objects import (
-    ReviewAnnotation,
-    ReviewAnnotationKind,
-    ReviewResult,
-)
+from application.review_quality import check_actionability, extract_flagged_sections
+from domain.adr.value_objects import ReviewResult
 
 from tests.review_quality.cases import ReviewQualityCase, ReviewQualityVerdict
-
-_SECTION_NAMES: frozenset[str] = frozenset(section.value for section in SectionName)
-
-
-def extract_flagged_sections(result: ReviewResult) -> frozenset[str]:
-    """Return normalized section names flagged by missing_section annotations."""
-    flagged: set[str] = set()
-    for annotation in result.annotations:
-        if annotation.kind != ReviewAnnotationKind.MISSING_SECTION:
-            continue
-        section = _section_from_annotation(annotation)
-        if section is not None:
-            flagged.add(section)
-    return frozenset(flagged)
 
 
 def grade_missing_section_annotations(
@@ -52,28 +34,7 @@ def grade_missing_section_annotations(
 
 def grade_actionability(result: ReviewResult) -> tuple[bool, tuple[str, ...]]:
     """Enforce kind-specific actionability rules on all annotations."""
-    failures: list[str] = []
-    for index, annotation in enumerate(result.annotations):
-        prefix = f"annotation {index} ({annotation.kind.value})"
-        if annotation.kind == ReviewAnnotationKind.MISSING_SECTION:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.suggestion):
-                failures.append(f"{prefix}: non-empty suggestion required")
-        elif annotation.kind == ReviewAnnotationKind.CONCISENESS:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.suggestion):
-                failures.append(f"{prefix}: non-empty suggestion required")
-            if not _is_non_empty(annotation.location):
-                failures.append(f"{prefix}: non-empty location required")
-        elif annotation.kind == ReviewAnnotationKind.INCONSISTENCY:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.location):
-                failures.append(f"{prefix}: non-empty location required")
-
-    return not failures, tuple(failures)
+    return check_actionability(result)
 
 
 def grade_review_output(
@@ -93,29 +54,3 @@ def grade_review_output(
         missing_section_recall=recall,
         failures=failures,
     )
-
-
-def _section_from_annotation(annotation: ReviewAnnotation) -> str | None:
-    if annotation.location is not None:
-        section = _section_from_text(annotation.location)
-        if section is not None:
-            return section
-    if annotation.message:
-        return _section_from_text(annotation.message)
-    return None
-
-
-def _section_from_text(text: str) -> str | None:
-    normalized = text.strip()
-    if normalized.startswith("## "):
-        normalized = normalized.removeprefix("## ").strip()
-    if normalized in _SECTION_NAMES:
-        return normalized
-    for section_name in SectionName:
-        if section_name.value in text:
-            return section_name.value
-    return None
-
-
-def _is_non_empty(value: str | None) -> bool:
-    return value is not None and bool(value.strip())

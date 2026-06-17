@@ -66,6 +66,7 @@ class Adr(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    review_error: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_adrs_user_id", "user_id"),

@@ -1,6 +1,6 @@
 """Runtime configuration loaded from environment variables."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from infrastructure.adapters.persistence.database_url import (
     normalize_runtime_database_url,
 )
+
+LlmProviderMode = Literal["fake", "openai_compatible", "openrouter"]
 
 
 class Settings(BaseSettings):
@@ -25,6 +27,17 @@ class Settings(BaseSettings):
     )
     cookie_secure: bool = Field(validation_alias="COOKIE_SECURE")
     cookie_path: str = Field(validation_alias="COOKIE_PATH")
+    llm_provider: LlmProviderMode = Field(
+        default="fake",
+        validation_alias="LLM_PROVIDER",
+    )
+    llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
+    llm_base_url: str | None = Field(default=None, validation_alias="LLM_BASE_URL")
+    llm_model: str = Field(default="gpt-4o-mini", validation_alias="LLM_MODEL")
+    llm_timeout_seconds: float = Field(
+        default=60.0,
+        validation_alias="LLM_TIMEOUT_SECONDS",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

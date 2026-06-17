@@ -65,6 +65,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("Database engine created")
+        logger.info(
+            "LLM reviewer provider configured: provider=%s model=%s "
+            "base_url_configured=%s api_key_configured=%s timeout_seconds=%s",
+            settings.llm_provider,
+            settings.llm_model,
+            settings.llm_base_url is not None,
+            settings.llm_api_key is not None,
+            settings.llm_timeout_seconds,
+        )
         yield
         await engine.dispose()
 

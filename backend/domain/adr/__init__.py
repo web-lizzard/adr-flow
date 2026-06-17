@@ -8,6 +8,7 @@ from domain.adr.events import (
     ADRSoftDeleted,
     ADRSubmittedForReview,
     AIReviewCompleted,
+    AIReviewFailed,
 )
 from domain.adr.required_sections import (
     REQUIRED_SECTION_HEADINGS,
@@ -39,6 +40,7 @@ __all__ = [
     "ADRSoftDeleted",
     "ADRSubmittedForReview",
     "AIReviewCompleted",
+    "AIReviewFailed",
     "AdrContent",
     "AdrId",
     "AdrStatus",

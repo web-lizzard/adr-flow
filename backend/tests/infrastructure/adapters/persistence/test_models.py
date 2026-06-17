@@ -71,8 +71,10 @@ def test_adrs_table_columns_jsonb_and_soft_delete() -> None:
     assert table.c.created_at.type.__class__ is DateTime
     assert table.c.updated_at.type.__class__ is DateTime
     assert table.c.reviewed_at.type.__class__ is DateTime
+    assert table.c.review_error.type.__class__ is JSONB
 
     assert table.c.review_annotations.nullable
+    assert table.c.review_error.nullable
     assert not table.c.is_deleted.nullable
     assert not table.c.user_id.nullable
     assert not table.c.status.nullable

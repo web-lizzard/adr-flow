@@ -561,13 +561,13 @@ Additive migration only: `adrs.review_error` nullable JSONB. Existing ADR rows r
 
 #### Automated
 
-- [x] 2.1 Submit command tests pass: `cd backend && uv run pytest tests/application/commands/test_submit_adr_for_review.py`
-- [x] 2.2 Run-review handler tests pass: `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py`
-- [x] 2.3 Post-response dispatch lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py tests/infrastructure/api/test_adr_api.py`
-- [x] 2.4 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py`
-- [x] 2.5 Event-store and unit-of-work tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/`
-- [x] 2.6 Backend lint passes: `cd backend && uv run ruff check .`
-- [x] 2.7 Backend type check passes: `cd backend && uv run ty check`
+- [x] 2.1 Submit command tests pass: `cd backend && uv run pytest tests/application/commands/test_submit_adr_for_review.py` — ee26d36
+- [x] 2.2 Run-review handler tests pass: `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py` — ee26d36
+- [x] 2.3 Post-response dispatch lifecycle tests pass: `cd backend && uv run pytest tests/infrastructure/messaging/test_task_group_bus.py tests/infrastructure/api/test_adr_api.py` — ee26d36
+- [x] 2.4 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py` — ee26d36
+- [x] 2.5 Event-store and unit-of-work tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/` — ee26d36
+- [x] 2.6 Backend lint passes: `cd backend && uv run ruff check .` — ee26d36
+- [x] 2.7 Backend type check passes: `cd backend && uv run ty check` — ee26d36
 
 #### Manual
 

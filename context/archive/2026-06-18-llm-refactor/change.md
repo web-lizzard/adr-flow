@@ -1,10 +1,10 @@
 ---
 change_id: llm-refactor
 title: Refactor LLM layer — domain instructions, structured output, thin adapters
-status: implemented
+status: archived
 created: 2026-06-18
 updated: 2026-06-18
-archived_at: null
+archived_at: 2026-06-18T01:13:28Z
 ---
 
 ## Notes

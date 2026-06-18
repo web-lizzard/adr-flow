@@ -331,17 +331,17 @@ No data migration required. `ADRPublished` events may exist in event store from 
 
 #### Automated
 
-- [x] 1.1 Ruff check passes: `cd backend && uv run ruff check .`
-- [x] 1.2 Type check passes: `cd backend && uv run ty check`
-- [x] 1.3 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_publish_adr.py -v`
-- [x] 1.4 Projection tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_adr_projection_review.py -v`
-- [x] 1.5 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k publish -v`
-- [x] 1.6 Full backend suite passes: `cd backend && uv run pytest`
+- [x] 1.1 Ruff check passes: `cd backend && uv run ruff check .` — 07446c3
+- [x] 1.2 Type check passes: `cd backend && uv run ty check` — 07446c3
+- [x] 1.3 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_publish_adr.py -v` — 07446c3
+- [x] 1.4 Projection tests pass: `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_adr_projection_review.py -v` — 07446c3
+- [x] 1.5 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k publish -v` — 07446c3
+- [x] 1.6 Full backend suite passes: `cd backend && uv run pytest` — 07446c3
 
 #### Manual
 
-- [ ] 1.7 Via API client: after_review ADR publishes to proposed with review annotations intact
-- [ ] 1.8 Illegal transitions return 400 with clear message
+- [x] 1.7 Via API client: after_review ADR publishes to proposed with review annotations intact — 07446c3
+- [x] 1.8 Illegal transitions return 400 with clear message — 07446c3
 
 ### Phase 2: Frontend Publish CTA and UX
 

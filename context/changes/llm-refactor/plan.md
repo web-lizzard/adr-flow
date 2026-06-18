@@ -442,20 +442,20 @@ Remove superseded files, DRY `review_quality` with domain actionability, and ens
 
 #### Automated
 
-- [x] 1.1 `pytest tests/domain/adr/test_review_instructions.py tests/domain/adr/test_review_llm_schema.py` — pass
-- [x] 1.2 `pytest tests/infrastructure/llm/` — pass (shim preserves adapter behavior)
-- [x] 1.3 `ruff check . && ty check` — pass
+- [x] 1.1 `pytest tests/domain/adr/test_review_instructions.py tests/domain/adr/test_review_llm_schema.py` — pass — fdcb1ad
+- [x] 1.2 `pytest tests/infrastructure/llm/` — pass (shim preserves adapter behavior) — fdcb1ad
+- [x] 1.3 `ruff check . && ty check` — pass — fdcb1ad
 
 #### Manual
 
-- [ ] 1.4 Inspect `build_review_system_prompt()` — all sections, placeholders, per-kind criteria present
+- [x] 1.4 Inspect `build_review_system_prompt()` — all sections, placeholders, per-kind criteria present
 
 ### Phase 2: Thin Completion Transport
 
 #### Automated
 
-- [ ] 2.1 `pytest tests/infrastructure/llm/test_openai_sdk_client.py tests/infrastructure/llm/test_fake_completion.py` — pass
-- [ ] 2.2 `ruff check . && ty check` — pass
+- [x] 2.1 `pytest tests/infrastructure/llm/test_openai_sdk_client.py tests/infrastructure/llm/test_fake_completion.py` — pass
+- [x] 2.2 `ruff check . && ty check` — pass
 
 ### Phase 3: AdrReviewService and Handler Wiring
 

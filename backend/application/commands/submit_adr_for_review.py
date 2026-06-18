@@ -7,7 +7,7 @@ from application.ports.adr_repository import AdrRepository
 from application.ports.event_store import StoredEvent
 from application.ports.unit_of_work import UnitOfWorkFactory
 from domain.adr import ADRSubmittedForReview, AdrContent, AdrId, AdrStatus
-from domain.errors import AdrNotFound, DomainError
+from domain.errors import AdrInvalidSubmitStatus, AdrNotFound
 from domain.user.value_objects import UserId
 
 
@@ -62,7 +62,7 @@ class SubmitAdrForReviewCommandHandler:
                 current_status=existing.status,
                 adr_id=adr_id,
             )
-            raise DomainError("ADR can only be submitted from draft status")
+            raise AdrInvalidSubmitStatus()
 
         updated_at = datetime.now(UTC)
         event = ADRSubmittedForReview(

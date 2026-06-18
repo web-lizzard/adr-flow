@@ -73,6 +73,7 @@ def test_adr_aggregate_and_events_construct() -> None:
         content=content,
         status=AdrStatus.DRAFT,
         review_result=None,
+        review_error=None,
         is_deleted=False,
         created_at=now,
         updated_at=now,

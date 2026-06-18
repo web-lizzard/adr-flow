@@ -6,7 +6,7 @@ from application.logging import get_logger
 from application.ports.adr_repository import AdrRepository
 from application.ports.unit_of_work import UnitOfWorkFactory
 from domain.adr import ADR, ADRContentUpdated, AdrContent, AdrId, AdrStatus, AdrTitle
-from domain.errors import AdrNotFound, AdrTitleAlreadyExists, DomainError
+from domain.errors import AdrEditWhileInReview, AdrNotFound, AdrTitleAlreadyExists
 from domain.user.value_objects import UserId
 
 
@@ -50,7 +50,7 @@ class UpdateAdrContentCommandHandler:
                 reason="in_review",
                 adr_id=adr_id,
             )
-            raise DomainError("Cannot edit ADR in review")
+            raise AdrEditWhileInReview()
 
         new_title = command.title if command.title is not None else existing.title
         new_content = (
@@ -102,6 +102,7 @@ class UpdateAdrContentCommandHandler:
                 content=content,
                 status=AdrStatus(existing.status),
                 review_result=None,
+                review_error=None,
                 is_deleted=existing.is_deleted,
                 created_at=existing.created_at,
                 updated_at=updated_at,

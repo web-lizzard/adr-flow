@@ -85,6 +85,7 @@ class CreateAdrCommandHandler:
                 content=content,
                 status=AdrStatus.DRAFT,
                 review_result=None,
+                review_error=None,
                 is_deleted=False,
                 created_at=occurred_at,
                 updated_at=occurred_at,

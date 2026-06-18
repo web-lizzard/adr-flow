@@ -69,3 +69,10 @@ class ReviewResult(BaseModel):
     annotations: tuple[ReviewAnnotation, ...]
     reviewed_at: datetime
     reviewed_content: str | None = None
+
+
+class ReviewError(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    message: str

@@ -33,6 +33,7 @@ from domain.adr.value_objects import (
     AdrTitle,
     ReviewAnnotation,
     ReviewAnnotationKind,
+    ReviewError,
     ReviewResult,
 )
 
@@ -61,5 +62,6 @@ __all__ = [
     "AdrTitle",
     "ReviewAnnotation",
     "ReviewAnnotationKind",
+    "ReviewError",
     "ReviewResult",
 ]

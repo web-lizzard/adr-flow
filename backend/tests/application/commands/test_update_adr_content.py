@@ -14,7 +14,7 @@ from application.commands.update_adr_content import (
 from application.ports.adr_repository import AdrReadModel
 from application.ports.event_store import StoredEvent
 from domain.adr import ADRContentUpdated, AdrStatus
-from domain.errors import AdrNotFound, AdrTitleAlreadyExists, DomainError
+from domain.errors import AdrEditWhileInReview, AdrNotFound, AdrTitleAlreadyExists
 
 
 class FakeEventStore:
@@ -266,7 +266,7 @@ def test_update_adr_content_rejects_in_review_status() -> None:
     )
     handler = UpdateAdrContentCommandHandler(FakeUnitOfWorkFactory(), repository)
 
-    with pytest.raises(DomainError, match="Cannot edit ADR in review"):
+    with pytest.raises(AdrEditWhileInReview):
         asyncio.run(
             handler.handle(
                 UpdateAdrContentCommand(

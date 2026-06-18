@@ -56,7 +56,7 @@ def test_event_store_loads_unprocessed_events_in_order_and_marks_processed(
                             ),
                         ],
                         aggregate_id=adr_id,
-                        aggregate_type="ADR",
+                        aggregate_type="adr",
                     )
 
             async with session_factory() as session:
@@ -212,7 +212,7 @@ def test_event_store_skips_unknown_events_for_async_replay(
                             )
                         ],
                         aggregate_id=adr_id,
-                        aggregate_type="ADR",
+                        aggregate_type="adr",
                     )
 
             async with session_factory() as session:
@@ -280,6 +280,95 @@ def test_mark_sync_projection_events_skips_legacy_content_updated_payload(
                 store = SqlEventStore(session)
                 unprocessed = await store.load_unprocessed(limit=10)
                 assert unprocessed == []
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run_scenario())
+
+
+def test_event_store_load_stream_returns_ordered_events_for_aggregate(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM events"))
+
+    adr_id = uuid4()
+    user_id = uuid4()
+    first_at = datetime(2026, 6, 17, 10, 0, tzinfo=UTC)
+    second_at = datetime(2026, 6, 17, 11, 0, tzinfo=UTC)
+    third_at = datetime(2026, 6, 17, 12, 0, tzinfo=UTC)
+
+    async def run_scenario() -> None:
+        engine = create_async_engine(normalize_runtime_database_url(postgres_url))
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    store = SqlEventStore(session)
+                    await store.append(
+                        [
+                            ADRSubmittedForReview(
+                                adr_id=AdrId(adr_id),
+                                user_id=UserId(user_id),
+                                content=AdrContent("## Context\n\nFirst"),
+                                occurred_at=first_at,
+                            ),
+                            ADRSubmittedForReview(
+                                adr_id=AdrId(adr_id),
+                                user_id=UserId(user_id),
+                                content=AdrContent("## Context\n\nSecond"),
+                                occurred_at=second_at,
+                            ),
+                        ],
+                        aggregate_id=adr_id,
+                        aggregate_type="adr",
+                    )
+
+            other_id = uuid4()
+            async with session_factory() as session:
+                async with session.begin():
+                    store = SqlEventStore(session)
+                    await store.append(
+                        [
+                            ADRPublished(
+                                adr_id=AdrId(other_id),
+                                occurred_at=third_at,
+                            )
+                        ],
+                        aggregate_id=other_id,
+                        aggregate_type="adr",
+                    )
+
+            async with session_factory() as session:
+                store = SqlEventStore(session)
+                stream = await store.load_stream(adr_id, "adr")
+                assert len(stream) == 2
+                assert stream[0].event.occurred_at == first_at
+                assert stream[1].event.occurred_at == second_at
+                assert isinstance(stream[0].event, ADRSubmittedForReview)
+                assert stream[0].event.content.value == "## Context\n\nFirst"
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run_scenario())
+
+
+def test_event_store_load_stream_returns_empty_for_unknown_aggregate(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM events"))
+
+    async def run_scenario() -> None:
+        engine = create_async_engine(normalize_runtime_database_url(postgres_url))
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with session_factory() as session:
+                store = SqlEventStore(session)
+                stream = await store.load_stream(uuid4(), "adr")
+                assert stream == []
         finally:
             await engine.dispose()
 

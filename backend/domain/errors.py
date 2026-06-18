@@ -54,3 +54,13 @@ class AdrTitleAlreadyExists(DomainError):
 class AdrInvalidPublishStatus(DomainError):
     def __init__(self) -> None:
         super().__init__("ADR can only be published from after_review status")
+
+
+class AdrInvalidSubmitStatus(DomainError):
+    def __init__(self) -> None:
+        super().__init__("ADR can only be submitted from draft status")
+
+
+class AdrEditWhileInReview(DomainError):
+    def __init__(self) -> None:
+        super().__init__("Cannot edit ADR in review")

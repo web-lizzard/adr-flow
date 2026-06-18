@@ -96,6 +96,18 @@ class SqlEventStore(EventStore):
         rows = result.scalars().all()
         return [_to_stored_event(row) for row in rows]
 
+    async def load_stream(
+        self, aggregate_id: UUID, aggregate_type: str
+    ) -> list[StoredEvent]:
+        result = await self._session.execute(
+            select(Event)
+            .where(Event.aggregate_id == aggregate_id)
+            .where(Event.aggregate_type == aggregate_type)
+            .order_by(Event.occurred_at.asc(), Event.id.asc())
+        )
+        rows = result.scalars().all()
+        return [_to_stored_event(row) for row in rows]
+
     async def mark_processed(self, event_id: UUID, *, processed_at: datetime) -> None:
         await self._session.execute(
             update(Event).where(Event.id == event_id).values(processed_at=processed_at)

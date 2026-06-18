@@ -27,6 +27,10 @@ class EventStore(Protocol):
 
     async def load_unprocessed(self, *, limit: int = 100) -> list[StoredEvent]: ...
 
+    async def load_stream(
+        self, aggregate_id: UUID, aggregate_type: str
+    ) -> list[StoredEvent]: ...
+
     async def mark_processed(
         self, event_id: UUID, *, processed_at: datetime
     ) -> None: ...

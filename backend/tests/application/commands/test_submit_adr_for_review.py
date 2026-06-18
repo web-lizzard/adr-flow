@@ -14,7 +14,7 @@ from application.commands.submit_adr_for_review import (
 from application.ports.adr_repository import AdrReadModel
 from application.ports.event_store import StoredEvent
 from domain.adr import ADRSubmittedForReview, AdrStatus
-from domain.errors import AdrNotFound, DomainError
+from domain.errors import AdrInvalidSubmitStatus, AdrNotFound
 
 
 class FakeEventStore:
@@ -201,7 +201,7 @@ def test_submit_adr_for_review_rejects_non_draft_status() -> None:
     )
     handler = SubmitAdrForReviewCommandHandler(FakeUnitOfWorkFactory(), repository)
 
-    with pytest.raises(DomainError, match="draft"):
+    with pytest.raises(AdrInvalidSubmitStatus):
         asyncio.run(
             handler.handle(SubmitAdrForReviewCommand(adr_id=adr_id, user_id=user_id))
         )

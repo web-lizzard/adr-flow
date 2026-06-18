@@ -1,6 +1,6 @@
 # Command handlers — aggregate source of truth
 
-**Status**: implementing
+**Status**: impl_reviewed
 **Created**: 2026-06-18
 **Updated**: 2026-06-19
 

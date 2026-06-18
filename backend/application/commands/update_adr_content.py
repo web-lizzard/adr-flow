@@ -3,11 +3,10 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from application.logging import get_logger
-from application.ports.adr_repository import AdrRepository
 from application.ports.unit_of_work import UnitOfWorkFactory
-from domain.adr import ADR, ADRContentUpdated, AdrContent, AdrId, AdrStatus, AdrTitle
-from domain.errors import AdrEditWhileInReview, AdrNotFound, AdrTitleAlreadyExists
-from domain.user.value_objects import UserId
+from domain.adr import ADRContentUpdated, AdrContent, AdrId, AdrTitle
+from domain.adr.rehydrate import rehydrate_adr
+from domain.errors import AdrNotFound
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,95 +18,59 @@ class UpdateAdrContentCommand:
 
 
 class UpdateAdrContentCommandHandler:
-    def __init__(
-        self,
-        uow_factory: UnitOfWorkFactory,
-        adr_repository: AdrRepository,
-    ) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
-        self._adr_repository = adr_repository
         self._logger = get_logger(__name__)
 
     async def handle(self, command: UpdateAdrContentCommand) -> None:
         adr_id = str(command.adr_id)
         self._logger.info("command.update_adr_content.started", adr_id=adr_id)
 
-        existing = await self._adr_repository.find_by_id_for_owner(
-            command.adr_id,
-            command.user_id,
-        )
-        if existing is None:
-            self._logger.info(
-                "command.update_adr_content.rejected",
-                reason="adr_not_found",
-                adr_id=adr_id,
+        async with self._uow_factory.begin() as uow:
+            await uow.lock_aggregate(command.adr_id)
+            stored_events = await uow.event_store.load_stream(
+                command.adr_id,
+                "adr",
             )
-            raise AdrNotFound()
-
-        if existing.status == AdrStatus.IN_REVIEW:
-            self._logger.info(
-                "command.update_adr_content.rejected",
-                reason="in_review",
-                adr_id=adr_id,
-            )
-            raise AdrEditWhileInReview()
-
-        new_title = command.title if command.title is not None else existing.title
-        new_content = (
-            command.content if command.content is not None else existing.content
-        )
-
-        if (
-            command.title is not None
-            and command.title.lower() != existing.title.lower()
-        ):
-            conflict = await self._adr_repository.find_by_title_for_owner(
-                command.title,
-                command.user_id,
-            )
-            if conflict is not None and conflict.id != existing.id:
+            adr = rehydrate_adr([event.event for event in stored_events])
+            if adr is None or adr.user_id.value != command.user_id:
                 self._logger.info(
                     "command.update_adr_content.rejected",
-                    reason="title_exists",
+                    reason="adr_not_found",
                     adr_id=adr_id,
                 )
-                raise AdrTitleAlreadyExists()
+                raise AdrNotFound()
 
-        updated_at = datetime.now(UTC)
-        title = AdrTitle(new_title)
-        content = AdrContent(new_content)
-        event_title = title if command.title is not None else None
+            updated_at = datetime.now(UTC)
+            new_adr = adr
+            event_title = None
 
-        async with self._uow_factory.begin() as uow:
+            if command.content is not None:
+                new_adr = new_adr.update_content(
+                    AdrContent(command.content),
+                    updated_at,
+                )
+            if command.title is not None:
+                new_adr = new_adr.update_title(AdrTitle(command.title), updated_at)
+                event_title = new_adr.title
+
             event = ADRContentUpdated(
                 adr_id=AdrId(command.adr_id),
-                content=content,
+                content=new_adr.content,
                 title=event_title,
                 occurred_at=updated_at,
             )
-            stored_events = await uow.event_store.append(
+            stored = await uow.event_store.append(
                 [event],
                 aggregate_id=command.adr_id,
                 aggregate_type="adr",
             )
             await uow.event_store.mark_processed(
-                stored_events[0].id,
+                stored[0].id,
                 processed_at=updated_at,
             )
 
-            adr = ADR(
-                adr_id=AdrId(existing.id),
-                user_id=UserId(existing.user_id),
-                title=title,
-                content=content,
-                status=AdrStatus(existing.status),
-                review_result=None,
-                review_error=None,
-                is_deleted=existing.is_deleted,
-                created_at=existing.created_at,
-                updated_at=updated_at,
-            )
-            await uow.adr_projection.update_content(adr)
+            await uow.adr_projection.update_content(new_adr)
             self._logger.info(
                 "command.update_adr_content.completed",
                 adr_id=adr_id,

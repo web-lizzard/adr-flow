@@ -1,9 +1,8 @@
 """SubmitAdrForReview command handler tests."""
 
 import asyncio
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -11,135 +10,16 @@ from application.commands.submit_adr_for_review import (
     SubmitAdrForReviewCommand,
     SubmitAdrForReviewCommandHandler,
 )
-from application.ports.adr_repository import AdrReadModel
-from application.ports.event_store import StoredEvent
-from domain.adr import ADRSubmittedForReview, AdrStatus
+from domain.adr import ADRSubmittedForReview
+from domain.adr.events import ADRSubmittedForReview as SubmittedEvent
+from domain.adr.value_objects import AdrContent, AdrId
 from domain.errors import AdrInvalidSubmitStatus, AdrNotFound
-
-
-class FakeEventStore:
-    def __init__(self) -> None:
-        self.appended: list[tuple[list, UUID, str]] = []
-
-    async def append(
-        self, events: list, aggregate_id: UUID, aggregate_type: str
-    ) -> list[StoredEvent]:
-        self.appended.append((events, aggregate_id, aggregate_type))
-        stored: list[StoredEvent] = []
-        for event in events:
-            stored.append(
-                StoredEvent(
-                    id=uuid4(),
-                    aggregate_type=aggregate_type,
-                    aggregate_id=aggregate_id,
-                    event=event,
-                    occurred_at=event.occurred_at,
-                )
-            )
-        return stored
-
-    async def load_unprocessed(self, *, limit: int = 100) -> list[StoredEvent]:
-        return []
-
-    async def mark_processed(self, event_id: UUID, *, processed_at: datetime) -> None:
-        return None
-
-
-class FakeAdrProjection:
-    def __init__(self) -> None:
-        self.marked_in_review: list[tuple[UUID, datetime]] = []
-
-    async def insert(self, adr) -> None:
-        return None
-
-    async def update_content(self, adr) -> None:
-        return None
-
-    async def mark_in_review(self, adr_id: UUID, *, updated_at: datetime) -> None:
-        self.marked_in_review.append((adr_id, updated_at))
-
-    async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool:
-        return True
-
-    async def apply_review_result(self, adr_id, *, review_result, updated_at) -> None:
-        return None
-
-    async def record_review_failure(self, adr_id, *, review_error, updated_at) -> None:
-        return None
-
-
-class FakeUnitOfWork:
-    def __init__(self) -> None:
-        self.event_store = FakeEventStore()
-        self.adr_projection = FakeAdrProjection()
-
-    async def commit(self) -> None:
-        return None
-
-    async def rollback(self) -> None:
-        return None
-
-
-class FakeUnitOfWorkFactory:
-    def __init__(self) -> None:
-        self.unit_of_works: list[FakeUnitOfWork] = []
-
-    @asynccontextmanager
-    async def begin(self):
-        uow = FakeUnitOfWork()
-        self.unit_of_works.append(uow)
-        yield uow
-
-
-class FakeAdrRepository:
-    def __init__(self, *, by_id: AdrReadModel | None = None) -> None:
-        self._by_id = by_id
-
-    async def find_by_id_for_owner(
-        self, adr_id: UUID, user_id: UUID
-    ) -> AdrReadModel | None:
-        if self._by_id is None:
-            return None
-        if self._by_id.id != adr_id or self._by_id.user_id != user_id:
-            return None
-        return self._by_id
-
-    async def find_by_title_for_owner(
-        self, title: str, user_id: UUID
-    ) -> AdrReadModel | None:
-        return None
-
-    async def search_by_title(self, user_id: UUID, query: str) -> list[AdrReadModel]:
-        return []
-
-    async def list_for_owner(
-        self,
-        user_id: UUID,
-        *,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> list[AdrReadModel]:
-        return []
-
-
-def _adr_read_model(
-    *,
-    adr_id: UUID,
-    user_id: UUID,
-    content: str = "## Context\n\nDraft body",
-    status: str = "draft",
-) -> AdrReadModel:
-    now = datetime(2026, 6, 17, 10, 0, tzinfo=UTC)
-    return AdrReadModel(
-        id=adr_id,
-        user_id=user_id,
-        title="Review ADR",
-        content=content,
-        status=status,
-        is_deleted=False,
-        created_at=now,
-        updated_at=now,
-    )
+from domain.user.value_objects import UserId
+from tests.application.commands.fakes import (
+    FakeEventStore,
+    FakeUnitOfWorkFactory,
+    adr_created_stream,
+)
 
 
 def test_submit_adr_for_review_emits_event_marks_in_review_and_returns_stored_event() -> (
@@ -148,17 +28,18 @@ def test_submit_adr_for_review_emits_event_marks_in_review_and_returns_stored_ev
     user_id = uuid4()
     adr_id = uuid4()
     content = "## Context\n\nReady for review"
-    repository = FakeAdrRepository(
-        by_id=_adr_read_model(adr_id=adr_id, user_id=user_id, content=content)
-    )
-    uow_factory = FakeUnitOfWorkFactory()
-    handler = SubmitAdrForReviewCommandHandler(uow_factory, repository)
+    stream = adr_created_stream(adr_id=adr_id, user_id=user_id, content=content)
+    event_store = FakeEventStore(streams={(adr_id, "adr"): stream})
+    uow_factory = FakeUnitOfWorkFactory(event_store=event_store)
+    handler = SubmitAdrForReviewCommandHandler(uow_factory)
 
     result = asyncio.run(
         handler.handle(SubmitAdrForReviewCommand(adr_id=adr_id, user_id=user_id))
     )
 
     uow = uow_factory.unit_of_works[0]
+    assert uow.locked_aggregates == [adr_id]
+    assert event_store.load_stream_calls == [(adr_id, "adr")]
     events, aggregate_id, aggregate_type = uow.event_store.appended[0]
     assert aggregate_id == adr_id
     assert aggregate_type == "adr"
@@ -177,11 +58,8 @@ def test_submit_adr_for_review_emits_event_marks_in_review_and_returns_stored_ev
     assert result.stored_event.aggregate_id == adr_id
 
 
-def test_submit_adr_for_review_raises_not_found_when_adr_missing() -> None:
-    handler = SubmitAdrForReviewCommandHandler(
-        FakeUnitOfWorkFactory(),
-        FakeAdrRepository(by_id=None),
-    )
+def test_submit_adr_for_review_raises_not_found_when_stream_empty() -> None:
+    handler = SubmitAdrForReviewCommandHandler(FakeUnitOfWorkFactory())
 
     with pytest.raises(AdrNotFound):
         asyncio.run(
@@ -192,14 +70,24 @@ def test_submit_adr_for_review_raises_not_found_when_adr_missing() -> None:
 def test_submit_adr_for_review_rejects_non_draft_status() -> None:
     user_id = uuid4()
     adr_id = uuid4()
-    repository = FakeAdrRepository(
-        by_id=_adr_read_model(
-            adr_id=adr_id,
-            user_id=user_id,
-            status=AdrStatus.IN_REVIEW.value,
+    when = datetime(2026, 6, 17, 10, 0, tzinfo=UTC)
+    submitted = SubmittedEvent(
+        adr_id=AdrId(adr_id),
+        user_id=UserId(user_id),
+        content=AdrContent("## Context\n\nDraft body"),
+        occurred_at=when,
+    )
+    stream = adr_created_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        content="## Context\n\nDraft body",
+        extra_events=[submitted],
+    )
+    handler = SubmitAdrForReviewCommandHandler(
+        FakeUnitOfWorkFactory(
+            event_store=FakeEventStore(streams={(adr_id, "adr"): stream})
         )
     )
-    handler = SubmitAdrForReviewCommandHandler(FakeUnitOfWorkFactory(), repository)
 
     with pytest.raises(AdrInvalidSubmitStatus):
         asyncio.run(

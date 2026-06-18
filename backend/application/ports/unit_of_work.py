@@ -1,5 +1,6 @@
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
+from uuid import UUID
 
 from application.ports.adr_projection import AdrProjection
 from application.ports.event_store import EventStore
@@ -14,6 +15,8 @@ class UnitOfWork(Protocol):
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+    async def lock_aggregate(self, aggregate_id: UUID) -> None: ...
 
 
 class UnitOfWorkFactory(Protocol):

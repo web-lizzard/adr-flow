@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from application.logging import get_logger
-from application.ports.adr_repository import AdrRepository
 from application.ports.event_store import StoredEvent
 from application.ports.unit_of_work import UnitOfWorkFactory
-from domain.adr import ADRSubmittedForReview, AdrContent, AdrId, AdrStatus
-from domain.errors import AdrInvalidSubmitStatus, AdrNotFound
+from domain.adr import ADRSubmittedForReview, AdrId
+from domain.adr.rehydrate import rehydrate_adr
+from domain.errors import AdrNotFound
 from domain.user.value_objects import UserId
 
 
@@ -23,13 +23,8 @@ class SubmitAdrForReviewResult:
 
 
 class SubmitAdrForReviewCommandHandler:
-    def __init__(
-        self,
-        uow_factory: UnitOfWorkFactory,
-        adr_repository: AdrRepository,
-    ) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
-        self._adr_repository = adr_repository
         self._logger = get_logger(__name__)
 
     async def handle(
@@ -43,37 +38,31 @@ class SubmitAdrForReviewCommandHandler:
             user_id=user_id,
         )
 
-        existing = await self._adr_repository.find_by_id_for_owner(
-            command.adr_id,
-            command.user_id,
-        )
-        if existing is None:
-            self._logger.info(
-                "command.submit_adr_for_review.rejected",
-                reason="adr_not_found",
-                adr_id=adr_id,
-            )
-            raise AdrNotFound()
-
-        if existing.status != AdrStatus.DRAFT.value:
-            self._logger.info(
-                "command.submit_adr_for_review.rejected",
-                reason="invalid_status",
-                current_status=existing.status,
-                adr_id=adr_id,
-            )
-            raise AdrInvalidSubmitStatus()
-
-        updated_at = datetime.now(UTC)
-        event = ADRSubmittedForReview(
-            adr_id=AdrId(command.adr_id),
-            user_id=UserId(command.user_id),
-            content=AdrContent(existing.content),
-            occurred_at=updated_at,
-        )
-
         async with self._uow_factory.begin() as uow:
-            stored_events = await uow.event_store.append(
+            await uow.lock_aggregate(command.adr_id)
+            stored_events = await uow.event_store.load_stream(
+                command.adr_id,
+                "adr",
+            )
+            adr = rehydrate_adr([event.event for event in stored_events])
+            if adr is None or adr.user_id.value != command.user_id:
+                self._logger.info(
+                    "command.submit_adr_for_review.rejected",
+                    reason="adr_not_found",
+                    adr_id=adr_id,
+                )
+                raise AdrNotFound()
+
+            updated_at = datetime.now(UTC)
+            new_adr = adr.submit_for_review(updated_at)
+            event = ADRSubmittedForReview(
+                adr_id=AdrId(command.adr_id),
+                user_id=UserId(command.user_id),
+                content=new_adr.content,
+                occurred_at=updated_at,
+            )
+
+            stored = await uow.event_store.append(
                 [event],
                 aggregate_id=command.adr_id,
                 aggregate_type="adr",
@@ -82,7 +71,7 @@ class SubmitAdrForReviewCommandHandler:
                 command.adr_id,
                 updated_at=updated_at,
             )
-            stored_event = stored_events[0]
+            stored_event = stored[0]
             stored_event_id = str(stored_event.id)
             self._logger.info(
                 "command.submit_adr_for_review.event_appended",

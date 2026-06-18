@@ -7,9 +7,8 @@ from pydantic import ValidationError
 from application.logging import get_logger
 from application.ports.password_hasher import PasswordHasher
 from application.ports.unit_of_work import UnitOfWorkFactory
-from application.ports.user_repository import UserRepository
 from application.validation import value_error_from_pydantic
-from domain.errors import EmailAlreadyTaken
+from domain.user.aggregate import User
 from domain.user.errors import InvalidEmailAddress
 from domain.user.events import UserRegistered
 from domain.user.value_objects import EmailAddress, PasswordHash, UserId
@@ -25,11 +24,9 @@ class RegisterUserCommandHandler:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        user_repository: UserRepository,
         password_hasher: PasswordHasher,
     ) -> None:
         self._uow_factory = uow_factory
-        self._user_repository = user_repository
         self._password_hasher = password_hasher
         self._logger = get_logger(__name__)
 
@@ -50,24 +47,23 @@ class RegisterUserCommandHandler:
             )
             raise value_error_from_pydantic(exc, InvalidEmailAddress) from exc
 
-        existing = await self._user_repository.find_by_email(email.value)
-        if existing is not None:
-            self._logger.info(
-                "command.register_user.rejected",
-                reason="email_already_taken",
-                email_domain=email_domain,
-            )
-            raise EmailAlreadyTaken()
-
         async with self._uow_factory.begin() as uow:
             user_id = uuid4()
+            await uow.lock_aggregate(user_id)
             password_hash = self._password_hasher.hash(command.password)
             occurred_at = datetime.now(UTC)
 
-            event = UserRegistered(
+            user = User.create(
                 user_id=UserId(user_id),
                 email=email,
                 password_hash=PasswordHash(password_hash),
+                created_at=occurred_at,
+            )
+
+            event = UserRegistered(
+                user_id=user.user_id,
+                email=user.email,
+                password_hash=user.password_hash,
                 occurred_at=occurred_at,
             )
 

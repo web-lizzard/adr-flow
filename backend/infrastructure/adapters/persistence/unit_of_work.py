@@ -1,8 +1,11 @@
 """SQLAlchemy unit-of-work adapter for atomic write-side transactions."""
 
+import struct
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.exc import IntegrityError
 
@@ -35,6 +38,14 @@ class SqlUnitOfWork(UnitOfWork):
 
     async def rollback(self) -> None:
         await self._session.rollback()
+
+    async def lock_aggregate(self, aggregate_id: UUID) -> None:
+        # Signed int32 pair from the first 8 bytes of the aggregate UUID.
+        hi, lo = struct.unpack("!ii", aggregate_id.bytes[:8])
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(:hi, :lo)"),
+            {"hi": hi, "lo": lo},
+        )
 
 
 class SqlUnitOfWorkFactory(UnitOfWorkFactory):

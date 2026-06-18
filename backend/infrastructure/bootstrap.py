@@ -100,21 +100,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     token_service = JwtTokenService(secret_key=settings.jwt_secret)
     adr_review_service = build_adr_review_service(settings)
 
-    register_user_handler = RegisterUserCommandHandler(
-        uow_factory, user_repository, password_hasher
-    )
+    register_user_handler = RegisterUserCommandHandler(uow_factory, password_hasher)
     authenticate_user_handler = AuthenticateUserQueryHandler(
         user_repository, password_hasher
     )
     get_current_user_handler = GetCurrentUserQueryHandler(user_repository)
-    create_adr_handler = CreateAdrCommandHandler(uow_factory, adr_repository)
-    update_adr_content_handler = UpdateAdrContentCommandHandler(
-        uow_factory, adr_repository
-    )
-    submit_adr_for_review_handler = SubmitAdrForReviewCommandHandler(
-        uow_factory, adr_repository
-    )
-    publish_adr_handler = PublishAdrCommandHandler(uow_factory, adr_repository)
+    create_adr_handler = CreateAdrCommandHandler(uow_factory)
+    update_adr_content_handler = UpdateAdrContentCommandHandler(uow_factory)
+    submit_adr_for_review_handler = SubmitAdrForReviewCommandHandler(uow_factory)
+    publish_adr_handler = PublishAdrCommandHandler(uow_factory)
     get_adr_handler = GetAdrQueryHandler(adr_repository)
     get_adr_review_status_handler = GetAdrReviewStatusQueryHandler(adr_repository)
     search_adrs_handler = SearchAdrsByTitleQueryHandler(adr_repository)

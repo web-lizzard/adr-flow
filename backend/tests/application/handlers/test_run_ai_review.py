@@ -122,6 +122,9 @@ class FakeUnitOfWork:
     async def rollback(self) -> None:
         return None
 
+    async def lock_aggregate(self, aggregate_id) -> None:
+        return None
+
 
 class FakeUnitOfWorkFactory:
     def __init__(self) -> None:

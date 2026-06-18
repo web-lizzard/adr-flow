@@ -233,15 +233,10 @@ def test_accessing_another_users_adr_returns_404(auth_client) -> None:
     assert response.status_code == 404
 
 
-def test_patch_in_review_status_returns_error(auth_client, db_engine) -> None:
+def test_patch_in_review_status_returns_error(auth_client) -> None:
     _register_user(auth_client)
     adr_id = _create_adr(auth_client)
-
-    with db_engine.begin() as connection:
-        connection.execute(
-            text("UPDATE adrs SET status = 'in_review' WHERE id = :id"),
-            {"id": str(adr_id)},
-        )
+    auth_client.post(f"/api/adrs/{adr_id}/submit-review")
 
     response = auth_client.patch(
         f"/api/adrs/{adr_id}",
@@ -393,15 +388,8 @@ def test_submit_review_moves_draft_to_in_review_and_completes(auth_client) -> No
     assert adr["review_annotations"] is not None
 
 
-def test_submit_review_rejects_non_draft_status(auth_client, db_engine) -> None:
-    _register_user(auth_client)
-    adr_id = _create_adr(auth_client)
-
-    with db_engine.begin() as connection:
-        connection.execute(
-            text("UPDATE adrs SET status = 'after_review' WHERE id = :id"),
-            {"id": str(adr_id)},
-        )
+def test_submit_review_rejects_non_draft_status(auth_client) -> None:
+    adr_id = _seed_after_review_adr(auth_client)
 
     response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
 

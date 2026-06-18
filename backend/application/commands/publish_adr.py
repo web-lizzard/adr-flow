@@ -3,9 +3,9 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from application.logging import get_logger
-from application.ports.adr_repository import AdrRepository
 from application.ports.unit_of_work import UnitOfWorkFactory
-from domain.adr import ADRPublished, AdrId, AdrStatus
+from domain.adr import ADRPublished, AdrId
+from domain.adr.rehydrate import rehydrate_adr
 from domain.errors import AdrInvalidPublishStatus, AdrNotFound
 
 
@@ -16,13 +16,8 @@ class PublishAdrCommand:
 
 
 class PublishAdrCommandHandler:
-    def __init__(
-        self,
-        uow_factory: UnitOfWorkFactory,
-        adr_repository: AdrRepository,
-    ) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
-        self._adr_repository = adr_repository
         self._logger = get_logger(__name__)
 
     async def handle(self, command: PublishAdrCommand) -> None:
@@ -34,34 +29,28 @@ class PublishAdrCommandHandler:
             user_id=user_id,
         )
 
-        existing = await self._adr_repository.find_by_id_for_owner(
-            command.adr_id,
-            command.user_id,
-        )
-        if existing is None:
-            self._logger.info(
-                "command.publish_adr.rejected",
-                reason="adr_not_found",
-                adr_id=adr_id,
-            )
-            raise AdrNotFound()
-
-        if existing.status != AdrStatus.AFTER_REVIEW.value:
-            self._logger.info(
-                "command.publish_adr.rejected",
-                reason="invalid_status",
-                current_status=existing.status,
-                adr_id=adr_id,
-            )
-            raise AdrInvalidPublishStatus()
-
-        updated_at = datetime.now(UTC)
-        event = ADRPublished(
-            adr_id=AdrId(command.adr_id),
-            occurred_at=updated_at,
-        )
-
         async with self._uow_factory.begin() as uow:
+            await uow.lock_aggregate(command.adr_id)
+            stored_events = await uow.event_store.load_stream(
+                command.adr_id,
+                "adr",
+            )
+            adr = rehydrate_adr([event.event for event in stored_events])
+            if adr is None or adr.user_id.value != command.user_id:
+                self._logger.info(
+                    "command.publish_adr.rejected",
+                    reason="adr_not_found",
+                    adr_id=adr_id,
+                )
+                raise AdrNotFound()
+
+            updated_at = datetime.now(UTC)
+            adr.publish(updated_at)
+            event = ADRPublished(
+                adr_id=AdrId(command.adr_id),
+                occurred_at=updated_at,
+            )
+
             stored_events = await uow.event_store.append(
                 [event],
                 aggregate_id=command.adr_id,
@@ -75,7 +64,7 @@ class PublishAdrCommandHandler:
                 self._logger.info(
                     "command.publish_adr.rejected",
                     reason="invalid_status",
-                    current_status=existing.status,
+                    current_status=adr.status.value,
                     adr_id=adr_id,
                 )
                 raise AdrInvalidPublishStatus()

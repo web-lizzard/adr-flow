@@ -2,7 +2,7 @@
 
 ## Overview
 
-Refactor the command path so domain aggregates are rehydrated from the append-only `events` table (not projection tables) before business decisions run. Rich `ADR` and `User` aggregates own invariants, state transitions, and event emission; command handlers become thin orchestration (lock → load stream → call aggregate → append → sync projection). Sync projection SQL updates stay imperative in the same UoW transaction. Async projection subscribers and `RunAiReviewHandler` remain unchanged.
+Refactor the write path so domain aggregates are rehydrated from the append-only `events` table (not projection tables) before business decisions run. Command handlers and `RunAiReviewHandler` become thin orchestration (lock → load stream → rehydrate → call aggregate command method → build event → append → sync projection). Sync projection SQL stays imperative in the same UoW transaction. Async projection subscribers remain out of scope.
 
 ## Current State Analysis
 
@@ -20,7 +20,7 @@ Command handlers today load `AdrReadModel` / `UserReadModel` from projection tab
 
 - Every command handler acquires a transaction-scoped PostgreSQL advisory lock on the target aggregate, loads the event stream via `EventStore.load_stream`, rehydrates via `rehydrate_adr` / `rehydrate_user`, then calls the **specific command method** for that use case with **value objects** as input (`AdrTitle`, `AdrContent`, `UserId`, …).
 - **Domain events are never passed into aggregates.** Command handlers construct `ADRCreated`, `ADRSubmittedForReview`, etc. **after** the aggregate returns the new state.
-- `AdrRepository` and `UserRepository` are **not** used in command handlers (queries and `RunAiReviewHandler` keep using them).
+- `AdrRepository` and `UserRepository` are **not** used in command handlers or `RunAiReviewHandler` (query handlers only).
 - `domain/adr/rehydrate.py` (and user equivalent) is the **only** place that pattern-matches stored event types; it extracts value objects from payloads and calls aggregate **transition helpers** (VO in, `ADR` out, no invariant checks). Aggregates do not import event classes.
 - Title and email uniqueness rely on existing DB constraints; violations surface as `AdrTitleAlreadyExists` / `EmailAlreadyTaken` via UoW `IntegrityError` translation (no pre-read lookups).
 - `test_vocabulary_only.py` is replaced by aggregate behavior tests covering replay semantics, command-method guards, and illegal transitions.
@@ -34,7 +34,6 @@ Command handlers today load `AdrReadModel` / `UserReadModel` from projection tab
 ## What We're NOT Doing
 
 - Async projections or event-driven projection subscribers (views rebuilding from a bus)
-- Refactoring `RunAiReviewHandler` to stream-load (stays projection-first for MVP)
 - Refactoring sync projectors to call transition helpers (imperative SQL stays; rehydrator tests cover semantics)
 - Optimistic concurrency / expected-version on `append`
 - `ADRSoftDeleted` command handler (event vocabulary only)
@@ -245,7 +244,7 @@ Add per-aggregate advisory locking on the UoW and refactor all five command hand
 
 **Intent**: Update handler constructors after repository dependencies are removed from commands.
 
-**Contract**: `CreateAdrCommandHandler(uow_factory)` (and analogous for other commands). `AdrRepository` / `UserRepository` remain wired for query handlers and `RunAiReviewHandler` only.
+**Contract**: `CreateAdrCommandHandler(uow_factory)` (and analogous for other commands). `RunAiReviewHandler(uow_factory, adr_review_service)` — no `AdrRepository`. `AdrRepository` / `UserRepository` remain wired for **query handlers only**.
 
 #### 8. Command handler tests
 
@@ -281,52 +280,98 @@ Add per-aggregate advisory locking on the UoW and refactor all five command hand
 
 ---
 
-## Phase 3: Integration Verification
+## Phase 3: RunAiReviewHandler & Integration Verification
 
 ### Overview
 
-End-to-end confidence that the command path uses event replay and that the full ADR lifecycle still works with sync projections and async AI review unchanged.
+Extend the aggregate source-of-truth pattern to `RunAiReviewHandler`, then verify the full ADR lifecycle end-to-end. The async handler stops reading `AdrRepository`; it rehydrates from `load_stream` + `rehydrate_adr`, calls new aggregate command methods for review completion/failure, and builds `AIReviewCompleted` / `AIReviewFailed` in the handler after the aggregate transitions. LLM calls stay outside the write transaction; pre-flight stream load preserves skip/idempotency before invoking the LLM.
 
 ### Changes Required:
 
-#### 1. Event-store integration test — command path replay
+#### 1. ADR aggregate — AI review command methods
+
+**File**: `backend/domain/adr/aggregate.py`
+
+**Intent**: Encapsulate review outcome invariants currently enforced via projection reads in `RunAiReviewHandler`.
+
+**Contract**:
+
+- `complete_review(result: ReviewResult, reviewed_at: datetime) -> ADR` — requires `in_review`; delegates to `with_review_completed`.
+- `fail_review(code: str, message: str) -> ADR` — requires `in_review`; delegates to `with_review_failed`.
+- Add domain tests in `backend/tests/domain/test_adr_aggregate.py` for guards (e.g. reject `complete_review` when `after_review` or `draft`).
+
+#### 2. RunAiReviewHandler refactor
+
+**File**: `backend/application/handlers/run_ai_review.py`
+
+**Intent**: Align async write path with command handlers: event stream is operational source of truth; handler builds outcome events from aggregate state.
+
+**Contract**:
+
+- Remove `AdrRepository` constructor dependency.
+- **Pre-flight** (before LLM, read-only — use `uow_factory.begin()` without holding advisory lock during LLM):
+  - `load_stream(adr_id, "adr")` → `rehydrate_adr`
+  - Skip + `mark_processed` when: stream empty / ownership mismatch (`event.user_id` vs rehydrated `adr.user_id`); `adr.status == after_review`; stream already contains `AIReviewFailed` with `source_event_id == stored_event.id`
+  - Use `event.content` from trigger `ADRSubmittedForReview` for LLM markdown (dispatch payload — not passed into aggregate)
+- **Persist** (after LLM success or terminal failure):
+  - `lock_aggregate(adr_id)` → `load_stream` → `rehydrate_adr` → re-check idempotency guards
+  - Success: `new_adr = adr.complete_review(result, reviewed_at)` → handler builds `AIReviewCompleted` → `append` → `apply_review_result` → `mark_processed` (outcome + source submit event)
+  - Failure: `new_adr = adr.fail_review(code, message)` → handler builds `AIReviewFailed` (include `source_event_id=stored_event.id`) → `append` → `record_review_failure` → `mark_processed` (outcome + source)
+- Preserve existing logging keys and retry loop (`_MAX_ATTEMPTS`, validation feedback).
+
+#### 3. Bootstrap wiring
+
+**File**: `backend/infrastructure/bootstrap.py`
+
+**Intent**: Drop `adr_repository` from `RunAiReviewHandler` construction.
+
+**Contract**: `RunAiReviewHandler(uow_factory, adr_review_service)` only.
+
+#### 4. RunAiReviewHandler tests
+
+**File**: `backend/tests/application/handlers/test_run_ai_review.py`
+
+**Intent**: Replace `FakeAdrRepository` with stream-based fakes; assert `load_stream` + rehydration drive skip and persist paths.
+
+**Contract**:
+
+- Extend `FakeEventStore` with `load_stream` returning a configurable ordered `list[StoredEvent]` per `aggregate_id`.
+- Build streams via helpers (e.g. `ADRCreated` + `ADRSubmittedForReview` for happy path; add `AIReviewCompleted` for idempotent skip; add `AIReviewFailed` with matching `source_event_id` for duplicate-failure skip).
+- Remove `FakeAdrRepository` usage; update all five existing tests plus ownership-mismatch skip if not covered.
+- Assert `lock_aggregate` called on persist UoW; assert handler builds `AIReviewCompleted` / `AIReviewFailed` with expected payloads.
+
+#### 5. Event-store integration test — full lifecycle replay
 
 **File**: `backend/tests/infrastructure/adapters/persistence/test_event_store.py` or new `test_command_path_aggregate_load.py`
 
-**Intent**: Prove a realistic stream (create → update → submit → AIReviewCompleted → publish) rehydrates to the state `publish()` expects.
+**Intent**: Prove a realistic stream (create → update → submit → `AIReviewCompleted` → publish) rehydrates to the state `publish()` expects.
 
-**Contract**: Append events in order for one `aggregate_id`; `rehydrate_adr([e.event for e in await load_stream(...)])` has `status=AFTER_REVIEW` before publish event; after including `ADRPublished` mapping, `status=PROPOSED`.
+**Contract**: Append events in order for one `aggregate_id`; `rehydrate_adr([e.event for e in await load_stream(...)])` has `status=AFTER_REVIEW` before publish event; after including `ADRPublished`, `status=PROPOSED`.
 
-#### 2. API integration smoke (existing test suite)
+#### 6. API integration smoke (existing test suite)
 
 **Files**: existing router integration tests under `backend/tests/infrastructure/api/` if present
 
-**Intent**: Ensure HTTP layer still maps domain errors correctly after handler refactor.
+**Intent**: Ensure HTTP layer still maps domain errors correctly.
 
 **Contract**: No router changes expected; run existing ADR/user API tests.
-
-#### 3. Documentation alignment (optional, minimal)
-
-**File**: `context/foundation/application-architecture.md` — only if implementer finds a factual mismatch
-
-**Intent**: Architecture doc already describes aggregate load; no edit required unless drift is discovered during implementation.
-
-**Contract**: Skip unless code review reveals doc contradiction.
 
 ### Success Criteria:
 
 #### Automated Verification:
 
+- `cd backend && uv run pytest tests/domain/test_adr_aggregate.py` (review command methods)
+- `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py`
 - `cd backend && uv run pytest`
 - `pre-commit run --all-files` (from repo root)
 
 #### Manual Verification:
 
 - `just dev-backend` + exercise create → edit → submit → wait for AI review → publish via API or curl
-- Confirm `RunAiReviewHandler` still completes (async path untouched)
-- Confirm query endpoints (`GET /api/adrs/{id}`) return expected projection state after each step
+- Confirm `RunAiReviewHandler` completes using stream-loaded state (no projection read in handler)
+- Confirm query endpoints (`GET /api/adrs/{id}`) return expected projection state after review completes
 
-**Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
+**Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful.
 
 ---
 
@@ -336,6 +381,7 @@ End-to-end confidence that the command path uses event replay and that the full 
 
 - `ADR` transition helpers and command methods — guards, illegal transitions, annotation semantics
 - `rehydrate_adr` — all event types mapped to VO → transition calls
+- `RunAiReviewHandler` — stream-load, `complete_review` / `fail_review`, handler-built outcome events
 - Command handlers — assert events built with correct payloads after aggregate transition
 - `User.register` / `from_events`
 - Command handlers with fake `EventStore` returning predetermined streams
@@ -345,6 +391,7 @@ End-to-end confidence that the command path uses event replay and that the full 
 - `load_stream` ordering and deserialization
 - UoW `IntegrityError` → domain error (existing + post-refactor create/update title races)
 - Full-stream rehydration including `AIReviewCompleted` before publish
+- `RunAiReviewHandler` idempotency via stream contents (`after_review`, duplicate `AIReviewFailed`)
 
 ### Manual Testing Steps:
 
@@ -379,38 +426,40 @@ No schema migration required. Existing events rehydrate correctly if transition 
 
 #### Automated
 
-- [x] 1.1 `cd backend && uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_user_aggregate.py`
-- [x] 1.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_event_store.py` (or equivalent path)
-- [x] 1.3 `cd backend && uv run ruff check backend/domain/ backend/application/ports/event_store.py`
-- [x] 1.4 `cd backend && uv run ty check`
+- [x] 1.1 `cd backend && uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_user_aggregate.py` — 38430f3
+- [x] 1.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_event_store.py` (or equivalent path) — 38430f3
+- [x] 1.3 `cd backend && uv run ruff check backend/domain/ backend/application/ports/event_store.py` — 38430f3
+- [x] 1.4 `cd backend && uv run ty check` — 38430f3
 
 #### Manual
 
-- [x] 1.5 Review replay semantics table against research annotation matrix — no contradictions
+- [x] 1.5 Review replay semantics table against research annotation matrix — no contradictions — 38430f3
 
 ### Phase 2: UoW Locking & Command Handler Refactor
 
 #### Automated
 
-- [ ] 2.1 `cd backend && uv run pytest tests/application/commands/`
-- [ ] 2.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_unit_of_work.py`
-- [ ] 2.3 `cd backend && uv run ruff check .`
-- [ ] 2.4 `cd backend && uv run ty check`
+- [x] 2.1 `cd backend && uv run pytest tests/application/commands/` — 79a158b
+- [x] 2.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_unit_of_work.py` — 79a158b
+- [x] 2.3 `cd backend && uv run ruff check .` — 79a158b
+- [x] 2.4 `cd backend && uv run ty check` — 79a158b
 
 #### Manual
 
 - [ ] 2.5 Duplicate title on create returns `AdrTitleAlreadyExists` without repository pre-read
 - [ ] 2.6 Duplicate email on register returns `EmailAlreadyTaken` without repository pre-read
 
-### Phase 3: Integration Verification
+### Phase 3: RunAiReviewHandler & Integration Verification
 
 #### Automated
 
-- [ ] 3.1 `cd backend && uv run pytest`
-- [ ] 3.2 `pre-commit run --all-files` (from repo root)
+- [ ] 3.1 `cd backend && uv run pytest tests/domain/test_adr_aggregate.py` (review command methods)
+- [ ] 3.2 `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py`
+- [ ] 3.3 `cd backend && uv run pytest`
+- [ ] 3.4 `pre-commit run --all-files` (from repo root)
 
 #### Manual
 
-- [ ] 3.3 Exercise create → edit → submit → AI review → publish via API
-- [ ] 3.4 Confirm `RunAiReviewHandler` still completes (async path untouched)
-- [ ] 3.5 Confirm query endpoints return expected projection state after each step
+- [ ] 3.5 Exercise create → edit → submit → AI review → publish via API
+- [ ] 3.6 Confirm `RunAiReviewHandler` uses stream-loaded state (no `AdrRepository` read)
+- [ ] 3.7 Confirm query endpoints return expected projection state after review completes

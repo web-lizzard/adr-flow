@@ -15,17 +15,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/language": "^6.12.3",
-    "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.43.1",
     "@lucide/vue": "^1.17.0",
     "@tailwindcss/vite": "^4.3.0",
     "@vee-validate/zod": "^4.15.1",
     "@vueuse/core": "^14.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "codemirror": "^6.0.2",
     "lucide-vue-next": "^1.0.0",
     "md-editor-v3": "^6.5.1",
     "nuxt": "^4.4.6",
@@ -36,7 +31,6 @@
     "tailwindcss": "^4.3.0",
     "vee-validate": "^4.15.1",
     "vue": "^3.5.34",
-    "vue-codemirror6": "^1.5.2",
     "vue-router": "^5.0.7",
     "zod": "^4.4.3"
   },

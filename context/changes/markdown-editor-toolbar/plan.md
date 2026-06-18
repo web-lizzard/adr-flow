@@ -287,23 +287,23 @@ No data migration. ADR `content` field remains markdown string. Rollback: revert
 
 #### Automated
 
-- [x] 2.1 `cd frontend && pnpm run typecheck` passes
-- [x] 2.2 `cd frontend && pnpm run lint` passes
+- [x] 2.1 `cd frontend && pnpm run typecheck` passes — 4703ee1
+- [x] 2.2 `cd frontend && pnpm run lint` passes — 4703ee1
 
 #### Manual
 
-- [x] 2.3 Readonly shows MdPreview only; light/dark theme matches shadcn UI
+- [x] 2.3 Readonly shows MdPreview only; light/dark theme matches shadcn UI — 4703ee1
 
 ### Phase 3: Tests & Dependency Cleanup
 
 #### Automated
 
-- [ ] 3.1 `cd frontend && pnpm run test` passes
-- [ ] 3.2 `cd frontend && pnpm run typecheck` passes
-- [ ] 3.3 `cd frontend && pnpm run lint` passes
-- [ ] 3.4 `cd frontend && pnpm run build` passes
-- [ ] 3.5 No CodeMirror imports remain under `frontend/`
+- [x] 3.1 `cd frontend && pnpm run test` passes
+- [x] 3.2 `cd frontend && pnpm run typecheck` passes
+- [x] 3.3 `cd frontend && pnpm run lint` passes
+- [x] 3.4 `cd frontend && pnpm run build` passes
+- [x] 3.5 No CodeMirror imports remain under `frontend/`
 
 #### Manual
 
-- [ ] 3.6 Full draft → review → preview-only flow verified; no regressions
+- [x] 3.6 Full draft → review → preview-only flow verified; no regressions

@@ -1,70 +1,95 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("md-editor-v3/lib/style.css", () => ({}));
+vi.mock("md-editor-v3/lib/preview.css", () => ({}));
+
+vi.mock("md-editor-v3", async () => {
+  const { defineComponent } = await import("vue");
+
+  return {
+    MdEditor: defineComponent({
+      name: "MdEditor",
+      props: ["modelValue", "toolbars", "theme"],
+      emits: ["update:modelValue", "on-blur"],
+      template: `<div data-testid="md-editor-stub" />`,
+    }),
+    MdPreview: defineComponent({
+      name: "MdPreview",
+      props: ["modelValue", "theme"],
+      template: `<div data-testid="md-preview-stub" />`,
+    }),
+  };
+});
+
 import AdrMarkdownEditor from "../app/components/adr/AdrMarkdownEditor.client.vue";
 
-const CodeMirrorStub = {
-  name: "CodeMirror",
-  props: ["modelValue", "readonly", "extensions"],
-  emits: ["update:modelValue", "focus"],
-  template: `<div data-testid="codemirror-stub" />`,
-};
+function mountEditor(props: { modelValue: string; readonly?: boolean }) {
+  return mount(AdrMarkdownEditor, {
+    props,
+  });
+}
 
 describe("AdrMarkdownEditor", () => {
-  it("passes readonly to CodeMirror and suppresses blur when read-only", async () => {
-    const wrapper = mount(AdrMarkdownEditor, {
-      props: {
-        modelValue: "## Context",
-        readonly: true,
-      },
-      global: {
-        stubs: {
-          CodeMirror: CodeMirrorStub,
-        },
-      },
+  beforeEach(() => {
+    vi.stubGlobal("useColorMode", () => ({
+      value: "light",
+      preference: "light",
+    }));
+  });
+
+  it("renders MdPreview and suppresses blur when read-only", () => {
+    const wrapper = mountEditor({
+      modelValue: "## Context",
+      readonly: true,
     });
 
-    const editor = wrapper.findComponent(CodeMirrorStub);
-    expect(editor.props("readonly")).toBe(true);
-
-    await editor.vm.$emit("focus", false);
-
+    expect(wrapper.find('[data-testid="md-preview-stub"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="md-editor-stub"]').exists()).toBe(false);
     expect(wrapper.emitted("blur")).toBeUndefined();
   });
 
   it("emits blur when editable and editor loses focus", async () => {
-    const wrapper = mount(AdrMarkdownEditor, {
-      props: {
-        modelValue: "## Context",
-      },
-      global: {
-        stubs: {
-          CodeMirror: CodeMirrorStub,
-        },
-      },
+    const wrapper = mountEditor({
+      modelValue: "## Context",
     });
 
-    const editor = wrapper.findComponent(CodeMirrorStub);
-    await editor.vm.$emit("focus", false);
+    await wrapper.findComponent({ name: "MdEditor" }).vm.$emit("on-blur");
 
     expect(wrapper.emitted("blur")).toHaveLength(1);
   });
 
   it("does not emit model updates when read-only", async () => {
-    const wrapper = mount(AdrMarkdownEditor, {
-      props: {
-        modelValue: "## Context",
-        readonly: true,
-      },
-      global: {
-        stubs: {
-          CodeMirror: CodeMirrorStub,
-        },
-      },
+    const wrapper = mountEditor({
+      modelValue: "## Context",
+      readonly: true,
     });
 
-    const editor = wrapper.findComponent(CodeMirrorStub);
-    await editor.vm.$emit("update:modelValue", "changed content");
+    expect(wrapper.find('[data-testid="md-editor-stub"]').exists()).toBe(false);
+
+    await wrapper
+      .findComponent({ name: "MdPreview" })
+      .vm.$emit("update:modelValue", "changed content");
 
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it("renders MdEditor when editable and MdPreview when readonly", () => {
+    const editable = mountEditor({ modelValue: "## Context" });
+    expect(editable.find('[data-testid="md-editor-stub"]').exists()).toBe(true);
+    expect(editable.find('[data-testid="md-preview-stub"]').exists()).toBe(
+      false,
+    );
+
+    const readonly = mountEditor({
+      modelValue: "## Context",
+      readonly: true,
+    });
+    expect(readonly.find('[data-testid="md-preview-stub"]').exists()).toBe(
+      true,
+    );
+    expect(readonly.find('[data-testid="md-editor-stub"]').exists()).toBe(
+      false,
+    );
   });
 });

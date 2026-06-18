@@ -134,7 +134,8 @@ backend/
     commands/       # One handler per write use case
     queries/        # One handler per read use case
     handlers/       # Async event handlers (side effects)
-    ports/          # Protocols: EventStore, EventBus, LlmReviewer, …
+    ports/          # Protocols: EventStore, EventBus, LlmCompletionPort, …
+    services/       # AdrReviewService (review orchestration)
     runtime/        # Handler registry + dispatch loop
   infrastructure/
     api/
@@ -144,7 +145,7 @@ backend/
       persistence/
         event_store.py
         projections/  # users, adrs read/write adapters
-    llm/            # OpenRouter adapter
+    llm/            # OpenAI SDK completion client + fake port
     messaging/      # asyncio TaskGroup event-bus implementation
     bootstrap.py    # Composition root: wire ports → adapters
   main.py           # Thin FastAPI app + lifespan (startup replay)
@@ -183,7 +184,7 @@ Each roadmap slice (S-01, S-02, S-04, …) adds a narrow vertical strip:
 |---|---|
 | S-01 Account access | `domain/user/`, `commands/register_user.py`, `queries/get_current_user.py`, auth router |
 | S-02 Draft authoring | `domain/adr/`, `commands/create_adr.py`, `commands/update_adr_content.py`, ADR router |
-| S-04 AI review | `handlers/run_ai_review.py`, `infrastructure/llm/openrouter.py` |
+| S-04 AI review | `handlers/run_ai_review.py`, `services/adr_review_service.py`, `infrastructure/llm/openai_sdk_client.py` |
 | S-05 Publish | `commands/publish_adr.py` (emits `ADRPublished`) |
 | S-06 Soft delete | `commands/soft_delete_adr.py` (emits `ADRSoftDeleted`) |
 

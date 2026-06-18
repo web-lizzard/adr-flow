@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from domain.adr import SectionName, find_missing_or_empty_sections
+from domain.adr.review_actionability import required_fields_for_kind
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
@@ -104,21 +105,7 @@ def _actionability_failures(result: ReviewResult) -> tuple[str, ...]:
     failures: list[str] = []
     for index, annotation in enumerate(result.annotations):
         prefix = f"annotation {index} ({annotation.kind.value})"
-        if annotation.kind == ReviewAnnotationKind.MISSING_SECTION:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.suggestion):
-                failures.append(f"{prefix}: non-empty suggestion required")
-        elif annotation.kind == ReviewAnnotationKind.CONCISENESS:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.suggestion):
-                failures.append(f"{prefix}: non-empty suggestion required")
-            if not _is_non_empty(annotation.location):
-                failures.append(f"{prefix}: non-empty location required")
-        elif annotation.kind == ReviewAnnotationKind.INCONSISTENCY:
-            if not _is_non_empty(annotation.message):
-                failures.append(f"{prefix}: non-empty message required")
-            if not _is_non_empty(annotation.location):
-                failures.append(f"{prefix}: non-empty location required")
+        for field_name in required_fields_for_kind(annotation.kind):
+            if not _is_non_empty(getattr(annotation, field_name)):
+                failures.append(f"{prefix}: non-empty {field_name} required")
     return tuple(failures)

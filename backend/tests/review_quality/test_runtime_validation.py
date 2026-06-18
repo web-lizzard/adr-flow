@@ -2,19 +2,20 @@
 
 Proves the runtime validator enforces the same actionability and
 missing-section constraints as the harness, and that deterministic fake
-reviewer output meets the PRD section-gap recall threshold on fixtures.
+completion output meets the PRD section-gap recall threshold on fixtures.
 """
 
 import asyncio
 from datetime import UTC, datetime
 
 from application.review_quality import validate_review_result
+from application.services.adr_review_service import AdrReviewService
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
     ReviewResult,
 )
-from infrastructure.llm.fake_reviewer import FakeReviewer
+from infrastructure.llm.fake_completion import FakeLlmCompletionPort
 from tests.review_quality.cases import ALL_CASES
 from tests.review_quality.grader import grade_review_output
 
@@ -92,14 +93,14 @@ def test_runtime_validator_rejects_invalid_kind_specific_fields() -> None:
 
 
 async def _fake_review_all_fixtures() -> dict[str, ReviewResult]:
-    reviewer = FakeReviewer()
+    service = AdrReviewService(FakeLlmCompletionPort())
     results: dict[str, ReviewResult] = {}
     for case in ALL_CASES:
-        results[case.name] = await reviewer.review(case.markdown)
+        results[case.name] = await service.review_adr(case.markdown)
     return results
 
 
-def test_fake_reviewer_fixture_recall_meets_prd_threshold() -> None:
+def test_fake_completion_fixture_recall_meets_prd_threshold() -> None:
     results = asyncio.run(_fake_review_all_fixtures())
     recalls: list[float] = []
 

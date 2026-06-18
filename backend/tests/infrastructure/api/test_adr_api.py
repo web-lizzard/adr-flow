@@ -474,16 +474,21 @@ def test_review_status_exposes_failure_metadata_after_invalid_review(
         connection.execute(text("DELETE FROM users"))
         connection.execute(text("DELETE FROM events"))
 
-    class InvalidReviewer:
-        async def review(self, markdown: str) -> ReviewResult:
+    class InvalidReviewService:
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ) -> ReviewResult:
             return ReviewResult(
                 annotations=(),
                 reviewed_at=datetime.now(UTC),
             )
 
     monkeypatch.setattr(
-        "infrastructure.bootstrap.build_llm_reviewer",
-        lambda _settings: InvalidReviewer(),
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: InvalidReviewService(),
     )
     settings = Settings(
         database_url=postgres_url,
@@ -529,11 +534,16 @@ def test_submit_review_returns_202_before_review_work_completes(auth_client) -> 
     assert in_review["reviewed_at"] is None
 
 
-class _CountingInvalidReviewer:
+class _CountingInvalidReviewService:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def review(self, markdown: str):
+    async def review_adr(
+        self,
+        markdown: str,
+        *,
+        validation_feedback: tuple[str, ...] = (),
+    ):
         from datetime import UTC, datetime
 
         from domain.adr.value_objects import ReviewResult
@@ -560,10 +570,10 @@ def test_replay_processes_unprocessed_submit_event(
         connection.execute(text("DELETE FROM users"))
         connection.execute(text("DELETE FROM events"))
 
-    reviewer = _CountingInvalidReviewer()
+    review_service = _CountingInvalidReviewService()
     monkeypatch.setattr(
-        "infrastructure.bootstrap.build_llm_reviewer",
-        lambda _settings: reviewer,
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: review_service,
     )
     settings = Settings(
         database_url=postgres_url,
@@ -585,11 +595,11 @@ def test_replay_processes_unprocessed_submit_event(
 
         status = client.get(f"/api/adrs/{adr_id}/review-status").json()
         assert status["status"] == "in_review"
-        assert reviewer.calls == 0
+        assert review_service.calls == 0
 
         _drain_event_bus(client)
 
-        assert reviewer.calls == 2
+        assert review_service.calls == 2
         failed = client.get(f"/api/adrs/{adr_id}/review-status").json()
         assert failed["status"] == "in_review"
         assert failed["review_error"] is not None

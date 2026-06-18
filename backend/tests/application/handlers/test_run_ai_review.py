@@ -28,13 +28,18 @@ from domain.user.value_objects import UserId
 _REVIEWED_AT = datetime(2026, 6, 17, 12, 0, tzinfo=UTC)
 
 
-class FakeLlmReviewer:
+class FakeAdrReviewService:
     def __init__(self, *, results: list[ReviewResult] | None = None) -> None:
         self._results = list(results or [])
-        self.calls: list[str] = []
+        self.calls: list[tuple[str, tuple[str, ...]]] = []
 
-    async def review(self, markdown: str) -> ReviewResult:
-        self.calls.append(markdown)
+    async def review_adr(
+        self,
+        markdown: str,
+        *,
+        validation_feedback: tuple[str, ...] = (),
+    ) -> ReviewResult:
+        self.calls.append((markdown, validation_feedback))
         if not self._results:
             msg = "No fake review results configured"
             raise RuntimeError(msg)
@@ -244,13 +249,13 @@ def test_run_ai_review_applies_valid_result_and_marks_event_processed() -> None:
     repository = FakeAdrRepository(
         by_id=_adr_read_model(adr_id=adr_id, user_id=user_id, content=content)
     )
-    reviewer = FakeLlmReviewer(results=[_valid_result(content)])
+    review_service = FakeAdrReviewService(results=[_valid_result(content)])
     uow_factory = FakeUnitOfWorkFactory()
-    handler = RunAiReviewHandler(uow_factory, repository, reviewer)
+    handler = RunAiReviewHandler(uow_factory, repository, review_service)
 
     asyncio.run(handler.handle(stored_event))
 
-    assert reviewer.calls == [content]
+    assert review_service.calls == [(content, ())]
     uow = uow_factory.unit_of_works[0]
     events, aggregate_id, aggregate_type = uow.event_store.appended[0]
     assert aggregate_id == adr_id
@@ -278,12 +283,14 @@ def test_run_ai_review_retries_once_on_invalid_output_then_succeeds() -> None:
     repository = FakeAdrRepository(
         by_id=_adr_read_model(adr_id=adr_id, user_id=user_id, content=content)
     )
-    reviewer = FakeLlmReviewer(results=[invalid, valid])
-    handler = RunAiReviewHandler(FakeUnitOfWorkFactory(), repository, reviewer)
+    review_service = FakeAdrReviewService(results=[invalid, valid])
+    handler = RunAiReviewHandler(FakeUnitOfWorkFactory(), repository, review_service)
 
     asyncio.run(handler.handle(stored_event))
 
-    assert len(reviewer.calls) == 2
+    assert len(review_service.calls) == 2
+    assert review_service.calls[0][1] == ()
+    assert review_service.calls[1][1] != ()
 
 
 def test_run_ai_review_records_terminal_failure_after_retry_exhausted() -> None:
@@ -301,9 +308,9 @@ def test_run_ai_review_records_terminal_failure_after_retry_exhausted() -> None:
     repository = FakeAdrRepository(
         by_id=_adr_read_model(adr_id=adr_id, user_id=user_id, content=content)
     )
-    reviewer = FakeLlmReviewer(results=[invalid, invalid])
+    review_service = FakeAdrReviewService(results=[invalid, invalid])
     uow_factory = FakeUnitOfWorkFactory()
-    handler = RunAiReviewHandler(uow_factory, repository, reviewer)
+    handler = RunAiReviewHandler(uow_factory, repository, review_service)
 
     asyncio.run(handler.handle(stored_event))
 
@@ -335,13 +342,13 @@ def test_run_ai_review_is_idempotent_when_adr_already_after_review() -> None:
             status=AdrStatus.AFTER_REVIEW.value,
         )
     )
-    reviewer = FakeLlmReviewer()
+    review_service = FakeAdrReviewService()
     uow_factory = FakeUnitOfWorkFactory()
-    handler = RunAiReviewHandler(uow_factory, repository, reviewer)
+    handler = RunAiReviewHandler(uow_factory, repository, review_service)
 
     asyncio.run(handler.handle(stored_event))
 
-    assert reviewer.calls == []
+    assert review_service.calls == []
     uow = uow_factory.unit_of_works[0]
     assert uow.event_store.appended == []
     assert uow.event_store.marked_processed[0][0] == stored_event.id
@@ -371,9 +378,9 @@ def test_run_ai_review_skips_when_failure_already_recorded_for_event() -> None:
             ),
         )
     )
-    reviewer = FakeLlmReviewer()
-    handler = RunAiReviewHandler(FakeUnitOfWorkFactory(), repository, reviewer)
+    review_service = FakeAdrReviewService()
+    handler = RunAiReviewHandler(FakeUnitOfWorkFactory(), repository, review_service)
 
     asyncio.run(handler.handle(stored_event))
 
-    assert reviewer.calls == []
+    assert review_service.calls == []

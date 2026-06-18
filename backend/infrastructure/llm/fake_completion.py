@@ -4,12 +4,15 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from application.logging import get_logger
 from application.ports.llm_completion import ChatMessage
 from domain.adr import find_missing_or_empty_sections
 from domain.adr.review_llm_schema import ReviewAnnotationPayload, ReviewPayload
 from domain.adr.value_objects import ReviewAnnotationKind
 
 T = TypeVar("T", bound=BaseModel)
+
+_logger = get_logger(__name__)
 
 
 class FakeLlmCompletionPort:
@@ -53,7 +56,13 @@ class FakeLlmCompletionPort:
             )
 
         payload = ReviewPayload(annotations=tuple(annotations))
-        return response_model.model_validate(payload.model_dump())
+        result = response_model.model_validate(payload.model_dump())
+        _logger.info(
+            "llm.review.parsed",
+            annotation_count=len(payload.annotations),
+            output=payload.model_dump(),
+        )
+        return result
 
 
 def _user_content(messages: list[ChatMessage]) -> str:

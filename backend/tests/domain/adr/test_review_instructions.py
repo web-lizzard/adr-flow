@@ -50,3 +50,29 @@ def test_user_message_wraps_adr_markdown() -> None:
 
     assert markdown in user_message
     assert "adr" in user_message.casefold()
+
+
+def test_user_message_includes_validation_feedback_on_retry() -> None:
+    markdown = "## Context\n\nWe need a store.\n"
+    feedback = (
+        "false negative: missing annotation for Decision",
+        "annotation 0 (missing_section): non-empty suggestion required",
+    )
+
+    user_message = build_review_user_message(
+        markdown,
+        validation_feedback=feedback,
+    )
+
+    assert "static validation" in user_message.casefold()
+    assert feedback[0] in user_message
+    assert feedback[1] in user_message
+    assert markdown in user_message
+
+
+def test_user_message_omits_feedback_section_when_empty() -> None:
+    markdown = "## Context\n\nWe need a store.\n"
+
+    user_message = build_review_user_message(markdown, validation_feedback=())
+
+    assert "static validation" not in user_message.casefold()

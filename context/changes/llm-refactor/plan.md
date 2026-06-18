@@ -454,17 +454,17 @@ Remove superseded files, DRY `review_quality` with domain actionability, and ens
 
 #### Automated
 
-- [x] 2.1 `pytest tests/infrastructure/llm/test_openai_sdk_client.py tests/infrastructure/llm/test_fake_completion.py` — pass
-- [x] 2.2 `ruff check . && ty check` — pass
+- [x] 2.1 `pytest tests/infrastructure/llm/test_openai_sdk_client.py tests/infrastructure/llm/test_fake_completion.py` — pass — 090e33d
+- [x] 2.2 `ruff check . && ty check` — pass — 090e33d
 
 ### Phase 3: AdrReviewService and Handler Wiring
 
 #### Automated
 
-- [ ] 3.1 `pytest tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py` — pass
-- [ ] 3.2 `pytest tests/infrastructure/api/test_adr_api.py` — pass
-- [ ] 3.3 Full `pytest` suite — green
-- [ ] 3.4 `ruff check . && ty check` — pass
+- [x] 3.1 `pytest tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py` — pass
+- [x] 3.2 `pytest tests/infrastructure/api/test_adr_api.py` — pass
+- [x] 3.3 Full `pytest` suite — green
+- [x] 3.4 `ruff check . && ty check` — pass
 
 #### Manual
 

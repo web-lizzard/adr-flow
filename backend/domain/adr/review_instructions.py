@@ -32,9 +32,22 @@ def build_review_system_prompt() -> str:
     )
 
 
-def build_review_user_message(markdown: str) -> str:
+def build_review_user_message(
+    markdown: str,
+    *,
+    validation_feedback: tuple[str, ...] = (),
+) -> str:
     """Wrap ADR markdown for the user role in a review completion request."""
-    return (
-        "Review the following ADR markdown and return annotations as specified:\n\n"
-        f"{markdown}"
-    )
+    parts = [
+        "Review the following ADR markdown and return annotations as specified:",
+    ]
+    if validation_feedback:
+        parts.extend(
+            [
+                "",
+                "Your previous output failed static validation. Fix these issues:",
+                *(f"- {failure}" for failure in validation_feedback),
+            ]
+        )
+    parts.extend(["", markdown])
+    return "\n".join(parts)

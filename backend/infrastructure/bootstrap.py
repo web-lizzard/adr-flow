@@ -36,7 +36,7 @@ from infrastructure.api.middleware.request_logging import RequestLoggingMiddlewa
 from infrastructure.api.routers.adr import router as adr_router
 from infrastructure.api.routers.auth import router as auth_router
 from infrastructure.config import Settings, load_settings
-from infrastructure.llm.factory import build_llm_reviewer
+from infrastructure.llm.factory import build_adr_review_service
 from infrastructure.logging import configure_logging
 from infrastructure.messaging.task_group_bus import TaskGroupEventBus
 
@@ -97,7 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     adr_repository = SqlAdrRepository(session_factory)
     password_hasher = Argon2PasswordHasher()
     token_service = JwtTokenService(secret_key=settings.jwt_secret)
-    llm_reviewer = build_llm_reviewer(settings)
+    adr_review_service = build_adr_review_service(settings)
 
     register_user_handler = RegisterUserCommandHandler(
         uow_factory, user_repository, password_hasher
@@ -121,7 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     run_ai_review_handler = RunAiReviewHandler(
         uow_factory,
         adr_repository,
-        llm_reviewer,
+        adr_review_service,
     )
     dispatcher = EventDispatcher()
     dispatcher.register(ADRSubmittedForReview, run_ai_review_handler.handle)

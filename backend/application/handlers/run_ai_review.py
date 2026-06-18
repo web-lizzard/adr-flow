@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 from application.logging import get_logger
 from application.ports.adr_repository import AdrRepository
+from application.ports.adr_review import AdrReviewPort
 from application.ports.event_store import StoredEvent
-from application.ports.llm_reviewer import LlmReviewer
 from application.ports.unit_of_work import UnitOfWorkFactory
 from application.review_metadata import ReviewErrorMetadata
 from application.review_quality import validate_review_result
@@ -18,11 +18,11 @@ class RunAiReviewHandler:
         self,
         uow_factory: UnitOfWorkFactory,
         adr_repository: AdrRepository,
-        llm_reviewer: LlmReviewer,
+        adr_review_service: AdrReviewPort,
     ) -> None:
         self._uow_factory = uow_factory
         self._adr_repository = adr_repository
-        self._llm_reviewer = llm_reviewer
+        self._adr_review_service = adr_review_service
         self._logger = get_logger(__name__)
 
     async def handle(self, stored_event: StoredEvent) -> None:
@@ -79,6 +79,7 @@ class RunAiReviewHandler:
             return
 
         last_error: str | None = None
+        validation_feedback: tuple[str, ...] = ()
         for attempt in range(1, self._MAX_ATTEMPTS + 1):
             self._logger.info(
                 "handler.run_ai_review.attempt",
@@ -93,7 +94,10 @@ class RunAiReviewHandler:
                     attempt=attempt,
                     content_length=len(markdown),
                 )
-                result = await self._llm_reviewer.review(markdown)
+                result = await self._adr_review_service.review_adr(
+                    markdown,
+                    validation_feedback=validation_feedback,
+                )
                 validation = validate_review_result(markdown, result)
                 if validation.passed:
                     annotation_count = len(result.annotations)
@@ -105,6 +109,7 @@ class RunAiReviewHandler:
                     )
                     return
                 last_error = "; ".join(validation.failures)
+                validation_feedback = validation.failures
                 self._logger.warning(
                     "handler.run_ai_review.validation_failed",
                     adr_id=str(adr_id),

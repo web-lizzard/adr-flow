@@ -31,7 +31,7 @@ class OpenAiSdkCompletionClient:
         self._provider = provider
         self._model = model
         self._client = client or AsyncOpenAI(
-            api_key=api_key,
+            api_key=api_key or "not-needed",
             base_url=base_url.rstrip("/"),
             timeout=timeout_seconds,
         )
@@ -174,4 +174,8 @@ def _log_parsed(parsed: BaseModel) -> None:
     annotations = getattr(parsed, "annotations", None)
     if annotations is not None:
         annotation_count = len(annotations)
-    _logger.info("llm.review.parsed", annotation_count=annotation_count)
+    _logger.info(
+        "llm.review.parsed",
+        annotation_count=annotation_count,
+        output=parsed.model_dump(),
+    )

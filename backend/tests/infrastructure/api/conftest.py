@@ -27,6 +27,7 @@ def auth_client(postgres_url: str) -> Iterator[TestClient]:
         cors_origins=["http://testserver"],
         cookie_secure=False,
         cookie_path="/api",
+        llm_provider="fake",
     )
     app = create_app(settings=settings)
     with TestClient(app) as client:

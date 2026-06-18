@@ -347,13 +347,13 @@ No data migration required. `ADRPublished` events may exist in event store from 
 
 #### Automated
 
-- [x] 2.1 ESLint passes: `cd frontend && pnpm run lint`
-- [x] 2.2 Typecheck passes: `cd frontend && pnpm run typecheck`
-- [x] 2.3 Store tests pass: `cd frontend && pnpm run test tests/adr.store.test.ts`
-- [x] 2.4 Page tests pass: `cd frontend && pnpm run test tests/adr-editor-page.test.ts`
-- [x] 2.5 Full frontend suite passes: `cd frontend && pnpm run test`
+- [x] 2.1 ESLint passes: `cd frontend && pnpm run lint` — 19eec94
+- [x] 2.2 Typecheck passes: `cd frontend && pnpm run typecheck` — 19eec94
+- [x] 2.3 Store tests pass: `cd frontend && pnpm run test tests/adr.store.test.ts` — 19eec94
+- [x] 2.4 Page tests pass: `cd frontend && pnpm run test tests/adr-editor-page.test.ts` — 19eec94
+- [x] 2.5 Full frontend suite passes: `cd frontend && pnpm run test` — 19eec94
 
 #### Manual
 
-- [ ] 2.6 E2E demo: full lifecycle draft → proposed with toast, editable proposed state, annotations visible
-- [ ] 2.7 Publish for review vs Publish labels are distinct; publish error shows inline without toast
+- [x] 2.6 E2E demo: full lifecycle draft → proposed with toast, editable proposed state, annotations visible — 19eec94
+- [x] 2.7 Publish for review vs Publish labels are distinct; publish error shows inline without toast — 19eec94

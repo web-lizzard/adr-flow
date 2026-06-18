@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import CodeMirror from "vue-codemirror6";
+import { MdEditor } from "md-editor-v3";
+import "md-editor-v3/lib/style.css";
+import { computed } from "vue";
+import { adrToolbars } from "./adr-editor-toolbars";
 
 const props = withDefaults(
   defineProps<{
@@ -17,37 +19,44 @@ const emit = defineEmits<{
   (e: "blur"): void;
 }>();
 
-const extensions = [markdown({ base: markdownLanguage })];
+const toolbars = computed(() => (props.readonly ? [] : adrToolbars));
 
-function onUpdate(value?: string) {
-  if (props.readonly || typeof value !== "string") {
+function onUpdate(value: string) {
+  if (props.readonly) {
     return;
   }
   emit("update:modelValue", value);
 }
 
-function onFocus(focused: boolean) {
-  if (!focused && !props.readonly) {
+function onBlur() {
+  if (!props.readonly) {
     emit("blur");
   }
 }
 </script>
 
 <template>
-  <CodeMirror
-    :model-value="props.modelValue"
-    :readonly="props.readonly"
-    :extensions="extensions"
-    basic
-    wrap
+  <div
     class="adr-markdown-editor min-h-[24rem] w-full overflow-hidden rounded-md border border-input text-sm"
-    @update:model-value="onUpdate"
-    @focus="onFocus"
-  />
+  >
+    <MdEditor
+      id="adr-editor"
+      :model-value="props.modelValue"
+      :read-only="props.readonly"
+      :toolbars="toolbars"
+      no-upload-img
+      language="en-US"
+      preview-theme="github"
+      code-theme="atom"
+      class="h-full w-full"
+      @update:model-value="onUpdate"
+      @on-blur="onBlur"
+    />
+  </div>
 </template>
 
 <style scoped>
-.adr-markdown-editor :deep(.cm-editor) {
+.adr-markdown-editor :deep(.md-editor) {
   min-height: 24rem;
 }
 

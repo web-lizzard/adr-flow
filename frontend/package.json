@@ -27,6 +27,7 @@
     "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
     "lucide-vue-next": "^1.0.0",
+    "md-editor-v3": "^6.5.1",
     "nuxt": "^4.4.6",
     "pinia": "^3.0.4",
     "radix-vue": "^1.9.17",

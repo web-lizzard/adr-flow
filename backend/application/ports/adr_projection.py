@@ -14,6 +14,8 @@ class AdrProjection(Protocol):
 
     async def mark_in_review(self, adr_id: UUID, *, updated_at: datetime) -> None: ...
 
+    async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool: ...
+
     async def apply_review_result(
         self,
         adr_id: UUID,

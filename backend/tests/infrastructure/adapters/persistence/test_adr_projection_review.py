@@ -101,6 +101,22 @@ def test_adr_projection_review_lifecycle(
                 assert row.reviewed_at == reviewed_at
                 assert row.review_error is None
                 assert row.review_annotations is not None
+                annotations_before_publish = row.review_annotations
+
+            proposed_at = datetime(2026, 6, 17, 13, 0, tzinfo=UTC)
+            async with session_factory() as session:
+                async with session.begin():
+                    projection = SqlAdrProjection(session)
+                    await projection.mark_proposed(adr_id, updated_at=proposed_at)
+
+            async with session_factory() as session:
+                row = (
+                    await session.execute(select(Adr).where(Adr.id == adr_id))
+                ).scalar_one()
+                assert row.status == "proposed"
+                assert row.reviewed_at == reviewed_at
+                assert row.review_annotations == annotations_before_publish
+                assert row.updated_at == proposed_at
 
             async with session_factory() as session:
                 async with session.begin():

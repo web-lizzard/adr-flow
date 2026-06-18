@@ -660,3 +660,65 @@ def test_replay_does_not_duplicate_completed_review(
         _drain_event_bus(client)
         adr_after_replay = client.get(f"/api/adrs/{adr_id}").json()
         assert len(adr_after_replay["review_annotations"] or []) == annotation_count
+
+
+def _seed_after_review_adr(auth_client) -> UUID:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+    auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+    _wait_for_review_status(auth_client, adr_id, expected="after_review")
+    return adr_id
+
+
+def test_publish_moves_after_review_to_proposed(auth_client) -> None:
+    adr_id = _seed_after_review_adr(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/publish")
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert adr["status"] == "proposed"
+    assert adr["review_annotations"] is not None
+
+
+def test_publish_rejects_non_after_review_status(auth_client, db_engine) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/publish")
+
+    assert response.status_code == 400
+    assert "after_review" in response.json()["detail"]
+
+
+def test_publish_returns_404_for_missing_adr(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/publish")
+
+    assert response.status_code == 404
+
+
+def test_unauthenticated_publish_returns_401(auth_client) -> None:
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/publish")
+
+    assert response.status_code == 401
+
+
+def test_publish_returns_404_for_other_users_adr(auth_client) -> None:
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "publish-owner@example.com", "password": "password123"},
+    )
+    adr_id = _seed_after_review_adr(auth_client)
+    auth_client.cookies.clear()
+
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "publish-intruder@example.com", "password": "password123"},
+    )
+    response = auth_client.post(f"/api/adrs/{adr_id}/publish")
+
+    assert response.status_code == 404

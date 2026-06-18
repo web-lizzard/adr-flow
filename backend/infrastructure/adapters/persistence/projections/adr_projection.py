@@ -1,9 +1,11 @@
 """ADR projection write adapter."""
 
 from datetime import datetime
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports.adr_projection import AdrProjection
@@ -43,6 +45,21 @@ class SqlAdrProjection(AdrProjection):
                 updated_at=updated_at,
             )
         )
+
+    async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool:
+        result = cast(
+            CursorResult,
+            await self._session.execute(
+                update(Adr)
+                .where(Adr.id == adr_id)
+                .where(Adr.status == AdrStatus.AFTER_REVIEW.value)
+                .values(
+                    status=AdrStatus.PROPOSED.value,
+                    updated_at=updated_at,
+                )
+            ),
+        )
+        return result.rowcount == 1
 
     async def apply_review_result(
         self,

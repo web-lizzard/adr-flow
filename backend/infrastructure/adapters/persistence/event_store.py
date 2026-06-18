@@ -38,6 +38,7 @@ SYNC_PROJECTION_EVENT_TYPES: frozenset[str] = frozenset(
         "UserRegistered",
         "ADRCreated",
         "ADRContentUpdated",
+        "ADRPublished",
     }
 )
 

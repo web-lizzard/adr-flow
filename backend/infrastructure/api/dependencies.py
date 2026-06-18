@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 
 from application.commands.create_adr import CreateAdrCommandHandler
+from application.commands.publish_adr import PublishAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
 from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
@@ -56,6 +57,10 @@ def get_submit_adr_for_review_handler(
     request: Request,
 ) -> SubmitAdrForReviewCommandHandler:
     return request.app.state.submit_adr_for_review_handler
+
+
+def get_publish_adr_handler(request: Request) -> PublishAdrCommandHandler:
+    return request.app.state.publish_adr_handler
 
 
 def get_get_adr_review_status_handler(

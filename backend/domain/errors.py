@@ -49,3 +49,8 @@ class AdrAccessDenied(DomainError):
 
 class AdrTitleAlreadyExists(DomainError):
     pass
+
+
+class AdrInvalidPublishStatus(DomainError):
+    def __init__(self) -> None:
+        super().__init__("ADR can only be published from after_review status")

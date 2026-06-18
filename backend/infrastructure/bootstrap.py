@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from application.commands.create_adr import CreateAdrCommandHandler
+from application.commands.publish_adr import PublishAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
 from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
@@ -113,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     submit_adr_for_review_handler = SubmitAdrForReviewCommandHandler(
         uow_factory, adr_repository
     )
+    publish_adr_handler = PublishAdrCommandHandler(uow_factory, adr_repository)
     get_adr_handler = GetAdrQueryHandler(adr_repository)
     get_adr_review_status_handler = GetAdrReviewStatusQueryHandler(adr_repository)
     search_adrs_handler = SearchAdrsByTitleQueryHandler(adr_repository)
@@ -174,6 +176,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.create_adr_handler = create_adr_handler
     app.state.update_adr_content_handler = update_adr_content_handler
     app.state.submit_adr_for_review_handler = submit_adr_for_review_handler
+    app.state.publish_adr_handler = publish_adr_handler
     app.state.get_adr_handler = get_adr_handler
     app.state.get_adr_review_status_handler = get_adr_review_status_handler
     app.state.search_adrs_handler = search_adrs_handler

@@ -89,10 +89,8 @@ class FakeAdrProjection:
     async def mark_in_review(self, adr_id: UUID, *, updated_at: datetime) -> None:
         return None
 
-    async def mark_in_review_if_draft(
-        self, adr_id: UUID, user_id: UUID, *, updated_at: datetime
-    ) -> bool:
-        return False
+    async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool:
+        return True
 
     async def apply_review_result(
         self,

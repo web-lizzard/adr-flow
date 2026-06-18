@@ -5,6 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from application.commands.create_adr import CreateAdrCommand, CreateAdrCommandHandler
+from application.commands.publish_adr import (
+    PublishAdrCommand,
+    PublishAdrCommandHandler,
+)
 from application.commands.submit_adr_for_review import (
     SubmitAdrForReviewCommand,
     SubmitAdrForReviewCommandHandler,
@@ -37,6 +41,7 @@ from infrastructure.api.dependencies import (
     get_get_adr_handler,
     get_get_adr_review_status_handler,
     get_list_adrs_handler,
+    get_publish_adr_handler,
     get_search_adrs_handler,
     get_submit_adr_for_review_handler,
     get_update_adr_content_handler,
@@ -106,6 +111,44 @@ async def submit_adr_for_review(
         stored_event_id=str(result.stored_event.id),
     )
     return Response(status_code=202)
+
+
+@router.post("/{adr_id}/publish", status_code=204)
+async def publish_adr(
+    adr_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    handler: PublishAdrCommandHandler = Depends(get_publish_adr_handler),
+) -> Response:
+    adr_id_str = str(adr_id)
+    try:
+        await handler.handle(PublishAdrCommand(adr_id=adr_id, user_id=user_id))
+    except AdrNotFound:
+        _logger.info(
+            "route.adrs.publish.rejected",
+            adr_id=adr_id_str,
+            status_code=404,
+            reason="adr_not_found",
+        )
+        raise HTTPException(status_code=404, detail="ADR not found") from None
+    except DomainError as exc:
+        reason = _domain_error_reason(exc)
+        _logger.info(
+            "route.adrs.publish.rejected",
+            adr_id=adr_id_str,
+            status_code=400,
+            reason=reason,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=reason,
+        ) from None
+
+    _logger.info(
+        "route.adrs.publish.completed",
+        adr_id=adr_id_str,
+        status_code=204,
+    )
+    return Response(status_code=204)
 
 
 @router.get("/{adr_id}/review-status", response_model=ReviewStatusResponse)

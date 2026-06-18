@@ -1,8 +1,9 @@
 ---
 id: markdown-editor-toolbar
-status: implemented
+status: archived
 created: 2026-06-18
 updated: 2026-06-18
+archived_at: 2026-06-18T19:25:17Z
 ---
 
 # Markdown editor toolbar (md-editor-v3)

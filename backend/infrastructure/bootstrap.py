@@ -46,13 +46,16 @@ async def _replay_unprocessed_events(
     session_factory: async_sessionmaker[AsyncSession],
     event_bus: TaskGroupEventBus,
 ) -> None:
+    logger.info("bootstrap.replay_started")
     processed_at = datetime.now(UTC)
     async with session_factory() as session:
         async with session.begin():
             store = SqlEventStore(session)
             await store.mark_sync_projection_events_processed(processed_at=processed_at)
+    total_batches = 0
     while await _drain_unprocessed_events(session_factory, event_bus) > 0:
-        continue
+        total_batches += 1
+    logger.info("bootstrap.replay_completed", total_batches=total_batches)
 
 
 async def _drain_unprocessed_events(
@@ -62,8 +65,19 @@ async def _drain_unprocessed_events(
     async with session_factory() as session:
         store = SqlEventStore(session)
         unprocessed = await store.load_unprocessed(limit=100)
-    for stored_event in unprocessed:
-        await event_bus.dispatch_now(stored_event)
+    if unprocessed:
+        logger.debug(
+            "bootstrap.drain_batch",
+            loaded_count=len(unprocessed),
+            event_ids=[str(stored_event.id) for stored_event in unprocessed],
+        )
+        for stored_event in unprocessed:
+            logger.info(
+                "bootstrap.event_dispatched",
+                stored_event_id=str(stored_event.id),
+                event_type=type(stored_event.event).__name__,
+            )
+            await event_bus.dispatch_now(stored_event)
     return len(unprocessed)
 
 
@@ -129,13 +143,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             timeout_seconds=settings.llm_timeout_seconds,
         )
         await _replay_unprocessed_events(session_factory, event_bus)
+        poll_interval_seconds = 0.05
         event_bus.start_worker(
             lambda: _drain_unprocessed_events(session_factory, event_bus),
-            poll_interval_seconds=0.05,
+            poll_interval_seconds=poll_interval_seconds,
         )
+        logger.info(
+            "bootstrap.worker_started",
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        logger.info("bootstrap.ready")
         yield
+        logger.info("bootstrap.shutdown_started")
         await event_bus.stop_worker()
         await engine.dispose()
+        logger.info("bootstrap.engine_disposed")
 
     app = FastAPI(lifespan=lifespan)
     app.state.engine = engine

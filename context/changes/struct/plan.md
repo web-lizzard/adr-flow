@@ -449,24 +449,24 @@ Domain errors (`AdrNotFound`, `DomainError`) — log `rejected` przed re-raise w
 
 #### Automated
 
-- [x] 1.1 Lock odświeżony: `cd backend && uv lock`
-- [x] 1.2 Lint: `cd backend && uv run ruff check .`
-- [x] 1.3 Format: `cd backend && uv run ruff format --check .`
-- [x] 1.4 Types: `cd backend && uv run ty check`
-- [x] 1.5 Tests: `cd backend && uv run pytest`
+- [x] 1.1 Lock odświeżony: `cd backend && uv lock` — f7db9a9
+- [x] 1.2 Lint: `cd backend && uv run ruff check .` — f7db9a9
+- [x] 1.3 Format: `cd backend && uv run ruff format --check .` — f7db9a9
+- [x] 1.4 Types: `cd backend && uv run ty check` — f7db9a9
+- [x] 1.5 Tests: `cd backend && uv run pytest` — f7db9a9
 
 #### Manual
 
-- [x] 1.6 `just dev-backend` — logi startupu czytelne w terminalu
-- [x] 1.7 `LOG_JSON=true` + uruchomienie serwera — stdout to JSON lines z polem `event`
+- [x] 1.6 `just dev-backend` — logi startupu czytelne w terminalu — f7db9a9
+- [x] 1.7 `LOG_JSON=true` + uruchomienie serwera — stdout to JSON lines z polem `event` — f7db9a9
 
 ### Phase 2: Async Event Flow (P0)
 
 #### Automated
 
-- [ ] 2.1 `cd backend && uv run ruff check .`
-- [ ] 2.2 `cd backend && uv run ty check`
-- [ ] 2.3 `cd backend && uv run pytest tests/application/handlers/ tests/application/runtime/ tests/infrastructure/`
+- [x] 2.1 `cd backend && uv run ruff check .`
+- [x] 2.2 `cd backend && uv run ty check`
+- [x] 2.3 `cd backend && uv run pytest tests/application/handlers/ tests/application/runtime/ tests/infrastructure/`
 
 #### Manual
 

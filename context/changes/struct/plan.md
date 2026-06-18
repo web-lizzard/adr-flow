@@ -490,12 +490,12 @@ Domain errors (`AdrNotFound`, `DomainError`) — log `rejected` przed re-raise w
 
 #### Automated
 
-- [x] 4.1 `cd backend && uv run pytest`
-- [x] 4.2 `cd backend && uv run ruff check . && uv run ty check`
-- [x] 4.3 `pre-commit run --all-files`
+- [x] 4.1 `cd backend && uv run pytest` — efa494a
+- [x] 4.2 `cd backend && uv run ruff check . && uv run ty check` — efa494a
+- [x] 4.3 `pre-commit run --all-files` — efa494a
 
 #### Manual
 
-- [x] 4.4 Request bez cookie → `auth.missing_cookie` + `http.request_completed` 401
-- [x] 4.5 Submit review E2E — pełny łańcuch logów
-- [x] 4.6 `LOG_JSON=true` — parsowalne JSON lines dla pełnego flow
+- [x] 4.4 Request bez cookie → `auth.missing_cookie` + `http.request_completed` 401 — efa494a
+- [x] 4.5 Submit review E2E — pełny łańcuch logów — efa494a
+- [x] 4.6 `LOG_JSON=true` — parsowalne JSON lines dla pełnego flow — efa494a

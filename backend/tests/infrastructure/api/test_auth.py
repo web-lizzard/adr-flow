@@ -404,11 +404,16 @@ def test_register_persists_user_registered_event(auth_client, db_engine) -> None
 
     with db_engine.connect() as connection:
         result = connection.execute(
-            text("SELECT event_type FROM events WHERE event_type = 'UserRegistered'")
+            text(
+                "SELECT event_type, processed_at FROM events "
+                "WHERE event_type = 'UserRegistered'"
+            )
         )
         rows = result.fetchall()
 
     assert len(rows) == 1
+    assert rows[0][0] == "UserRegistered"
+    assert rows[0][1] is not None
 
 
 def test_register_persists_users_projection_row(auth_client, db_engine) -> None:

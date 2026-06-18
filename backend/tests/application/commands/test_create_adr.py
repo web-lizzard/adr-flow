@@ -9,6 +9,7 @@ import pytest
 
 from application.commands.create_adr import CreateAdrCommand, CreateAdrCommandHandler
 from application.ports.adr_repository import AdrReadModel
+from application.ports.event_store import StoredEvent
 from domain.adr import ADR_STARTER_TEMPLATE, ADRCreated, AdrStatus
 from domain.errors import AdrTitleAlreadyExists
 
@@ -16,11 +17,25 @@ from domain.errors import AdrTitleAlreadyExists
 class FakeEventStore:
     def __init__(self) -> None:
         self.appended: list[tuple[list, UUID, str]] = []
+        self.marked_processed: list[tuple[UUID, datetime]] = []
 
     async def append(
         self, events: list, aggregate_id: UUID, aggregate_type: str
-    ) -> None:
+    ) -> list[StoredEvent]:
         self.appended.append((events, aggregate_id, aggregate_type))
+        return [
+            StoredEvent(
+                id=uuid4(),
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                event=event,
+                occurred_at=event.occurred_at,
+            )
+            for event in events
+        ]
+
+    async def mark_processed(self, event_id: UUID, *, processed_at: datetime) -> None:
+        self.marked_processed.append((event_id, processed_at))
 
 
 class FakeAdrProjection:
@@ -29,6 +44,23 @@ class FakeAdrProjection:
 
     async def insert(self, adr) -> None:
         self.inserted.append(adr)
+
+    async def update_content(self, adr) -> None:
+        return None
+
+    async def mark_in_review(self, adr_id: UUID, *, updated_at: datetime) -> None:
+        return None
+
+    async def mark_in_review_if_draft(
+        self, adr_id: UUID, user_id: UUID, *, updated_at: datetime
+    ) -> bool:
+        return False
+
+    async def apply_review_result(self, adr_id, *, review_result, updated_at) -> None:
+        return None
+
+    async def record_review_failure(self, adr_id, *, review_error, updated_at) -> None:
+        return None
 
 
 class FakeUnitOfWork:

@@ -478,24 +478,24 @@ Domain errors (`AdrNotFound`, `DomainError`) — log `rejected` przed re-raise w
 
 #### Automated
 
-- [x] 3.1 `cd backend && uv run pytest tests/application/runtime/test_dispatcher.py`
-- [x] 3.2 `cd backend && uv run ruff check . && uv run ty check`
+- [x] 3.1 `cd backend && uv run pytest tests/application/runtime/test_dispatcher.py` — 444ecb8
+- [x] 3.2 `cd backend && uv run ruff check . && uv run ty check` — 444ecb8
 
 #### Manual
 
-- [x] 3.3 `LLM_PROVIDER=fake` — `llm.reviewer_built` przy starcie
-- [x] 3.4 (Opcjonalnie) prawdziwy provider — `llm.review.request_started` → `http_completed`
+- [x] 3.3 `LLM_PROVIDER=fake` — `llm.reviewer_built` przy starcie — 444ecb8
+- [x] 3.4 (Opcjonalnie) prawdziwy provider — `llm.review.request_started` → `http_completed` — 444ecb8
 
 ### Phase 4: HTTP Boundary & Commands (P2)
 
 #### Automated
 
-- [ ] 4.1 `cd backend && uv run pytest`
-- [ ] 4.2 `cd backend && uv run ruff check . && uv run ty check`
-- [ ] 4.3 `pre-commit run --all-files`
+- [x] 4.1 `cd backend && uv run pytest`
+- [x] 4.2 `cd backend && uv run ruff check . && uv run ty check`
+- [x] 4.3 `pre-commit run --all-files`
 
 #### Manual
 
-- [ ] 4.4 Request bez cookie → `auth.missing_cookie` + `http.request_completed` 401
-- [ ] 4.5 Submit review E2E — pełny łańcuch logów
-- [ ] 4.6 `LOG_JSON=true` — parsowalne JSON lines dla pełnego flow
+- [x] 4.4 Request bez cookie → `auth.missing_cookie` + `http.request_completed` 401
+- [x] 4.5 Submit review E2E — pełny łańcuch logów
+- [x] 4.6 `LOG_JSON=true` — parsowalne JSON lines dla pełnego flow

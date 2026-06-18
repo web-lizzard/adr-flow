@@ -11,7 +11,14 @@ app = create_app(settings)
 
 
 def main() -> None:
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        access_log=False,
+        log_config=None,
+    )
 
 
 if __name__ == "__main__":

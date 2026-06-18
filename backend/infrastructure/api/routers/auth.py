@@ -34,9 +34,11 @@ from infrastructure.api.dependencies import (
     get_token_service,
 )
 from infrastructure.api.schemas.auth import LoginRequest, RegisterRequest, UserResponse
+from application.logging import get_logger
 from infrastructure.config import Settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_logger = get_logger(__name__)
 
 SESSION_MAX_AGE_SECONDS = 86400
 
@@ -55,11 +57,21 @@ async def register(
             RegisterUserCommand(email=body.email, password=body.password)
         )
     except EmailAlreadyTaken:
+        _logger.info(
+            "route.auth.register.rejected",
+            reason="email_already_taken",
+            status_code=400,
+        )
         raise HTTPException(
             status_code=400,
             detail="Unable to create account with the provided credentials",
         ) from None
     except ValueObjectError as exc:
+        _logger.info(
+            "route.auth.register.rejected",
+            reason=exc.kind,
+            status_code=400,
+        )
         raise HTTPException(
             status_code=400,
             detail=exc.message or exc.kind,
@@ -69,6 +81,7 @@ async def register(
     _set_session_cookie(response, token, settings)
 
     user = await get_user_handler.handle(GetCurrentUserQuery(user_id=user_id))
+    _logger.info("route.auth.register.completed", status_code=201)
     return _to_user_response(user)
 
 
@@ -86,6 +99,11 @@ async def login(
             AuthenticateUserQuery(email=body.email, password=body.password)
         )
     except InvalidCredentials:
+        _logger.info(
+            "route.auth.login.rejected",
+            reason="invalid_credentials",
+            status_code=401,
+        )
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password",
@@ -95,6 +113,7 @@ async def login(
     _set_session_cookie(response, token, settings)
 
     user = await get_user_handler.handle(GetCurrentUserQuery(user_id=user_id))
+    _logger.info("route.auth.login.completed", status_code=200)
     return _to_user_response(user)
 
 

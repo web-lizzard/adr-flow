@@ -9,7 +9,7 @@ dev-frontend:
     cd frontend && pnpm run dev
 
 dev-backend:
-    cd backend && uv run uvicorn main:app --reload
+    cd backend && uv run uvicorn main:app --reload --no-access-log
 
 dev:
     @just dev-frontend & just dev-backend & wait

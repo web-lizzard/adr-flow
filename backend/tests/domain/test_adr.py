@@ -91,7 +91,6 @@ def test_adr_aggregate_and_events_construct() -> None:
     )
     content_updated = ADRContentUpdated(
         adr_id=adr_id,
-        title=title,
         content=AdrContent("## Context\n\nUpdated"),
         occurred_at=now,
     )

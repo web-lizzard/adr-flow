@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from application.logging import get_logger
 from application.ports.adr_repository import AdrRepository
 from application.ports.unit_of_work import UnitOfWorkFactory
 from domain.adr import ADR, ADRContentUpdated, AdrContent, AdrId, AdrStatus, AdrTitle
@@ -25,16 +26,30 @@ class UpdateAdrContentCommandHandler:
     ) -> None:
         self._uow_factory = uow_factory
         self._adr_repository = adr_repository
+        self._logger = get_logger(__name__)
 
     async def handle(self, command: UpdateAdrContentCommand) -> None:
+        adr_id = str(command.adr_id)
+        self._logger.info("command.update_adr_content.started", adr_id=adr_id)
+
         existing = await self._adr_repository.find_by_id_for_owner(
             command.adr_id,
             command.user_id,
         )
         if existing is None:
+            self._logger.info(
+                "command.update_adr_content.rejected",
+                reason="adr_not_found",
+                adr_id=adr_id,
+            )
             raise AdrNotFound()
 
         if existing.status == AdrStatus.IN_REVIEW:
+            self._logger.info(
+                "command.update_adr_content.rejected",
+                reason="in_review",
+                adr_id=adr_id,
+            )
             raise DomainError("Cannot edit ADR in review")
 
         new_title = command.title if command.title is not None else existing.title
@@ -51,23 +66,33 @@ class UpdateAdrContentCommandHandler:
                 command.user_id,
             )
             if conflict is not None and conflict.id != existing.id:
+                self._logger.info(
+                    "command.update_adr_content.rejected",
+                    reason="title_exists",
+                    adr_id=adr_id,
+                )
                 raise AdrTitleAlreadyExists()
 
         updated_at = datetime.now(UTC)
         title = AdrTitle(new_title)
         content = AdrContent(new_content)
+        event_title = title if command.title is not None else None
 
         async with self._uow_factory.begin() as uow:
             event = ADRContentUpdated(
                 adr_id=AdrId(command.adr_id),
-                title=title,
                 content=content,
+                title=event_title,
                 occurred_at=updated_at,
             )
-            await uow.event_store.append(
+            stored_events = await uow.event_store.append(
                 [event],
                 aggregate_id=command.adr_id,
                 aggregate_type="adr",
+            )
+            await uow.event_store.mark_processed(
+                stored_events[0].id,
+                processed_at=updated_at,
             )
 
             adr = ADR(
@@ -82,3 +107,9 @@ class UpdateAdrContentCommandHandler:
                 updated_at=updated_at,
             )
             await uow.adr_projection.update_content(adr)
+            self._logger.info(
+                "command.update_adr_content.completed",
+                adr_id=adr_id,
+                has_title_change=command.title is not None,
+                has_content_change=command.content is not None,
+            )

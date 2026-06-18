@@ -40,3 +40,15 @@ def test_configure_logging_console_does_not_raise(
     logger.info("test.console_event")
 
     assert capsys.readouterr().out
+
+
+def test_configure_logging_normalizes_uvicorn_server_events(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    configure_logging(log_json=True, log_level="INFO")
+    logging.getLogger("uvicorn.error").info("Application startup complete.")
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip().splitlines()[-1])
+    assert payload["event"] == "server.startup_complete"
+    assert payload["logger"] == "uvicorn.error"

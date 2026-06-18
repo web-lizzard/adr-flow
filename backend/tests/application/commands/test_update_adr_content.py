@@ -12,6 +12,7 @@ from application.commands.update_adr_content import (
     UpdateAdrContentCommandHandler,
 )
 from application.ports.adr_repository import AdrReadModel
+from application.ports.event_store import StoredEvent
 from domain.adr import ADRContentUpdated, AdrStatus
 from domain.errors import AdrNotFound, AdrTitleAlreadyExists, DomainError
 
@@ -19,11 +20,25 @@ from domain.errors import AdrNotFound, AdrTitleAlreadyExists, DomainError
 class FakeEventStore:
     def __init__(self) -> None:
         self.appended: list[tuple[list, UUID, str]] = []
+        self.marked_processed: list[tuple[UUID, datetime]] = []
 
     async def append(
         self, events: list, aggregate_id: UUID, aggregate_type: str
-    ) -> None:
+    ) -> list[StoredEvent]:
         self.appended.append((events, aggregate_id, aggregate_type))
+        return [
+            StoredEvent(
+                id=uuid4(),
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                event=event,
+                occurred_at=event.occurred_at,
+            )
+            for event in events
+        ]
+
+    async def mark_processed(self, event_id: UUID, *, processed_at: datetime) -> None:
+        self.marked_processed.append((event_id, processed_at))
 
 
 class FakeAdrProjection:
@@ -35,6 +50,20 @@ class FakeAdrProjection:
 
     async def update_content(self, adr) -> None:
         self.updated.append(adr)
+
+    async def mark_in_review(self, adr_id: UUID, *, updated_at: datetime) -> None:
+        return None
+
+    async def mark_in_review_if_draft(
+        self, adr_id: UUID, user_id: UUID, *, updated_at: datetime
+    ) -> bool:
+        return False
+
+    async def apply_review_result(self, adr_id, *, review_result, updated_at) -> None:
+        return None
+
+    async def record_review_failure(self, adr_id, *, review_error, updated_at) -> None:
+        return None
 
 
 class FakeUnitOfWork:
@@ -151,11 +180,38 @@ def test_update_adr_content_emits_event_and_updates_projection() -> None:
     event = events[0]
     assert isinstance(event, ADRContentUpdated)
     assert event.content.value == "## Context\n\nUpdated"
-    assert event.title.value == "My ADR"
+    assert event.title is None
 
     updated = uow.adr_projection.updated[0]
     assert updated.content.value == "## Context\n\nUpdated"
     assert updated.title.value == "My ADR"
+
+
+def test_update_adr_content_includes_title_on_event_when_title_changes() -> None:
+    user_id = uuid4()
+    adr_id = uuid4()
+    repository = FakeAdrRepository(
+        by_id=_adr_read_model(adr_id=adr_id, user_id=user_id, title="Original")
+    )
+    uow_factory = FakeUnitOfWorkFactory()
+    handler = UpdateAdrContentCommandHandler(uow_factory, repository)
+
+    asyncio.run(
+        handler.handle(
+            UpdateAdrContentCommand(
+                adr_id=adr_id,
+                user_id=user_id,
+                title="Renamed",
+                content=None,
+            )
+        )
+    )
+
+    event = uow_factory.unit_of_works[0].event_store.appended[0][0][0]
+    assert isinstance(event, ADRContentUpdated)
+    assert event.title is not None
+    assert event.title.value == "Renamed"
+    assert event.content.value == "## Context"
 
 
 def test_update_adr_content_checks_title_uniqueness_when_title_changes() -> None:

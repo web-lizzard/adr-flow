@@ -14,8 +14,8 @@ class ADRCreated(DomainEvent):
 
 class ADRContentUpdated(DomainEvent):
     adr_id: AdrId
-    title: AdrTitle
     content: AdrContent
+    title: AdrTitle | None = None
 
 
 class ADRSubmittedForReview(DomainEvent):

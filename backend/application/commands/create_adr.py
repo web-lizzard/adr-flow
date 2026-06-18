@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from application.logging import get_logger
 from application.ports.adr_repository import AdrRepository
 from application.ports.unit_of_work import UnitOfWorkFactory
 from domain.adr import (
@@ -31,13 +32,26 @@ class CreateAdrCommandHandler:
     ) -> None:
         self._uow_factory = uow_factory
         self._adr_repository = adr_repository
+        self._logger = get_logger(__name__)
 
     async def handle(self, command: CreateAdrCommand) -> UUID:
+        user_id = str(command.user_id)
+        self._logger.info(
+            "command.create_adr.started",
+            user_id=user_id,
+            title=command.title,
+        )
+
         existing = await self._adr_repository.find_by_title_for_owner(
             command.title,
             command.user_id,
         )
         if existing is not None:
+            self._logger.info(
+                "command.create_adr.rejected",
+                reason="title_exists",
+                title=command.title,
+            )
             raise AdrTitleAlreadyExists()
 
         async with self._uow_factory.begin() as uow:
@@ -54,10 +68,14 @@ class CreateAdrCommandHandler:
                 occurred_at=occurred_at,
             )
 
-            await uow.event_store.append(
+            stored_events = await uow.event_store.append(
                 [event],
                 aggregate_id=adr_id,
                 aggregate_type="adr",
+            )
+            await uow.event_store.mark_processed(
+                stored_events[0].id,
+                processed_at=occurred_at,
             )
 
             adr = ADR(
@@ -72,4 +90,10 @@ class CreateAdrCommandHandler:
                 updated_at=occurred_at,
             )
             await uow.adr_projection.insert(adr)
+            self._logger.info(
+                "command.create_adr.completed",
+                adr_id=str(adr_id),
+                user_id=user_id,
+                title=command.title,
+            )
             return adr_id

@@ -32,6 +32,7 @@ from infrastructure.adapters.persistence.repositories.user_repository import (
     SqlUserRepository,
 )
 from infrastructure.adapters.persistence.unit_of_work import SqlUnitOfWorkFactory
+from infrastructure.api.middleware.request_logging import RequestLoggingMiddleware
 from infrastructure.api.routers.adr import router as adr_router
 from infrastructure.api.routers.auth import router as auth_router
 from infrastructure.config import Settings, load_settings
@@ -185,6 +186,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestLoggingMiddleware)
 
     @app.get("/health")
     def health() -> dict[str, str]:

@@ -3,12 +3,15 @@
 from datetime import datetime
 from typing import Any, cast
 
+from application.logging import get_logger
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
     ReviewResult,
 )
 from infrastructure.llm.errors import LlmParseError
+
+_logger = get_logger(__name__)
 
 _REVIEW_SYSTEM_PROMPT = (
     "You review Architecture Decision Records (ADRs). "
@@ -23,6 +26,11 @@ def review_system_prompt() -> str:
     return _REVIEW_SYSTEM_PROMPT
 
 
+def _parse_error(reason: str) -> LlmParseError:
+    _logger.debug("llm.review.parse_validation_failed", reason=reason)
+    return LlmParseError(reason)
+
+
 def parse_review_payload(
     payload: object,
     *,
@@ -30,20 +38,17 @@ def parse_review_payload(
     reviewed_at: datetime,
 ) -> ReviewResult:
     if not isinstance(payload, dict):
-        msg = "Review response must be a JSON object"
-        raise LlmParseError(msg)
+        raise _parse_error("Review response must be a JSON object")
 
     payload_dict = cast(dict[str, Any], payload)
     raw_annotations = payload_dict.get("annotations")
     if not isinstance(raw_annotations, list):
-        msg = "Review response must include an annotations array"
-        raise LlmParseError(msg)
+        raise _parse_error("Review response must include an annotations array")
 
     annotations: list[ReviewAnnotation] = []
     for index, item in enumerate(raw_annotations):
         if not isinstance(item, dict):
-            msg = f"Annotation {index} must be an object"
-            raise LlmParseError(msg)
+            raise _parse_error(f"Annotation {index} must be an object")
         annotation_item = cast(dict[str, Any], item)
         annotations.append(_parse_annotation(annotation_item, index=index))
 
@@ -60,22 +65,19 @@ def extract_json_content(completion_body: dict[str, Any]) -> object:
         message = choices[0]["message"]
         content = message["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        msg = "Unexpected chat completion response shape"
-        raise LlmParseError(msg) from exc
+        raise _parse_error("Unexpected chat completion response shape") from exc
 
     if isinstance(content, dict):
         return content
     if not isinstance(content, str):
-        msg = "Completion content must be a JSON string or object"
-        raise LlmParseError(msg)
+        raise _parse_error("Completion content must be a JSON string or object")
 
     import json
 
     try:
         return json.loads(content)
     except json.JSONDecodeError as exc:
-        msg = "Completion content is not valid JSON"
-        raise LlmParseError(msg) from exc
+        raise _parse_error("Completion content is not valid JSON") from exc
 
 
 def _parse_annotation(item: dict[str, Any], *, index: int) -> ReviewAnnotation:
@@ -83,21 +85,17 @@ def _parse_annotation(item: dict[str, Any], *, index: int) -> ReviewAnnotation:
         kind = ReviewAnnotationKind(item["kind"])
         message = item["message"]
     except (KeyError, ValueError, TypeError) as exc:
-        msg = f"Annotation {index} is missing kind or message"
-        raise LlmParseError(msg) from exc
+        raise _parse_error(f"Annotation {index} is missing kind or message") from exc
 
     if not isinstance(message, str):
-        msg = f"Annotation {index} message must be a string"
-        raise LlmParseError(msg)
+        raise _parse_error(f"Annotation {index} message must be a string")
 
     location = item.get("location")
     suggestion = item.get("suggestion")
     if location is not None and not isinstance(location, str):
-        msg = f"Annotation {index} location must be a string"
-        raise LlmParseError(msg)
+        raise _parse_error(f"Annotation {index} location must be a string")
     if suggestion is not None and not isinstance(suggestion, str):
-        msg = f"Annotation {index} suggestion must be a string"
-        raise LlmParseError(msg)
+        raise _parse_error(f"Annotation {index} suggestion must be a string")
 
     return ReviewAnnotation(
         kind=kind,

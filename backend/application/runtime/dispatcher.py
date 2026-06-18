@@ -1,5 +1,6 @@
 """Event handler registry and dispatch loop."""
 
+import time
 from collections.abc import Awaitable, Callable
 
 from application.logging import get_logger
@@ -19,12 +20,40 @@ class EventDispatcher:
 
     async def dispatch(self, stored_event: StoredEvent) -> None:
         event_type_name = type(stored_event.event).__name__
+        stored_event_id = str(stored_event.id)
         handler = self._handlers.get(event_type_name)
         if handler is None:
             self._logger.warning(
                 "dispatcher.no_handler",
                 event_type=event_type_name,
-                stored_event_id=str(stored_event.id),
+                stored_event_id=stored_event_id,
             )
             return
-        await handler(stored_event)
+
+        self._logger.info(
+            "dispatcher.dispatch.started",
+            event_type=event_type_name,
+            stored_event_id=stored_event_id,
+        )
+        start = time.perf_counter()
+        try:
+            await handler(stored_event)
+        except Exception as exc:
+            duration_ms = round((time.perf_counter() - start) * 1000)
+            self._logger.error(
+                "dispatcher.dispatch.failed",
+                event_type=event_type_name,
+                stored_event_id=stored_event_id,
+                error=str(exc),
+                duration_ms=duration_ms,
+                exc_info=True,
+            )
+            raise
+
+        duration_ms = round((time.perf_counter() - start) * 1000)
+        self._logger.info(
+            "dispatcher.dispatch.completed",
+            event_type=event_type_name,
+            stored_event_id=stored_event_id,
+            duration_ms=duration_ms,
+        )

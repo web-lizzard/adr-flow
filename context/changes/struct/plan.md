@@ -464,27 +464,27 @@ Domain errors (`AdrNotFound`, `DomainError`) — log `rejected` przed re-raise w
 
 #### Automated
 
-- [x] 2.1 `cd backend && uv run ruff check .`
-- [x] 2.2 `cd backend && uv run ty check`
-- [x] 2.3 `cd backend && uv run pytest tests/application/handlers/ tests/application/runtime/ tests/infrastructure/`
+- [x] 2.1 `cd backend && uv run ruff check .` — 7369b32
+- [x] 2.2 `cd backend && uv run ty check` — 7369b32
+- [x] 2.3 `cd backend && uv run pytest tests/application/handlers/ tests/application/runtime/ tests/infrastructure/` — 7369b32
 
 #### Manual
 
-- [ ] 2.4 Submit review → `handler.run_ai_review.started` i terminal state w logach
-- [ ] 2.5 Restart z nieprzetworzonym eventem → `bootstrap.replay_*` w logach
-- [ ] 2.6 Idempotent replay → `handler.run_ai_review.skipped` z `reason=already_reviewed`
+- [x] 2.4 Submit review → `handler.run_ai_review.started` i terminal state w logach — 7369b32
+- [x] 2.5 Restart z nieprzetworzonym eventem → `bootstrap.replay_*` w logach — 7369b32
+- [x] 2.6 Idempotent replay → `handler.run_ai_review.skipped` z `reason=already_reviewed` — 7369b32
 
 ### Phase 3: LLM Adapters & Dispatcher (P1)
 
 #### Automated
 
-- [ ] 3.1 `cd backend && uv run pytest tests/application/runtime/test_dispatcher.py`
-- [ ] 3.2 `cd backend && uv run ruff check . && uv run ty check`
+- [x] 3.1 `cd backend && uv run pytest tests/application/runtime/test_dispatcher.py`
+- [x] 3.2 `cd backend && uv run ruff check . && uv run ty check`
 
 #### Manual
 
-- [ ] 3.3 `LLM_PROVIDER=fake` — `llm.reviewer_built` przy starcie
-- [ ] 3.4 (Opcjonalnie) prawdziwy provider — `llm.review.request_started` → `http_completed`
+- [x] 3.3 `LLM_PROVIDER=fake` — `llm.reviewer_built` przy starcie
+- [x] 3.4 (Opcjonalnie) prawdziwy provider — `llm.review.request_started` → `http_completed`
 
 ### Phase 4: HTTP Boundary & Commands (P2)
 

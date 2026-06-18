@@ -8,6 +8,7 @@ const updateAdrMock = vi.fn();
 const searchAdrsMock = vi.fn();
 const listAdrsMock = vi.fn();
 const submitAdrForReviewMock = vi.fn();
+const publishAdrMock = vi.fn();
 const fetchAdrReviewStatusMock = vi.fn();
 
 vi.mock("../composables/useApi", () => ({
@@ -17,6 +18,7 @@ vi.mock("../composables/useApi", () => ({
   searchAdrs: (...args: unknown[]) => searchAdrsMock(...args),
   listAdrs: (...args: unknown[]) => listAdrsMock(...args),
   submitAdrForReview: (...args: unknown[]) => submitAdrForReviewMock(...args),
+  publishAdr: (...args: unknown[]) => publishAdrMock(...args),
   fetchAdrReviewStatus: (...args: unknown[]) =>
     fetchAdrReviewStatusMock(...args),
 }));
@@ -42,6 +44,7 @@ describe("useAdrStore", () => {
     searchAdrsMock.mockReset();
     listAdrsMock.mockReset();
     submitAdrForReviewMock.mockReset();
+    publishAdrMock.mockReset();
     fetchAdrReviewStatusMock.mockReset();
     navigateToMock.mockReset();
   });
@@ -290,6 +293,47 @@ describe("useAdrStore", () => {
     ]);
     expect(store.currentAdr?.reviewedAt).toBe("2026-06-16T12:00:00Z");
     expect(store.currentAdr?.reviewError).toBeNull();
+  });
+
+  it("publish(id) calls publish endpoint and reloads the ADR", async () => {
+    fetchAdrMock
+      .mockResolvedValueOnce({
+        ...sampleAdr,
+        status: "after_review",
+      })
+      .mockResolvedValueOnce({
+        ...sampleAdr,
+        status: "proposed",
+      });
+    publishAdrMock.mockResolvedValue(undefined);
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    await store.publish("adr-1");
+
+    expect(publishAdrMock).toHaveBeenCalledWith("adr-1");
+    expect(fetchAdrMock).toHaveBeenCalledTimes(2);
+    expect(store.currentAdr?.status).toBe("proposed");
+  });
+
+  it("publish(id) sets loading while request is in flight", async () => {
+    fetchAdrMock.mockResolvedValue({ ...sampleAdr, status: "after_review" });
+    let resolvePublish: () => void = () => {};
+    publishAdrMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePublish = resolve;
+        }),
+    );
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    const publishPromise = store.publish("adr-1");
+    expect(store.loading).toBe(true);
+
+    resolvePublish();
+    await publishPromise;
+    expect(store.loading).toBe(false);
   });
 
   it("submitForReview(id) calls submit-review and reloads the ADR", async () => {

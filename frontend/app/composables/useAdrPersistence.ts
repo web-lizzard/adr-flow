@@ -7,12 +7,12 @@ const BEACON_PAYLOAD_WARNING_BYTES = 60 * 1024;
 export function useAdrPersistence(
   adrId: Ref<string>,
   store: ReturnType<typeof useAdrStore>,
-  isSubmitting?: Ref<boolean>,
+  isBlockingSave?: Ref<boolean>,
 ) {
   const isReviewEditable = computed(
     () =>
       store.currentAdr?.status !== "in_review" &&
-      !(isSubmitting?.value ?? false),
+      !(isBlockingSave?.value ?? false),
   );
 
   async function saveOnBlur() {

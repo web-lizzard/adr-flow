@@ -107,6 +107,12 @@ export function submitAdrForReview(id: string) {
   });
 }
 
+export function publishAdr(id: string) {
+  return $fetch<void>(apiPath(`/adrs/${id}/publish`), {
+    method: "POST",
+  });
+}
+
 export function fetchAdrReviewStatus(id: string) {
   return $fetch<ReviewStatusResponse>(apiPath(`/adrs/${id}/review-status`));
 }

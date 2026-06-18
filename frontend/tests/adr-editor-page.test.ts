@@ -9,9 +9,17 @@ const saveOnBlurMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn().mockResolvedValue(undefined);
 const saveMock = vi.fn().mockResolvedValue(undefined);
 const submitForReviewMock = vi.fn().mockResolvedValue(undefined);
+const publishMock = vi.fn().mockResolvedValue(undefined);
 const refreshReviewStatusMock = vi.fn().mockResolvedValue(undefined);
 const updateTitleMock = vi.fn();
 const updateContentMock = vi.fn();
+const notifyPublishedMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/composables/useAdrPublishFeedback", () => ({
+  useAdrPublishFeedback: () => ({
+    notifyPublished: notifyPublishedMock,
+  }),
+}));
 
 const currentAdr = ref<{
   id: string;
@@ -49,6 +57,7 @@ vi.stubGlobal("useAdr", () => ({
   load: loadMock,
   save: saveMock,
   submitForReview: submitForReviewMock,
+  publish: publishMock,
   refreshReviewStatus: refreshReviewStatusMock,
   updateTitle: updateTitleMock,
   updateContent: updateContentMock,
@@ -98,11 +107,7 @@ function mountEditorPage() {
         Button: {
           props: ["disabled"],
           emits: ["click"],
-          template: `<button
-            data-testid="submit-review-button"
-            :disabled="disabled"
-            @click="$emit('click')"
-          ><slot /></button>`,
+          template: `<button :disabled="disabled" @click="$emit('click')"><slot /></button>`,
         },
       },
     },
@@ -126,15 +131,26 @@ function baseAdr(
   };
 }
 
+function findButtonByText(
+  wrapper: ReturnType<typeof mountEditorPage>,
+  label: string,
+) {
+  return wrapper.findAll("button").find((button) => button.text() === label);
+}
+
 describe("ADR editor page", () => {
   beforeEach(() => {
     saveOnBlurMock.mockClear();
     loadMock.mockClear();
     saveMock.mockClear();
-    submitForReviewMock.mockClear();
-    refreshReviewStatusMock.mockClear();
+    submitForReviewMock.mockReset();
+    submitForReviewMock.mockResolvedValue(undefined);
+    publishMock.mockReset();
+    publishMock.mockResolvedValue(undefined);
+    refreshReviewStatusMock.mockReset();
     updateTitleMock.mockClear();
     updateContentMock.mockClear();
+    notifyPublishedMock.mockClear();
     loading.value = false;
     isDirty.value = false;
     currentAdr.value = null;
@@ -151,9 +167,7 @@ describe("ADR editor page", () => {
     );
     expect(wrapper.text()).toContain("Checking for review results");
     expect(wrapper.findComponent(AdrStatusBadge).text()).toContain("In review");
-    expect(wrapper.find('[data-testid="submit-review-button"]').exists()).toBe(
-      false,
-    );
+    expect(findButtonByText(wrapper, "Publish for review")).toBeUndefined();
 
     const titleInput = wrapper.get('[data-testid="title-input"]');
     expect((titleInput.element as HTMLInputElement).disabled).toBe(true);
@@ -175,7 +189,7 @@ describe("ADR editor page", () => {
       "This ADR is being reviewed and cannot be edited.",
     );
     expect(wrapper.findComponent(AdrStatusBadge).text()).toContain("Draft");
-    expect(wrapper.get('[data-testid="submit-review-button"]').text()).toBe(
+    expect(findButtonByText(wrapper, "Publish for review")?.text()).toBe(
       "Publish for review",
     );
 
@@ -193,7 +207,9 @@ describe("ADR editor page", () => {
     const wrapper = mountEditorPage();
     await flushPromises();
 
-    await wrapper.get('[data-testid="submit-review-button"]').trigger("click");
+    const submitButton = findButtonByText(wrapper, "Publish for review");
+    expect(submitButton).toBeDefined();
+    await submitButton!.trigger("click");
     await flushPromises();
 
     expect(saveMock).toHaveBeenCalledTimes(1);
@@ -215,9 +231,8 @@ describe("ADR editor page", () => {
     const wrapper = mountEditorPage();
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="submit-review-button"]').exists()).toBe(
-      false,
-    );
+    expect(findButtonByText(wrapper, "Publish for review")).toBeUndefined();
+    expect(findButtonByText(wrapper, "Publish")?.text()).toBe("Publish");
     expect(wrapper.findComponent(AdrStatusBadge).text()).toContain(
       "After review",
     );
@@ -274,6 +289,85 @@ describe("ADR editor page", () => {
     expect(wrapper.findComponent(AdrReviewAnnotations).exists()).toBe(true);
     expect(wrapper.text()).toContain("Add a Decision section");
     expect(wrapper.text()).not.toContain("Checking for review results");
+  });
+
+  it("shows Publish button only in after_review status", async () => {
+    currentAdr.value = baseAdr({ status: "draft" });
+    const draftWrapper = mountEditorPage();
+    await flushPromises();
+    expect(findButtonByText(draftWrapper, "Publish")).toBeUndefined();
+    expect(findButtonByText(draftWrapper, "Publish for review")).toBeDefined();
+
+    currentAdr.value = baseAdr({ status: "proposed" });
+    const proposedWrapper = mountEditorPage();
+    await flushPromises();
+    expect(findButtonByText(proposedWrapper, "Publish")).toBeUndefined();
+    expect(
+      findButtonByText(proposedWrapper, "Publish for review"),
+    ).toBeUndefined();
+  });
+
+  it("saves dirty changes before publishing", async () => {
+    currentAdr.value = baseAdr({ status: "after_review" });
+    isDirty.value = true;
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    const publishButton = findButtonByText(wrapper, "Publish");
+    expect(publishButton).toBeDefined();
+    await publishButton!.trigger("click");
+    await flushPromises();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(publishMock).toHaveBeenCalledWith("adr-1");
+  });
+
+  it("disables the editor while publish is in flight", async () => {
+    currentAdr.value = baseAdr({ status: "after_review" });
+    let resolvePublish: () => void = () => {};
+    publishMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePublish = resolve;
+        }),
+    );
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    const publishButton = findButtonByText(wrapper, "Publish");
+    await publishButton!.trigger("click");
+    await flushPromises();
+
+    const titleInput = wrapper.get('[data-testid="title-input"]');
+    const editor = wrapper.get('[data-testid="markdown-editor"]');
+    expect((titleInput.element as HTMLInputElement).disabled).toBe(true);
+    expect((editor.element as HTMLTextAreaElement).readOnly).toBe(true);
+
+    resolvePublish();
+    await flushPromises();
+  });
+
+  it("shows proposed status and toast after successful publish", async () => {
+    currentAdr.value = baseAdr({ status: "after_review" });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    const publishButton = findButtonByText(wrapper, "Publish");
+    await publishButton!.trigger("click");
+    await flushPromises();
+
+    expect(publishMock).toHaveBeenCalledWith("adr-1");
+    expect(notifyPublishedMock).toHaveBeenCalledTimes(1);
+
+    currentAdr.value = baseAdr({ status: "proposed" });
+    await flushPromises();
+
+    expect(wrapper.findComponent(AdrStatusBadge).text()).toContain("Proposed");
+    const titleInput = wrapper.get('[data-testid="title-input"]');
+    expect((titleInput.element as HTMLInputElement).disabled).toBe(false);
   });
 
   it("links back to the workspace", async () => {

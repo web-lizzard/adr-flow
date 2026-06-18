@@ -19,6 +19,7 @@ export function useAdr() {
     save: store.save,
     searchByTitle: store.searchByTitle,
     submitForReview: store.submitForReview,
+    publish: store.publish,
     refreshReviewStatus: store.refreshReviewStatus,
     updateTitle: store.updateTitle,
     updateContent: store.updateContent,

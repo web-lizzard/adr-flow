@@ -347,11 +347,11 @@ No data migration required. `ADRPublished` events may exist in event store from 
 
 #### Automated
 
-- [ ] 2.1 ESLint passes: `cd frontend && pnpm run lint`
-- [ ] 2.2 Typecheck passes: `cd frontend && pnpm run typecheck`
-- [ ] 2.3 Store tests pass: `cd frontend && pnpm run test tests/adr.store.test.ts`
-- [ ] 2.4 Page tests pass: `cd frontend && pnpm run test tests/adr-editor-page.test.ts`
-- [ ] 2.5 Full frontend suite passes: `cd frontend && pnpm run test`
+- [x] 2.1 ESLint passes: `cd frontend && pnpm run lint`
+- [x] 2.2 Typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 2.3 Store tests pass: `cd frontend && pnpm run test tests/adr.store.test.ts`
+- [x] 2.4 Page tests pass: `cd frontend && pnpm run test tests/adr-editor-page.test.ts`
+- [x] 2.5 Full frontend suite passes: `cd frontend && pnpm run test`
 
 #### Manual
 

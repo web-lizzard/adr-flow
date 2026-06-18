@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "vue-sonner/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -120,5 +121,15 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  [data-sonner-toaster][data-y-position="top"] {
+    top: 35vh;
+  }
+
+  [data-sonner-toast][data-styled="true"] {
+    background: var(--popover);
+    border-color: var(--border);
+    color: var(--popover-foreground);
   }
 }

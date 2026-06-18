@@ -2,6 +2,7 @@
 import AdrReviewAnnotations from "@/components/adr/AdrReviewAnnotations.vue";
 import AdrStatusBadge from "@/components/adr/AdrStatusBadge.vue";
 import Button from "@/components/ui/button/Button.vue";
+import { useAdrPublishFeedback } from "@/composables/useAdrPublishFeedback";
 import { getAuthErrorMessage } from "@/stores/auth";
 
 definePageMeta({
@@ -12,18 +13,37 @@ definePageMeta({
 const route = useRoute();
 const adr = useAdr();
 const adrStore = useAdrStore();
+const { notifyPublished } = useAdrPublishFeedback();
 
 const adrId = computed(() => String(route.params.id));
 const titleError = ref<string | null>(null);
 const submitError = ref<string | null>(null);
+const publishError = ref<string | null>(null);
 const loadError = ref<string | null>(null);
 const isSubmitting = ref(false);
-const isReadOnly = computed(
-  () => adr.currentAdr.value?.status === "in_review" || isSubmitting.value,
+const isPublishing = ref(false);
+const isEditorDisabled = computed(
+  () =>
+    adr.currentAdr.value?.status === "in_review" ||
+    isSubmitting.value ||
+    isPublishing.value,
 );
 const showSubmitButton = computed(
   () => adr.currentAdr.value?.status === "draft",
 );
+const showPublishButton = computed(
+  () => adr.currentAdr.value?.status === "after_review",
+);
+const statusHelperText = computed(() => {
+  const status = adr.currentAdr.value?.status;
+  if (status === "after_review") {
+    return "Edit based on review feedback. Changes save when you click away or leave this tab.";
+  }
+  if (status === "proposed") {
+    return "Changes save when you click away or leave this tab.";
+  }
+  return "Draft changes save when you click away or leave this tab.";
+});
 const showReviewPanel = computed(() => {
   const current = adr.currentAdr.value;
   if (!current) {
@@ -36,7 +56,8 @@ const showReviewPanel = computed(() => {
   );
 });
 
-const { saveOnBlur } = useAdrPersistence(adrId, adrStore, isSubmitting);
+const isBlockingSave = computed(() => isSubmitting.value || isPublishing.value);
+const { saveOnBlur } = useAdrPersistence(adrId, adrStore, isBlockingSave);
 const { isPolling, pollError } = useAdrReviewPolling(adrId, adr);
 
 async function loadCurrentAdr(id: string) {
@@ -57,7 +78,7 @@ watch(adrId, (id) => {
 });
 
 async function onTitleBlur() {
-  if (isReadOnly.value) {
+  if (isEditorDisabled.value) {
     return;
   }
   try {
@@ -69,7 +90,7 @@ async function onTitleBlur() {
 }
 
 async function onEditorBlur() {
-  if (isReadOnly.value) {
+  if (isEditorDisabled.value) {
     return;
   }
   try {
@@ -81,7 +102,7 @@ async function onEditorBlur() {
 }
 
 function onTitleInput(value: string | number) {
-  if (isReadOnly.value) {
+  if (isEditorDisabled.value) {
     return;
   }
   titleError.value = null;
@@ -89,7 +110,7 @@ function onTitleInput(value: string | number) {
 }
 
 function onContentInput(value: string) {
-  if (isReadOnly.value) {
+  if (isEditorDisabled.value) {
     return;
   }
   titleError.value = null;
@@ -117,6 +138,26 @@ async function onSubmitForReview() {
     isSubmitting.value = false;
   }
 }
+
+async function onPublish() {
+  if (!showPublishButton.value || isPublishing.value) {
+    return;
+  }
+
+  publishError.value = null;
+  isPublishing.value = true;
+  try {
+    if (adr.isDirty.value) {
+      await adr.save();
+    }
+    await adr.publish(adrId.value);
+    notifyPublished();
+  } catch (error) {
+    publishError.value = getAuthErrorMessage(error, "Failed to publish ADR");
+  } finally {
+    isPublishing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -136,15 +177,18 @@ async function onSubmitForReview() {
       />
     </div>
 
-    <p v-if="isReadOnly" class="text-muted-foreground">
+    <p
+      v-if="adr.currentAdr.value?.status === 'in_review'"
+      class="text-muted-foreground"
+    >
       This ADR is being reviewed and cannot be edited.
       <span v-if="isPolling"> Checking for review results…</span>
     </p>
     <p v-if="pollError" class="text-sm text-destructive">
       {{ pollError }}
     </p>
-    <p v-else class="text-muted-foreground">
-      Draft changes save when you click away or leave this tab.
+    <p v-else-if="adr.currentAdr.value" class="text-muted-foreground">
+      {{ statusHelperText }}
     </p>
 
     <div v-if="showSubmitButton" class="flex flex-wrap items-center gap-3">
@@ -157,6 +201,19 @@ async function onSubmitForReview() {
       </Button>
       <p v-if="submitError" class="text-sm text-destructive">
         {{ submitError }}
+      </p>
+    </div>
+
+    <div v-if="showPublishButton" class="flex flex-wrap items-center gap-3">
+      <Button
+        type="button"
+        :disabled="adr.loading.value || isPublishing"
+        @click="onPublish"
+      >
+        Publish
+      </Button>
+      <p v-if="publishError" class="text-sm text-destructive">
+        {{ publishError }}
       </p>
     </div>
 
@@ -187,7 +244,7 @@ async function onSubmitForReview() {
         <Input
           id="adr-title"
           :model-value="adr.currentAdr.value.title"
-          :disabled="isReadOnly"
+          :disabled="isEditorDisabled"
           @update:model-value="onTitleInput"
           @blur="onTitleBlur"
         />
@@ -199,7 +256,7 @@ async function onSubmitForReview() {
       <ClientOnly>
         <AdrMarkdownEditor
           :model-value="adr.currentAdr.value.content"
-          :readonly="isReadOnly"
+          :readonly="isEditorDisabled"
           @update:model-value="onContentInput"
           @blur="onEditorBlur"
         />

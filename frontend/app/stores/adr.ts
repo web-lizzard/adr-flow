@@ -3,6 +3,7 @@ import {
   fetchAdr,
   fetchAdrReviewStatus,
   listAdrs,
+  publishAdr,
   searchAdrs,
   submitAdrForReview,
   updateAdr,
@@ -190,6 +191,16 @@ export const useAdrStore = defineStore("adr", () => {
     }
   }
 
+  async function publish(id: string): Promise<void> {
+    loading.value = true;
+    try {
+      await publishAdr(id);
+      await load(id);
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function refreshReviewStatus(id: string): Promise<void> {
     const status = await fetchAdrReviewStatus(id);
     if (!currentAdr.value || currentAdr.value.id !== id) {
@@ -216,6 +227,7 @@ export const useAdrStore = defineStore("adr", () => {
     save,
     searchByTitle,
     submitForReview,
+    publish,
     refreshReviewStatus,
     updateTitle,
     updateContent,

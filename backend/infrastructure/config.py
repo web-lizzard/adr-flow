@@ -38,6 +38,8 @@ class Settings(BaseSettings):
         default=60.0,
         validation_alias="LLM_TIMEOUT_SECONDS",
     )
+    log_json: bool = Field(default=False, validation_alias="LOG_JSON")
+    log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -52,6 +54,23 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return value.lower() == "true"
         return value
+
+    @field_validator("log_json", mode="before")
+    @classmethod
+    def parse_log_json(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.lower() == "true"
+        return value
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        normalized = value.upper()
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        if normalized not in valid_levels:
+            msg = f"LOG_LEVEL must be one of {sorted(valid_levels)}"
+            raise ValueError(msg)
+        return normalized
 
     @property
     def async_database_url(self) -> str:

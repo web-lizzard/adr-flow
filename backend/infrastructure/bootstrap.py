@@ -1,6 +1,5 @@
 """Composition root: wire ports to adapters and construct the FastAPI app."""
 
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -14,6 +13,7 @@ from application.commands.register_user import RegisterUserCommandHandler
 from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.handlers.run_ai_review import RunAiReviewHandler
+from application.logging import get_logger
 from application.queries.authenticate_user import AuthenticateUserQueryHandler
 from application.queries.get_adr import GetAdrQueryHandler
 from application.queries.get_adr_review_status import GetAdrReviewStatusQueryHandler
@@ -36,9 +36,10 @@ from infrastructure.api.routers.adr import router as adr_router
 from infrastructure.api.routers.auth import router as auth_router
 from infrastructure.config import Settings, load_settings
 from infrastructure.llm.factory import build_llm_reviewer
+from infrastructure.logging import configure_logging
 from infrastructure.messaging.task_group_bus import TaskGroupEventBus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def _replay_unprocessed_events(
@@ -68,6 +69,7 @@ async def _drain_unprocessed_events(
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
+    configure_logging(log_json=settings.log_json, log_level=settings.log_level)
 
     engine = create_async_engine(
         settings.async_database_url,
@@ -117,15 +119,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        logger.info("Database engine created")
+        logger.info("bootstrap.database_engine_created")
         logger.info(
-            "LLM reviewer provider configured: provider=%s model=%s "
-            "base_url_configured=%s api_key_configured=%s timeout_seconds=%s",
-            settings.llm_provider,
-            settings.llm_model,
-            settings.llm_base_url is not None,
-            settings.llm_api_key is not None,
-            settings.llm_timeout_seconds,
+            "bootstrap.llm_configured",
+            provider=settings.llm_provider,
+            model=settings.llm_model,
+            base_url_configured=settings.llm_base_url is not None,
+            api_key_configured=settings.llm_api_key is not None,
+            timeout_seconds=settings.llm_timeout_seconds,
         )
         await _replay_unprocessed_events(session_factory, event_bus)
         event_bus.start_worker(

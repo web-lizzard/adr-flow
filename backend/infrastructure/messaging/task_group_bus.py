@@ -1,10 +1,10 @@
 """Lifespan-managed async event dispatch loop."""
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 
+from application.logging import get_logger
 from application.ports.event_store import StoredEvent
 
 DispatchFn = Callable[[StoredEvent], Awaitable[None]]
@@ -17,7 +17,7 @@ class TaskGroupEventBus:
         self._worker_task: asyncio.Task[None] | None = None
         self._wake_event: asyncio.Event | None = None
         self._stop_requested = False
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
 
     def set_dispatch(self, dispatch_fn: DispatchFn) -> None:
         self._dispatch = dispatch_fn
@@ -62,7 +62,7 @@ class TaskGroupEventBus:
                 drained_count = await drain_fn()
             except Exception:
                 drained_count = 0
-                self._logger.exception("Event worker drain failed")
+                self._logger.error("event_bus.drain_failed", exc_info=True)
 
             if drained_count > 0:
                 continue

@@ -1,11 +1,13 @@
-import logging
 import uvicorn
 
 from infrastructure.bootstrap import create_app
+from infrastructure.config import load_settings
+from infrastructure.logging import configure_logging
 
-logging.basicConfig(level=logging.INFO)
+settings = load_settings()
+configure_logging(log_json=settings.log_json, log_level=settings.log_level)
 
-app = create_app()
+app = create_app(settings)
 
 
 def main() -> None:

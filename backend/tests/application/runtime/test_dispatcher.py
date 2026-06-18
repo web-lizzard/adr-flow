@@ -10,6 +10,12 @@ import pytest
 from application.runtime.dispatcher import EventDispatcher
 from domain.adr import ADRSubmittedForReview, AdrContent, AdrId
 from domain.user.value_objects import UserId
+from infrastructure.logging import configure_logging
+
+
+@pytest.fixture(autouse=True)
+def _configure_logging() -> None:
+    configure_logging(log_json=False, log_level="DEBUG")
 
 
 def test_dispatcher_invokes_registered_handler() -> None:
@@ -67,4 +73,4 @@ def test_dispatcher_skips_unknown_event_types(caplog: pytest.LogCaptureFixture) 
     with caplog.at_level(logging.WARNING):
         asyncio.run(dispatcher.dispatch(stored_event))
 
-    assert any("No handler registered" in record.message for record in caplog.records)
+    assert any("dispatcher.no_handler" in record.message for record in caplog.records)

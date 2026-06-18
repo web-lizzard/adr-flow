@@ -1,10 +1,10 @@
 ---
 change_id: first-ai-review-annotations
 title: First AI review annotations
-status: implemented
+status: archived
 created: 2026-06-17
 updated: 2026-06-18
-archived_at: null
+archived_at: 2026-06-18T00:01:02Z
 ---
 
 ## Notes

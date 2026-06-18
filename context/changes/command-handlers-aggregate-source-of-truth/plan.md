@@ -439,10 +439,10 @@ No schema migration required. Existing events rehydrate correctly if transition 
 
 #### Automated
 
-- [x] 2.1 `cd backend && uv run pytest tests/application/commands/` — 79a158b
-- [x] 2.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_unit_of_work.py` — 79a158b
-- [x] 2.3 `cd backend && uv run ruff check .` — 79a158b
-- [x] 2.4 `cd backend && uv run ty check` — 79a158b
+- [x] 2.1 `cd backend && uv run pytest tests/application/commands/` — d0b06a8
+- [x] 2.2 `cd backend && uv run pytest tests/infrastructure/adapters/persistence/test_unit_of_work.py` — d0b06a8
+- [x] 2.3 `cd backend && uv run ruff check .` — d0b06a8
+- [x] 2.4 `cd backend && uv run ty check` — d0b06a8
 
 #### Manual
 

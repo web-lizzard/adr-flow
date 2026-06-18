@@ -275,24 +275,24 @@ No data migration. ADR `content` field remains markdown string. Rollback: revert
 
 #### Automated
 
-- [x] 1.1 `cd frontend && pnpm install` completes cleanly
-- [x] 1.2 `cd frontend && pnpm run typecheck` passes
-- [x] 1.3 `cd frontend && pnpm run lint` passes
+- [x] 1.1 `cd frontend && pnpm install` completes cleanly — 2e4c084
+- [x] 1.2 `cd frontend && pnpm run typecheck` passes — 2e4c084
+- [x] 1.3 `cd frontend && pnpm run lint` passes — 2e4c084
 
 #### Manual
 
-- [ ] 1.4 Draft ADR editor loads with toolbar, preview toggle, table/task, no image upload; blur save works
+- [x] 1.4 Draft ADR editor loads with toolbar, preview toggle, table/task, no image upload; blur save works — 2e4c084
 
 ### Phase 2: Readonly Preview + Theme Sync
 
 #### Automated
 
-- [ ] 2.1 `cd frontend && pnpm run typecheck` passes
-- [ ] 2.2 `cd frontend && pnpm run lint` passes
+- [x] 2.1 `cd frontend && pnpm run typecheck` passes
+- [x] 2.2 `cd frontend && pnpm run lint` passes
 
 #### Manual
 
-- [ ] 2.3 Readonly shows MdPreview only; light/dark theme matches shadcn UI
+- [x] 2.3 Readonly shows MdPreview only; light/dark theme matches shadcn UI
 
 ### Phase 3: Tests & Dependency Cleanup
 

@@ -461,15 +461,15 @@ Remove superseded files, DRY `review_quality` with domain actionability, and ens
 
 #### Automated
 
-- [x] 3.1 `pytest tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py` — pass
-- [x] 3.2 `pytest tests/infrastructure/api/test_adr_api.py` — pass
-- [x] 3.3 Full `pytest` suite — green
-- [x] 3.4 `ruff check . && ty check` — pass
+- [x] 3.1 `pytest tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py` — pass — 0af4662
+- [x] 3.2 `pytest tests/infrastructure/api/test_adr_api.py` — pass — 0af4662
+- [x] 3.3 Full `pytest` suite — green — 0af4662
+- [x] 3.4 `ruff check . && ty check` — pass — 0af4662
 
 #### Manual
 
-- [ ] 3.5 `LLM_PROVIDER=fake` — submit complete ADR → `after_review` with annotations
-- [ ] 3.6 Submit ADR with missing sections → one `missing_section` per gap
+- [x] 3.5 `LLM_PROVIDER=fake` — submit complete ADR → `after_review` with annotations — 0af4662
+- [x] 3.6 Submit ADR with missing sections → one `missing_section` per gap — 0af4662
 
 ### Phase 4: Legacy Cleanup and DRY
 

@@ -475,11 +475,11 @@ Remove superseded files, DRY `review_quality` with domain actionability, and ens
 
 #### Automated
 
-- [x] 4.1 Full `pytest` suite — green
-- [x] 4.2 `ruff check . && ty check` — pass
-- [x] 4.3 No stale imports of removed modules (`rg` check)
+- [x] 4.1 Full `pytest` suite — green — d1da1b4
+- [x] 4.2 `ruff check . && ty check` — pass — d1da1b4
+- [x] 4.3 No stale imports of removed modules (`rg` check) — d1da1b4
 
 #### Manual
 
-- [x] 4.4 (Optional) OpenRouter — complete ADR without validation retry loop
-- [x] 4.5 `llm.review.*` structlog events visible from SDK client
+- [x] 4.4 (Optional) OpenRouter — complete ADR without validation retry loop — d1da1b4
+- [x] 4.5 `llm.review.*` structlog events visible from SDK client — d1da1b4

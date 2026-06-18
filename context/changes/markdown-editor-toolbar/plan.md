@@ -298,12 +298,12 @@ No data migration. ADR `content` field remains markdown string. Rollback: revert
 
 #### Automated
 
-- [x] 3.1 `cd frontend && pnpm run test` passes
-- [x] 3.2 `cd frontend && pnpm run typecheck` passes
-- [x] 3.3 `cd frontend && pnpm run lint` passes
-- [x] 3.4 `cd frontend && pnpm run build` passes
-- [x] 3.5 No CodeMirror imports remain under `frontend/`
+- [x] 3.1 `cd frontend && pnpm run test` passes — fc691ca
+- [x] 3.2 `cd frontend && pnpm run typecheck` passes — fc691ca
+- [x] 3.3 `cd frontend && pnpm run lint` passes — fc691ca
+- [x] 3.4 `cd frontend && pnpm run build` passes — fc691ca
+- [x] 3.5 No CodeMirror imports remain under `frontend/` — fc691ca
 
 #### Manual
 
-- [x] 3.6 Full draft → review → preview-only flow verified; no regressions
+- [x] 3.6 Full draft → review → preview-only flow verified; no regressions — fc691ca

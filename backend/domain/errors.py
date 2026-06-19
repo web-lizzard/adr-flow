@@ -64,3 +64,8 @@ class AdrInvalidSubmitStatus(DomainError):
 class AdrEditWhileInReview(DomainError):
     def __init__(self) -> None:
         super().__init__("Cannot edit ADR in review")
+
+
+class AdrInvalidReviewStatus(DomainError):
+    def __init__(self) -> None:
+        super().__init__("Review outcome can only be recorded while ADR is in_review")

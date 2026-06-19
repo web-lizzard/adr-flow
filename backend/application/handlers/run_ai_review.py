@@ -1,13 +1,13 @@
 from datetime import UTC, datetime
 
 from application.logging import get_logger
-from application.ports.adr_repository import AdrRepository
 from application.ports.adr_review import AdrReviewPort
 from application.ports.event_store import StoredEvent
 from application.ports.unit_of_work import UnitOfWorkFactory
 from application.review_metadata import ReviewErrorMetadata
 from application.review_quality import validate_review_result
 from domain.adr import ADRSubmittedForReview, AIReviewCompleted, AIReviewFailed, AdrId
+from domain.adr.rehydrate import rehydrate_adr
 from domain.adr.value_objects import AdrStatus, ReviewResult
 
 
@@ -17,11 +17,9 @@ class RunAiReviewHandler:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        adr_repository: AdrRepository,
         adr_review_service: AdrReviewPort,
     ) -> None:
         self._uow_factory = uow_factory
-        self._adr_repository = adr_repository
         self._adr_review_service = adr_review_service
         self._logger = get_logger(__name__)
 
@@ -45,38 +43,21 @@ class RunAiReviewHandler:
             user_id=str(user_id),
         )
 
-        adr = await self._adr_repository.find_by_id_for_owner(adr_id, user_id)
-        if adr is None:
-            self._logger.info(
-                "handler.run_ai_review.skipped",
-                reason="adr_not_found",
-                adr_id=str(adr_id),
-            )
-            await self._mark_processed(stored_event.id)
-            return
-
-        if adr.status == AdrStatus.AFTER_REVIEW:
-            self._logger.info(
-                "handler.run_ai_review.skipped",
-                reason="already_reviewed",
-                adr_id=str(adr_id),
-                status=adr.status,
-            )
-            await self._mark_processed(stored_event.id)
-            return
-
-        if (
-            adr.review_error is not None
-            and adr.review_error.source_event_id == stored_event.id
-        ):
-            self._logger.info(
-                "handler.run_ai_review.skipped",
-                reason="duplicate_failure",
-                adr_id=str(adr_id),
-                source_event_id=str(stored_event.id),
-            )
-            await self._mark_processed(stored_event.id)
-            return
+        async with self._uow_factory.begin() as uow:
+            stored_events = await uow.event_store.load_stream(adr_id, "adr")
+            skip_reason = self._skip_reason(stored_event, stored_events)
+            if skip_reason is not None:
+                self._logger.info(
+                    "handler.run_ai_review.skipped",
+                    reason=skip_reason,
+                    adr_id=str(adr_id),
+                )
+                processed_at = datetime.now(UTC)
+                await uow.event_store.mark_processed(
+                    stored_event.id,
+                    processed_at=processed_at,
+                )
+                return
 
         last_error: str | None = None
         validation_feedback: tuple[str, ...] = ()
@@ -146,6 +127,28 @@ class RunAiReviewHandler:
             last_error or "Review failed",
         )
 
+    def _skip_reason(
+        self,
+        stored_event: StoredEvent,
+        stored_events: list[StoredEvent],
+    ) -> str | None:
+        event = stored_event.event
+        if not isinstance(event, ADRSubmittedForReview):
+            return None
+
+        adr = rehydrate_adr([stored.event for stored in stored_events])
+        if adr is None or adr.user_id.value != event.user_id.value:
+            return "adr_not_found"
+        if adr.status == AdrStatus.AFTER_REVIEW:
+            return "already_reviewed"
+        if any(
+            isinstance(stored.event, AIReviewFailed)
+            and stored.event.source_event_id == stored_event.id
+            for stored in stored_events
+        ):
+            return "duplicate_failure"
+        return None
+
     async def _complete_review(
         self,
         stored_event: StoredEvent,
@@ -153,26 +156,41 @@ class RunAiReviewHandler:
         result: ReviewResult,
     ) -> None:
         occurred_at = datetime.now(UTC)
-        completion_event = AIReviewCompleted(
-            adr_id=AdrId(adr_id),
-            review_result=result,
-            occurred_at=occurred_at,
-        )
         completion_event_id = None
         async with self._uow_factory.begin() as uow:
-            stored_events = await uow.event_store.append(
+            await uow.lock_aggregate(adr_id)
+            stored_events = await uow.event_store.load_stream(adr_id, "adr")
+            skip_reason = self._skip_reason(stored_event, stored_events)
+            if skip_reason is not None:
+                await uow.event_store.mark_processed(
+                    stored_event.id,
+                    processed_at=occurred_at,
+                )
+                return
+
+            adr = rehydrate_adr([stored.event for stored in stored_events])
+            if adr is None:
+                return
+
+            adr.complete_review(result, result.reviewed_at)
+            completion_event = AIReviewCompleted(
+                adr_id=AdrId(adr_id),
+                review_result=result,
+                occurred_at=occurred_at,
+            )
+            stored_completion = await uow.event_store.append(
                 [completion_event],
                 aggregate_id=adr_id,
                 aggregate_type="adr",
             )
-            completion_event_id = stored_events[0].id
+            completion_event_id = stored_completion[0].id
             await uow.adr_projection.apply_review_result(
                 adr_id,
                 review_result=result,
                 updated_at=occurred_at,
             )
             await uow.event_store.mark_processed(
-                stored_events[0].id,
+                stored_completion[0].id,
                 processed_at=occurred_at,
             )
             await uow.event_store.mark_processed(
@@ -192,21 +210,37 @@ class RunAiReviewHandler:
         message: str,
     ) -> None:
         occurred_at = datetime.now(UTC)
-        failure_event = AIReviewFailed(
-            adr_id=AdrId(adr_id),
-            source_event_id=stored_event.id,
-            code="validation_failed",
-            message=message,
-            occurred_at=occurred_at,
-        )
-        review_error = ReviewErrorMetadata(
-            source_event_id=stored_event.id,
-            code="validation_failed",
-            message=message,
-            failed_at=occurred_at,
-        )
+        code = "validation_failed"
         async with self._uow_factory.begin() as uow:
-            stored_events = await uow.event_store.append(
+            await uow.lock_aggregate(adr_id)
+            stored_events = await uow.event_store.load_stream(adr_id, "adr")
+            skip_reason = self._skip_reason(stored_event, stored_events)
+            if skip_reason is not None:
+                await uow.event_store.mark_processed(
+                    stored_event.id,
+                    processed_at=occurred_at,
+                )
+                return
+
+            adr = rehydrate_adr([stored.event for stored in stored_events])
+            if adr is None:
+                return
+
+            adr.fail_review(code=code, message=message)
+            failure_event = AIReviewFailed(
+                adr_id=AdrId(adr_id),
+                source_event_id=stored_event.id,
+                code=code,
+                message=message,
+                occurred_at=occurred_at,
+            )
+            review_error = ReviewErrorMetadata(
+                source_event_id=stored_event.id,
+                code=code,
+                message=message,
+                failed_at=occurred_at,
+            )
+            stored_failure = await uow.event_store.append(
                 [failure_event],
                 aggregate_id=adr_id,
                 aggregate_type="adr",
@@ -217,7 +251,7 @@ class RunAiReviewHandler:
                 updated_at=occurred_at,
             )
             await uow.event_store.mark_processed(
-                stored_events[0].id,
+                stored_failure[0].id,
                 processed_at=occurred_at,
             )
             await uow.event_store.mark_processed(
@@ -226,15 +260,6 @@ class RunAiReviewHandler:
             )
         self._logger.info(
             "handler.run_ai_review.failure_persisted",
-            code="validation_failed",
+            code=code,
             message=message,
-        )
-
-    async def _mark_processed(self, event_id) -> None:
-        processed_at = datetime.now(UTC)
-        async with self._uow_factory.begin() as uow:
-            await uow.event_store.mark_processed(event_id, processed_at=processed_at)
-        self._logger.info(
-            "handler.run_ai_review.marked_processed",
-            event_id=str(event_id),
         )

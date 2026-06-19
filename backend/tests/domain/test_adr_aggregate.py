@@ -20,6 +20,7 @@ from domain.adr.value_objects import (
 from domain.errors import (
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
+    AdrInvalidReviewStatus,
     AdrInvalidSubmitStatus,
 )
 from domain.user.value_objects import UserId
@@ -210,3 +211,78 @@ def test_with_soft_deleted_sets_is_deleted() -> None:
 
     assert deleted.is_deleted is True
     assert deleted.status == AdrStatus.DRAFT
+
+
+def _in_review_adr() -> ADR:
+    return _draft_adr().with_submitted_for_review(updated_at=_NOW)
+
+
+def test_complete_review_transitions_in_review_to_after_review() -> None:
+    adr = _in_review_adr()
+    review_result = ReviewResult(
+        annotations=(
+            ReviewAnnotation(
+                kind=ReviewAnnotationKind.MISSING_SECTION,
+                message="Missing section",
+            ),
+        ),
+        reviewed_at=_LATER,
+    )
+
+    completed = adr.complete_review(result=review_result, reviewed_at=_LATER)
+
+    assert completed.status == AdrStatus.AFTER_REVIEW
+    assert completed.review_result == review_result
+    assert completed.reviewed_at == _LATER
+    assert completed.review_error is None
+
+
+def test_complete_review_rejects_draft() -> None:
+    adr = _draft_adr()
+    review_result = ReviewResult(annotations=(), reviewed_at=_LATER)
+
+    with pytest.raises(AdrInvalidReviewStatus):
+        adr.complete_review(result=review_result, reviewed_at=_LATER)
+
+
+def test_complete_review_rejects_after_review() -> None:
+    adr = _in_review_adr().with_review_completed(
+        result=ReviewResult(annotations=(), reviewed_at=_NOW),
+        reviewed_at=_NOW,
+    )
+
+    with pytest.raises(AdrInvalidReviewStatus):
+        adr.complete_review(
+            result=ReviewResult(annotations=(), reviewed_at=_LATER),
+            reviewed_at=_LATER,
+        )
+
+
+def test_fail_review_records_error_while_in_review() -> None:
+    adr = _in_review_adr()
+
+    failed = adr.fail_review(code="validation_failed", message="bad output")
+
+    assert failed.status == AdrStatus.IN_REVIEW
+    assert failed.review_error == ReviewError(
+        code="validation_failed",
+        message="bad output",
+    )
+    assert failed.review_result is None
+
+
+def test_fail_review_rejects_draft() -> None:
+    adr = _draft_adr()
+
+    with pytest.raises(AdrInvalidReviewStatus):
+        adr.fail_review(code="validation_failed", message="bad output")
+
+
+def test_fail_review_rejects_after_review() -> None:
+    adr = _in_review_adr().with_review_completed(
+        result=ReviewResult(annotations=(), reviewed_at=_NOW),
+        reviewed_at=_NOW,
+    )
+
+    with pytest.raises(AdrInvalidReviewStatus):
+        adr.fail_review(code="validation_failed", message="bad output")

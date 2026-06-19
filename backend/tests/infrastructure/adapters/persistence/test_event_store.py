@@ -8,8 +8,23 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from domain.adr.events import ADRPublished, ADRSubmittedForReview
-from domain.adr.value_objects import AdrContent, AdrId
+from domain.adr.events import (
+    ADRContentUpdated,
+    ADRCreated,
+    ADRPublished,
+    ADRSubmittedForReview,
+    AIReviewCompleted,
+)
+from domain.adr.rehydrate import rehydrate_adr
+from domain.adr.value_objects import (
+    AdrContent,
+    AdrId,
+    AdrStatus,
+    AdrTitle,
+    ReviewAnnotation,
+    ReviewAnnotationKind,
+    ReviewResult,
+)
 from domain.user.events import UserRegistered
 from domain.user.value_objects import EmailAddress, PasswordHash, UserId
 from infrastructure.adapters.persistence.database_url import (
@@ -369,6 +384,106 @@ def test_event_store_load_stream_returns_empty_for_unknown_aggregate(
                 store = SqlEventStore(session)
                 stream = await store.load_stream(uuid4(), "adr")
                 assert stream == []
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run_scenario())
+
+
+def test_load_stream_full_lifecycle_rehydrates_publish_ready_state(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM events"))
+
+    adr_id = uuid4()
+    user_id = uuid4()
+    created_at = datetime(2026, 6, 17, 10, 0, tzinfo=UTC)
+    updated_at = datetime(2026, 6, 17, 11, 0, tzinfo=UTC)
+    submitted_at = datetime(2026, 6, 17, 12, 0, tzinfo=UTC)
+    reviewed_at = datetime(2026, 6, 17, 13, 0, tzinfo=UTC)
+    published_at = datetime(2026, 6, 17, 14, 0, tzinfo=UTC)
+    title = AdrTitle("Choose event store")
+    initial_content = AdrContent("## Context\n\nTBD")
+    updated_content = AdrContent("## Context\n\nUpdated")
+    review_result = ReviewResult(
+        annotations=(
+            ReviewAnnotation(
+                kind=ReviewAnnotationKind.MISSING_SECTION,
+                message="Missing section",
+            ),
+        ),
+        reviewed_at=reviewed_at,
+    )
+
+    async def run_scenario() -> None:
+        engine = create_async_engine(normalize_runtime_database_url(postgres_url))
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    store = SqlEventStore(session)
+                    await store.append(
+                        [
+                            ADRCreated(
+                                adr_id=AdrId(adr_id),
+                                user_id=UserId(user_id),
+                                title=title,
+                                content=initial_content,
+                                occurred_at=created_at,
+                            ),
+                            ADRContentUpdated(
+                                adr_id=AdrId(adr_id),
+                                title=title,
+                                content=updated_content,
+                                occurred_at=updated_at,
+                            ),
+                            ADRSubmittedForReview(
+                                adr_id=AdrId(adr_id),
+                                user_id=UserId(user_id),
+                                content=updated_content,
+                                occurred_at=submitted_at,
+                            ),
+                            AIReviewCompleted(
+                                adr_id=AdrId(adr_id),
+                                review_result=review_result,
+                                occurred_at=reviewed_at,
+                            ),
+                        ],
+                        aggregate_id=adr_id,
+                        aggregate_type="adr",
+                    )
+
+            async with session_factory() as session:
+                store = SqlEventStore(session)
+                stream = await store.load_stream(adr_id, "adr")
+                adr = rehydrate_adr([stored.event for stored in stream])
+                assert adr is not None
+                assert adr.status == AdrStatus.AFTER_REVIEW
+                assert adr.review_result == review_result
+
+            async with session_factory() as session:
+                async with session.begin():
+                    store = SqlEventStore(session)
+                    await store.append(
+                        [
+                            ADRPublished(
+                                adr_id=AdrId(adr_id),
+                                occurred_at=published_at,
+                            )
+                        ],
+                        aggregate_id=adr_id,
+                        aggregate_type="adr",
+                    )
+
+            async with session_factory() as session:
+                store = SqlEventStore(session)
+                stream = await store.load_stream(adr_id, "adr")
+                adr = rehydrate_adr([stored.event for stored in stream])
+                assert adr is not None
+                assert adr.status == AdrStatus.PROPOSED
+                assert adr.review_result == review_result
         finally:
             await engine.dispose()
 

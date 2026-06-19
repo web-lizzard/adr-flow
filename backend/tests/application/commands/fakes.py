@@ -7,7 +7,16 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from application.ports.event_store import StoredEvent
-from domain.adr import ADRCreated, AdrContent, AdrId, AdrTitle
+from domain.adr import (
+    ADRCreated,
+    ADRSubmittedForReview,
+    AIReviewCompleted,
+    AIReviewFailed,
+    AdrContent,
+    AdrId,
+    AdrTitle,
+)
+from domain.adr.value_objects import ReviewResult
 from domain.user.value_objects import UserId
 
 
@@ -85,6 +94,8 @@ class FakeAdrProjection:
         self.updated: list = []
         self.marked_in_review: list[tuple[UUID, datetime]] = []
         self.marked_proposed: list[tuple[UUID, datetime]] = []
+        self.applied_results: list[tuple[UUID, ReviewResult, datetime]] = []
+        self.recorded_failures: list = []
 
     async def insert(self, adr) -> None:
         self.inserted.append(adr)
@@ -99,11 +110,23 @@ class FakeAdrProjection:
         self.marked_proposed.append((adr_id, updated_at))
         return True
 
-    async def apply_review_result(self, adr_id, *, review_result, updated_at) -> None:
-        return None
+    async def apply_review_result(
+        self,
+        adr_id: UUID,
+        *,
+        review_result: ReviewResult,
+        updated_at: datetime,
+    ) -> None:
+        self.applied_results.append((adr_id, review_result, updated_at))
 
-    async def record_review_failure(self, adr_id, *, review_error, updated_at) -> None:
-        return None
+    async def record_review_failure(
+        self,
+        adr_id: UUID,
+        *,
+        review_error,
+        updated_at: datetime,
+    ) -> None:
+        self.recorded_failures.append((adr_id, review_error, updated_at))
 
 
 class FakeUserProjection:
@@ -149,3 +172,106 @@ def adr_created_stream(
         )
         for event in events
     ]
+
+
+def in_review_stream(
+    *,
+    adr_id: UUID,
+    user_id: UUID,
+    title: str = "My ADR",
+    content: str = "## Context",
+    submit_event_id: UUID | None = None,
+    occurred_at: datetime | None = None,
+) -> list[StoredEvent]:
+    """Event stream ending in ``in_review`` (created + submitted)."""
+    when = occurred_at or datetime(2026, 6, 16, 10, 0, tzinfo=UTC)
+    submit_at = datetime(2026, 6, 16, 11, 0, tzinfo=UTC)
+    stream = adr_created_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        title=title,
+        content=content,
+        occurred_at=when,
+    )
+    submit = ADRSubmittedForReview(
+        adr_id=AdrId(adr_id),
+        user_id=UserId(user_id),
+        content=AdrContent(content),
+        occurred_at=submit_at,
+    )
+    stream.append(
+        StoredEvent(
+            id=submit_event_id or uuid4(),
+            aggregate_type="adr",
+            aggregate_id=adr_id,
+            event=submit,
+            occurred_at=submit_at,
+        )
+    )
+    return stream
+
+
+def after_review_stream(
+    *,
+    adr_id: UUID,
+    user_id: UUID,
+    content: str,
+    review_result: ReviewResult,
+    submit_event_id: UUID | None = None,
+) -> list[StoredEvent]:
+    """Event stream with completed AI review (``after_review``)."""
+    stream = in_review_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        content=content,
+        submit_event_id=submit_event_id,
+    )
+    completed_at = review_result.reviewed_at
+    stream.append(
+        StoredEvent(
+            id=uuid4(),
+            aggregate_type="adr",
+            aggregate_id=adr_id,
+            event=AIReviewCompleted(
+                adr_id=AdrId(adr_id),
+                review_result=review_result,
+                occurred_at=completed_at,
+            ),
+            occurred_at=completed_at,
+        )
+    )
+    return stream
+
+
+def stream_with_review_failure(
+    *,
+    adr_id: UUID,
+    user_id: UUID,
+    content: str,
+    source_event_id: UUID,
+    message: str = "Already failed",
+) -> list[StoredEvent]:
+    """Event stream with ``AIReviewFailed`` tied to a submit event."""
+    stream = in_review_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        content=content,
+        submit_event_id=source_event_id,
+    )
+    failed_at = datetime(2026, 6, 16, 12, 0, tzinfo=UTC)
+    stream.append(
+        StoredEvent(
+            id=uuid4(),
+            aggregate_type="adr",
+            aggregate_id=adr_id,
+            event=AIReviewFailed(
+                adr_id=AdrId(adr_id),
+                source_event_id=source_event_id,
+                code="validation_failed",
+                message=message,
+                occurred_at=failed_at,
+            ),
+            occurred_at=failed_at,
+        )
+    )
+    return stream

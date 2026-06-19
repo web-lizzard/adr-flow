@@ -1,9 +1,8 @@
 """ADR aggregate — command-path state and transitions."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, replace
 from datetime import datetime
+from typing import Self
 
 from domain.adr.value_objects import (
     AdrContent,
@@ -16,6 +15,7 @@ from domain.adr.value_objects import (
 from domain.errors import (
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
+    AdrInvalidReviewStatus,
     AdrInvalidSubmitStatus,
 )
 from domain.user.value_objects import UserId
@@ -26,9 +26,10 @@ class ADR:
     """ADR lifecycle state for command handlers and event replay.
 
     Command methods (``create``, ``update_content``, ``update_title``,
-    ``submit_for_review``, ``publish``) validate invariants then delegate to
-    ``with_*`` transition helpers. Transition helpers take value objects only,
-    perform no guards, and are used by command methods and ``rehydrate_adr``.
+    ``submit_for_review``, ``publish``, ``complete_review``, ``fail_review``)
+    validate invariants then delegate to ``with_*`` transition helpers.
+    Transition helpers take value objects only, perform no guards, and are
+    used by command methods and ``rehydrate_adr``.
     """
 
     adr_id: AdrId
@@ -51,7 +52,7 @@ class ADR:
         title: AdrTitle,
         content: AdrContent,
         created_at: datetime,
-    ) -> ADR:
+    ) -> Self:
         """Bootstrap a new ADR in ``draft`` (no prior event stream)."""
         return cls(
             adr_id=adr_id,
@@ -67,39 +68,51 @@ class ADR:
             reviewed_at=None,
         )
 
-    def update_content(self, content: AdrContent, updated_at: datetime) -> ADR:
+    def update_content(self, content: AdrContent, updated_at: datetime) -> Self:
         """Replace body content; rejected while ``in_review``."""
         if self.status == AdrStatus.IN_REVIEW:
             raise AdrEditWhileInReview()
         return self.with_content_updated(content, updated_at)
 
-    def update_title(self, title: AdrTitle, updated_at: datetime) -> ADR:
+    def update_title(self, title: AdrTitle, updated_at: datetime) -> Self:
         """Replace title; rejected while ``in_review``."""
         if self.status == AdrStatus.IN_REVIEW:
             raise AdrEditWhileInReview()
         return self.with_title_updated(title, updated_at)
 
-    def submit_for_review(self, updated_at: datetime) -> ADR:
+    def submit_for_review(self, updated_at: datetime) -> Self:
         """Move from ``draft`` to ``in_review``; clears review fields."""
         if self.status != AdrStatus.DRAFT:
             raise AdrInvalidSubmitStatus()
         return self.with_submitted_for_review(updated_at)
 
-    def publish(self, updated_at: datetime) -> ADR:
+    def publish(self, updated_at: datetime) -> Self:
         """Move from ``after_review`` to ``proposed``; preserves review fields."""
         if self.status != AdrStatus.AFTER_REVIEW:
             raise AdrInvalidPublishStatus()
         return self.with_published(updated_at)
 
-    def with_content_updated(self, content: AdrContent, updated_at: datetime) -> ADR:
+    def complete_review(self, result: ReviewResult, reviewed_at: datetime) -> Self:
+        """Record successful AI review; requires ``in_review``."""
+        if self.status != AdrStatus.IN_REVIEW:
+            raise AdrInvalidReviewStatus()
+        return self.with_review_completed(result=result, reviewed_at=reviewed_at)
+
+    def fail_review(self, code: str, message: str) -> Self:
+        """Record failed AI review; requires ``in_review``."""
+        if self.status != AdrStatus.IN_REVIEW:
+            raise AdrInvalidReviewStatus()
+        return self.with_review_failed(code=code, message=message)
+
+    def with_content_updated(self, content: AdrContent, updated_at: datetime) -> Self:
         """Transition helper: update content only; review state unchanged."""
         return replace(self, content=content, updated_at=updated_at)
 
-    def with_title_updated(self, title: AdrTitle, updated_at: datetime) -> ADR:
+    def with_title_updated(self, title: AdrTitle, updated_at: datetime) -> Self:
         """Transition helper: update title only; review state unchanged."""
         return replace(self, title=title, updated_at=updated_at)
 
-    def with_submitted_for_review(self, updated_at: datetime) -> ADR:
+    def with_submitted_for_review(self, updated_at: datetime) -> Self:
         """Transition helper: ``in_review`` and cleared review snapshot fields."""
         return replace(
             self,
@@ -111,10 +124,8 @@ class ADR:
         )
 
     def with_review_completed(
-        self,
-        result: ReviewResult,
-        reviewed_at: datetime,
-    ) -> ADR:
+        self, result: ReviewResult, reviewed_at: datetime
+    ) -> Self:
         """Transition helper: ``after_review`` with annotations; clears error."""
         return replace(
             self,
@@ -125,7 +136,7 @@ class ADR:
             updated_at=reviewed_at,
         )
 
-    def with_review_failed(self, code: str, message: str) -> ADR:
+    def with_review_failed(self, code: str, message: str) -> Self:
         """Transition helper: record review failure; status unchanged."""
         return replace(
             self,
@@ -133,7 +144,7 @@ class ADR:
             review_error=ReviewError(code=code, message=message),
         )
 
-    def with_published(self, updated_at: datetime) -> ADR:
+    def with_published(self, updated_at: datetime) -> Self:
         """Transition helper: ``proposed``; review fields unchanged."""
         return replace(
             self,
@@ -141,6 +152,6 @@ class ADR:
             updated_at=updated_at,
         )
 
-    def with_soft_deleted(self) -> ADR:
+    def with_soft_deleted(self) -> Self:
         """Transition helper: mark deleted; other fields unchanged."""
         return replace(self, is_deleted=True)

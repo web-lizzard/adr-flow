@@ -116,7 +116,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     run_ai_review_handler = RunAiReviewHandler(
         uow_factory,
-        adr_repository,
         adr_review_service,
     )
     dispatcher = EventDispatcher()

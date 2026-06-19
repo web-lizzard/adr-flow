@@ -1,4 +1,4 @@
-"""ADR aggregate command methods and transition helpers."""
+"""ADR aggregate command methods and event restore."""
 
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from domain.adr.aggregate import ADR
+from domain.adr.events import ADRCreated, ADRSoftDeleted
 from domain.adr.value_objects import (
     AdrContent,
     AdrId,
@@ -58,7 +59,7 @@ def test_submit_for_review_transitions_draft_to_in_review() -> None:
     assert submitted.updated_at == _LATER
 
 
-def test_with_submitted_for_review_clears_review_fields() -> None:
+def test_submit_for_review_clears_review_fields() -> None:
     adr = replace(
         _draft_adr(),
         review_result=ReviewResult(
@@ -74,7 +75,7 @@ def test_with_submitted_for_review_clears_review_fields() -> None:
         reviewed_at=_NOW,
     )
 
-    submitted = adr.with_submitted_for_review(updated_at=_LATER)
+    submitted = adr.submit_for_review(updated_at=_LATER)
 
     assert submitted.review_result is None
     assert submitted.review_error is None
@@ -83,14 +84,14 @@ def test_with_submitted_for_review_clears_review_fields() -> None:
 
 
 def test_submit_for_review_rejects_non_draft() -> None:
-    adr = _draft_adr().with_submitted_for_review(updated_at=_LATER)
+    adr = _draft_adr().submit_for_review(updated_at=_LATER)
 
     with pytest.raises(AdrInvalidSubmitStatus):
         adr.submit_for_review(updated_at=_LATER)
 
 
 def test_update_content_rejects_in_review() -> None:
-    adr = _draft_adr().with_submitted_for_review(updated_at=_LATER)
+    adr = _draft_adr().submit_for_review(updated_at=_LATER)
 
     with pytest.raises(AdrEditWhileInReview):
         adr.update_content(
@@ -100,7 +101,7 @@ def test_update_content_rejects_in_review() -> None:
 
 
 def test_update_title_rejects_in_review() -> None:
-    adr = _draft_adr().with_submitted_for_review(updated_at=_LATER)
+    adr = _draft_adr().submit_for_review(updated_at=_LATER)
 
     with pytest.raises(AdrEditWhileInReview):
         adr.update_title(title=AdrTitle("New title"), updated_at=_LATER)
@@ -118,8 +119,8 @@ def test_update_content_during_after_review_preserves_review_annotations() -> No
     )
     adr = (
         _draft_adr()
-        .with_submitted_for_review(updated_at=_NOW)
-        .with_review_completed(result=review_result, reviewed_at=_NOW)
+        .submit_for_review(updated_at=_NOW)
+        .complete_review(result=review_result, reviewed_at=_NOW)
     )
 
     updated = adr.update_content(
@@ -145,8 +146,8 @@ def test_update_title_during_after_review_preserves_review_annotations() -> None
     )
     adr = (
         _draft_adr()
-        .with_submitted_for_review(updated_at=_NOW)
-        .with_review_completed(result=review_result, reviewed_at=_NOW)
+        .submit_for_review(updated_at=_NOW)
+        .complete_review(result=review_result, reviewed_at=_NOW)
     )
 
     updated = adr.update_title(title=AdrTitle("Updated title"), updated_at=_LATER)
@@ -170,8 +171,8 @@ def test_publish_preserves_review_fields_after_review_completed() -> None:
     )
     adr = (
         _draft_adr()
-        .with_submitted_for_review(updated_at=_NOW)
-        .with_review_completed(result=review_result, reviewed_at=_NOW)
+        .submit_for_review(updated_at=_NOW)
+        .complete_review(result=review_result, reviewed_at=_NOW)
     )
 
     published = adr.publish(updated_at=_LATER)
@@ -188,10 +189,10 @@ def test_publish_rejects_draft() -> None:
         adr.publish(updated_at=_LATER)
 
 
-def test_with_review_failed_sets_error_and_clears_review_result() -> None:
-    adr = _draft_adr().with_submitted_for_review(updated_at=_NOW)
+def test_fail_review_sets_error_and_clears_review_result() -> None:
+    adr = _draft_adr().submit_for_review(updated_at=_NOW)
 
-    failed = adr.with_review_failed(
+    failed = adr.fail_review(
         code="validation_failed",
         message="Invalid review output",
     )
@@ -204,17 +205,30 @@ def test_with_review_failed_sets_error_and_clears_review_result() -> None:
     assert failed.status == AdrStatus.IN_REVIEW
 
 
-def test_with_soft_deleted_sets_is_deleted() -> None:
-    adr = _draft_adr()
+def test_restore_soft_deleted_sets_is_deleted() -> None:
+    adr_id = AdrId(uuid4())
+    user_id = UserId(uuid4())
 
-    deleted = adr.with_soft_deleted()
+    restored = ADR.restore(
+        [
+            ADRCreated(
+                adr_id=adr_id,
+                user_id=user_id,
+                title=AdrTitle("Title"),
+                content=AdrContent("## Context"),
+                occurred_at=_NOW,
+            ),
+            ADRSoftDeleted(adr_id=adr_id, occurred_at=_LATER),
+        ]
+    )
 
-    assert deleted.is_deleted is True
-    assert deleted.status == AdrStatus.DRAFT
+    assert restored is not None
+    assert restored.is_deleted is True
+    assert restored.status == AdrStatus.DRAFT
 
 
 def _in_review_adr() -> ADR:
-    return _draft_adr().with_submitted_for_review(updated_at=_NOW)
+    return _draft_adr().submit_for_review(updated_at=_NOW)
 
 
 def test_complete_review_transitions_in_review_to_after_review() -> None:
@@ -246,7 +260,7 @@ def test_complete_review_rejects_draft() -> None:
 
 
 def test_complete_review_rejects_after_review() -> None:
-    adr = _in_review_adr().with_review_completed(
+    adr = _in_review_adr().complete_review(
         result=ReviewResult(annotations=(), reviewed_at=_NOW),
         reviewed_at=_NOW,
     )
@@ -279,7 +293,7 @@ def test_fail_review_rejects_draft() -> None:
 
 
 def test_fail_review_rejects_after_review() -> None:
-    adr = _in_review_adr().with_review_completed(
+    adr = _in_review_adr().complete_review(
         result=ReviewResult(annotations=(), reviewed_at=_NOW),
         reviewed_at=_NOW,
     )

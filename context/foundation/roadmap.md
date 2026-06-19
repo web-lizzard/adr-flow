@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-08
-updated: 2026-06-18
+updated: 2026-06-19
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -21,20 +21,25 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 
 ## North star
 
-**S-05: User can edit a reviewed ADR without re-review and publish it as `proposed`** — this is the validation milestone, the smallest end-to-end slice whose successful delivery proves the core product hypothesis. It completes Success Criterion #1's full one-session flow (`draft → in_review → after_review → proposed`); if this loop does not work end to end, nothing else in the product matters. Under the `speed` goal it is placed as early as its prerequisites (the authoring + review path) allow.
+**S-05: User can edit a reviewed ADR without re-review and publish it as `proposed`** — delivered 2026-06-18; this was the validation milestone, the smallest end-to-end slice whose successful delivery proved the core product hypothesis (full one-session flow `draft → in_review → after_review → proposed`).
+
+**Post-core iteration focus: S-07** — user always receives LLM review output in `after_review` (validation logs only, never blocks). This unblocks the review loop when quality checks fail and is prerequisite for S-09 conditional re-review.
 
 ## At a glance
 
 | ID | Change ID | Outcome (user can …) | Prerequisites | PRD refs | Status |
 |---|---|---|---|---|---|
-| F-02 | persistence-scaffold | (foundation) Postgres driver, migration tooling, and initial schema contract for users and ADRs are in place | — | NFR: Per-user data isolation, NFR: Data retention, NFR: No draft loss, Access Control | ready |
+| F-02 | persistence-scaffold | (foundation) Postgres driver, migration tooling, and initial schema contract for users and ADRs are in place | — | NFR: Per-user data isolation, NFR: Data retention, NFR: No draft loss, Access Control | done |
 | F-01 | review-quality-checks | (foundation) review output can be checked against required-section and actionability guardrails | — | NFR: Section gap detection accuracy, NFR: Annotation actionability | done |
-| S-01 | account-access | register, log in, and reach a protected per-user ADR workspace | F-02 | US-03, FR-001, FR-003, Access Control, NFR: Per-user data isolation | proposed |
+| S-01 | account-access | register, log in, and reach a protected per-user ADR workspace | F-02 | US-03, FR-001, FR-003, Access Control, NFR: Per-user data isolation | done |
 | S-02 | draft-authoring-persistence | create an ADR from the starter template, edit markdown, and recover saved draft content | S-01 | US-01, FR-004, FR-005, FR-006, NFR: No draft loss | done |
 | S-04 | first-ai-review-annotations | submit a draft for AI review and see actionable annotations in `after_review` | S-02, F-01 | US-01, FR-007, FR-008, FR-010, FR-011, FR-012 | done |
 | S-05 | publish-after-review | edit the reviewed ADR without re-review and publish it as `proposed` | S-04 | US-01, US-04, FR-005, FR-007, FR-009 | done |
 | S-03 | adr-history-cards | return later, browse owned ADR cards, and reopen an existing ADR | S-02 | US-02, FR-013, NFR: Data retention | done |
 | S-06 | remove-adr-from-active-list | remove an ADR from the active card view without permanently destroying it | S-03 | FR-015, NFR: Data retention | proposed |
+| S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Section gap detection accuracy, NFR: Annotation actionability | ready |
+| S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | ready |
+| S-09 | conditional-adr-re-review | request one additional AI review when the first review reported errors — once per ADR | S-07, S-05 | US-01, FR-008 | proposed |
 
 ## Streams
 
@@ -42,21 +47,22 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 
 | Stream | Theme | Chain | Note |
 |---|---|---|---|
-| A | Persistence & core loop | `F-02` → `S-01` → `S-02` → `S-04` → `S-05` | `F-02` gates every DB-dependent slice; this is the must-have path to the north star. |
-| B | Review-quality foundation | `F-01` | Parallel with `F-02`; joins Stream A at `S-04`. |
-| C | History & lifecycle | `S-03` → `S-06` | Joins Stream A at `S-02`; sequenced after the core loop under `speed`. |
+| A | Persistence & core loop | `F-02` → `S-01` → `S-02` → `S-04` → `S-05` | Core loop delivered; north star S-05 done. |
+| B | Review-quality foundation | `F-01` → `S-07` → `S-09` | F-01 shipped blocking validation; S-07 relaxes to logs-only for MVP; S-09 adds conditional re-review. |
+| C | History & lifecycle | `S-03` → `S-06` | Joins Stream A at `S-02`. |
+| D | Auth transport | `S-08` | Parallel with Stream B; cookie → Bearer `access_token`, no refresh. |
 
 ## Baseline
 
-What's already in place in the codebase as of `2026-06-08` (auto-researched + user-confirmed).
+What's already in place in the codebase as of `2026-06-19` (auto-researched + user-confirmed).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present (scaffold) — Nuxt 4 app with health demo only; no feature pages yet (`frontend/app/pages/index.vue`, `frontend/nuxt.config.ts`).
-- **Backend / API:** present (scaffold) — FastAPI app exposing only `GET /health`; no feature routers (`backend/main.py`).
-- **Data:** partial — Postgres wired in devcontainer and GCP deploy (`.devcontainer/docker-compose.yml`, `deploy/gcp/03-gce-postgres.sh`), but NO DB driver/ORM, models, or migrations in the backend.
-- **Auth:** absent — no auth dependencies, no login/register/token code, no route guards; custom JWT is docs-only (`tech-stack.md`).
-- **Deploy / infra:** present — `frontend/Dockerfile`, `deploy/gcp/` (17 files), `.github/workflows/deploy-gcp.yml` (Cloud Run, WIF).
-- **Observability:** absent — no app logging, metrics, error tracking, or OpenTelemetry instrumentation in source.
+- **Frontend:** present — Nuxt 4 with auth pages, workspace, ADR editor, history cards, review/publish flows (`frontend/app/`).
+- **Backend / API:** present — FastAPI with auth, ADR CRUD, review submission, event-sourced lifecycle (`backend/infrastructure/api/`, `backend/application/`).
+- **Data:** present — SQLAlchemy + Alembic, `users`/`adrs`/`events` tables, projections (`backend/infrastructure/adapters/persistence/`).
+- **Auth:** present (cookie transport) — custom email/password, Argon2 hashing, HS256 JWT issued on login/register but stored in httponly `session` cookie (`backend/infrastructure/api/routers/auth.py`, `dependencies.py:88`). No Bearer header flow yet; no refresh token.
+- **Deploy / infra:** present — `frontend/Dockerfile`, `deploy/gcp/`, `.github/workflows/deploy-gcp.yml` (Cloud Run, WIF).
+- **Observability:** partial — structured application logging (`application/logging`); no metrics, error tracking, or OpenTelemetry.
 
 ## Foundations
 
@@ -70,8 +76,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** F-01
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Sequenced first because the baseline reports Data as `partial` — infra exists but no application persistence. Without tables and migrations, no other stream can store users or ADRs. Scope is the minimal schema contract, not a complete data layer; vertical slices still integrate persistence through real user behavior.
-- **Status:** ready
+- **Risk:** Delivered; vertical slices integrated persistence through real user behavior.
+- **Status:** done
 
 ### F-01: Review Quality Checks
 
@@ -83,7 +89,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** F-02
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Sequenced before the AI-review slice so the product does not mistake any annotation output for *useful* annotation output. This is the wedge; under `speed` it gets invested in just enough to clear the guardrail, then S-04 integrates it through real user behavior. Independent of persistence — can run alongside F-02.
+- **Risk:** Delivered with blocking validation in `run_ai_review.py`; S-07 changes runtime behavior to logs-only while keeping the harness for measurement.
 - **Status:** done
 
 ## Slices
@@ -97,8 +103,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** F-01
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Every ADR capability is per-user; weak access boundaries would undermine all later slices. Auth and API isolation build on the `User` entity from F-02 — this slice wires registration, login, JWT, and route guards, not the schema itself.
-- **Status:** proposed
+- **Risk:** Delivered with cookie-based JWT; S-08 migrates transport to Bearer `access_token` without changing registration/login semantics.
+- **Status:** done
 
 ### S-02: Draft Authoring & Persistence
 
@@ -123,7 +129,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Will "no visible progress" for AI review cause mass tab closures during the review wait? — Owner: user. Block: no.
-- **Risk:** This is the highest-value capability and the wedge made real; it is sequenced as soon as drafts and the quality checks exist so the core loop reaches the north star fast.
+- **Risk:** Delivered; today failed validation keeps ADR in `in_review` — S-07 fixes that regression risk for MVP pilots.
 - **Status:** done
 
 ### S-05: Publish After Review
@@ -135,7 +141,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-03, S-06
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** This is the north star; it completes the first proof point. Without it, review feedback never turns into a publishable ADR and Success Criterion #1 stays unmet.
+- **Risk:** North star delivered; S-09 adds a narrow exception (one conditional re-review) without undoing the default no-re-review-on-edit rule.
 - **Status:** done
 
 ### S-03: ADR History Cards
@@ -156,30 +162,73 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Change ID:** remove-adr-from-active-list
 - **PRD refs:** FR-015, NFR: Data retention
 - **Prerequisites:** S-03
-- **Parallel with:** S-05
+- **Parallel with:** S-05, S-07, S-08
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Removal only has user value once an active card list exists, so it is sequenced last; the soft-delete flag from F-02 is exercised here through real user behavior.
+- **Risk:** Removal only has user value once an active card list exists, so it is sequenced before post-core hardening slices.
+- **Status:** proposed
+
+### S-07: Review Validation Logs Only
+
+- **Outcome:** user always receives LLM review annotations in `after_review`; when quality checks fail, the failure is logged for measurement but the ADR still transitions out of `in_review`.
+- **Change ID:** review-validation-logs-only
+- **PRD refs:** FR-008, FR-010, FR-011, FR-012, NFR: Section gap detection accuracy, NFR: Annotation actionability
+- **Prerequisites:** S-04
+- **Parallel with:** S-06, S-08
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Sequenced first among the three new slices because blocking validation can strand ADRs in `in_review` and breaks the core loop; guardrail measurement moves to logs until review quality is stable enough to re-enable gating.
+- **Status:** ready
+
+### S-08: JWT Bearer Access Token
+
+- **Outcome:** user can authenticate API calls with a JWT `access_token` in the `Authorization: Bearer` header; login/register return the token in the response body; no refresh token and no httponly session cookie.
+- **Change ID:** jwt-bearer-access-token
+- **PRD refs:** US-03, FR-003, Access Control
+- **Prerequisites:** S-01
+- **Parallel with:** S-06, S-07
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Transport change only — registration, login, and per-user isolation semantics stay the same. Frontend must store and attach the token; session expiry behavior follows JWT `exp` with no silent refresh in MVP.
+- **Status:** ready
+
+### S-09: Conditional ADR Re-Review
+
+- **Outcome:** user can request one additional AI review when the first review reported errors (non-empty actionable annotations) — at most once per ADR; edits in `after_review` still do not auto-trigger review.
+- **Change ID:** conditional-adr-re-review
+- **PRD refs:** US-01, FR-008
+- **Prerequisites:** S-07, S-05
+- **Parallel with:** S-06, S-08
+- **Blockers:** —
+- **Unknowns:**
+  - Should PRD non-goal "No re-review" and FR-008 "exactly once" wording be updated to match this narrower exception? — Owner: user. Block: no.
+  - From which status can re-review be triggered — `after_review` only, or also `proposed`? — Owner: user. Block: no.
+- **Risk:** Scope expansion beyond original PRD non-goals; kept minimal (one conditional re-review per ADR, only when first review found issues). Depends on S-07 so users always see first-review output before deciding to re-review.
 - **Status:** proposed
 
 ## Backlog Handoff
 
 | Roadmap ID | Change ID | Suggested issue title | Ready for `/plan` | Notes |
 |---|---|---|---|---|
-| F-02 | persistence-scaffold | Add Postgres driver, migrations, and initial User/ADR schema | yes | Run `/plan persistence-scaffold` first — gates all DB-dependent slices. |
-| F-01 | review-quality-checks | Add review-quality checks for required-section and actionability guardrails | yes | Can run alongside F-02. |
-| S-01 | account-access | Let users register, log in, and reach a protected ADR workspace | no | Requires F-02. |
-| S-02 | draft-authoring-persistence | Let users create and safely save ADR drafts from the starter template | no | Requires S-01. |
-| S-04 | first-ai-review-annotations | Let users submit a draft and receive actionable AI review annotations | no | Requires S-02 and F-01. |
-| S-05 | publish-after-review | Let users edit reviewed ADRs and publish them as proposed | no | Requires S-04; completes the first proof point (north star). |
-| S-03 | adr-history-cards | Let users browse ADR history cards and reopen existing ADRs | no | Requires S-02. |
-| S-06 | remove-adr-from-active-list | Let users remove ADRs from the active card view | no | Requires S-03. |
+| F-02 | persistence-scaffold | Add Postgres driver, migrations, and initial User/ADR schema | no | Done. |
+| F-01 | review-quality-checks | Add review-quality checks for required-section and actionability guardrails | no | Done; S-07 changes runtime gating. |
+| S-01 | account-access | Let users register, log in, and reach a protected ADR workspace | no | Done; S-08 migrates token transport. |
+| S-02 | draft-authoring-persistence | Let users create and safely save ADR drafts from the starter template | no | Done. |
+| S-04 | first-ai-review-annotations | Let users submit a draft and receive actionable AI review annotations | no | Done. |
+| S-05 | publish-after-review | Let users edit reviewed ADRs and publish them as proposed | no | Done (north star). |
+| S-03 | adr-history-cards | Let users browse ADR history cards and reopen existing ADRs | no | Done. |
+| S-06 | remove-adr-from-active-list | Let users remove ADRs from the active card view | yes | Run `/plan remove-adr-from-active-list`. |
+| S-07 | review-validation-logs-only | Return every LLM review to after_review; log validation failures only | yes | Run `/plan review-validation-logs-only` — highest leverage post-core fix. |
+| S-08 | jwt-bearer-access-token | Switch auth from session cookie to Bearer access_token (no refresh) | yes | Run `/plan jwt-bearer-access-token`; can parallel S-07. |
+| S-09 | conditional-adr-re-review | Let users request one re-review when first review found errors | no | Requires S-07; resolve open questions before `/plan`. |
 
 ## Open Roadmap Questions
 
 1. **Does save-on-blur + save-on-unload actually suffice against draft loss?** — Owner: user. Block: none (FR-006 stands; gates S-02 only if QA finds an unload-trigger edge case).
 2. **What happens to a user who forgot their password?** — Owner: user. Block: none; post-MVP account-retention risk (no password reset in MVP).
 3. **Will "no visible progress" for AI review cause mass tab closures during review?** — Owner: user. Block: none; gates S-04 only if first-pilot evidence shows the wait state prevents completion.
+4. **Should PRD FR-008 and the "No re-review" non-goal be updated to document the S-09 exception (one conditional re-review when errors were reported)?** — Owner: user. Block: none; recommended before S-09 ships.
+5. **From which ADR status can conditional re-review be triggered — `after_review` only, or also `proposed`?** — Owner: user. Block: S-09 planning only if answer affects aggregate transitions.
 
 ## Parked
 
@@ -189,7 +238,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Real-time multi-user collaboration.** — Why parked: PRD Functional Non-Goals; B2C/PLG MVP is one author per ADR.
 - **Advanced approval workflow.** — Why parked: PRD Functional Non-Goals; AI review replaces formal human approval in MVP.
 - **Automatic committing of ADRs to a repository.** — Why parked: PRD Functional Non-Goals; ADRs live in the hosted product.
-- **Re-review after ADR edits.** — Why parked: PRD Functional Non-Goals; review runs once in the ADR lifecycle.
+- **Unlimited or quota-based re-review.** — Why parked: S-09 scopes one conditional re-review per ADR; broader re-review variants remain post-MVP.
 - **Configurable ADR conventions.** — Why parked: PRD Functional Non-Goals; the MVP hard-codes five required sections.
 - **Filtering or search in the ADR list.** — Why parked: PRD Functional Non-Goals; card view is sufficient for small personal history.
 - **Accepted and superseded statuses.** — Why parked: PRD Functional Non-Goals; MVP stops at `proposed`.
@@ -198,10 +247,9 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Shared workspaces or team features.** — Why parked: PRD Functional Non-Goals; one user equals one isolated space in MVP.
 - **ADR export (markdown / PDF).** — Why parked: PRD Functional Non-Goals; ADRs remain inside the product for MVP.
 - **Visible progress or hard SLA for AI review duration.** — Why parked: PRD Non-functional Non-Goals; accepted MVP UX risk unless pilots prove otherwise.
+- **JWT refresh tokens.** — Why parked: explicit out of scope for S-08; users re-login when `access_token` expires.
 
 ## Done
-
-<!-- Empty on first generation. `/archive` appends entries here when matching changes are archived. -->
 
 - **S-02: user can create an ADR from the starter template, edit markdown, and recover saved draft content after leaving or refreshing.** — Archived 2026-06-16 → `context/archive/2026-06-16-draft-authoring-persistence/`. Lesson: —.
 - **S-03: user can return later, browse owned ADR cards (title, status, last-edited), and reopen an existing ADR where editing is allowed.** — Archived 2026-06-16 → `context/archive/2026-06-16-adr-history-cards/`. Lesson: —.

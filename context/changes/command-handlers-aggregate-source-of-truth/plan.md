@@ -453,10 +453,10 @@ No schema migration required. Existing events rehydrate correctly if transition 
 
 #### Automated
 
-- [x] 3.1 `cd backend && uv run pytest tests/domain/test_adr_aggregate.py` (review command methods)
-- [x] 3.2 `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py`
-- [x] 3.3 `cd backend && uv run pytest`
-- [x] 3.4 `pre-commit run --all-files` (from repo root)
+- [x] 3.1 `cd backend && uv run pytest tests/domain/test_adr_aggregate.py` (review command methods) — 9dc1a42
+- [x] 3.2 `cd backend && uv run pytest tests/application/handlers/test_run_ai_review.py` — 9dc1a42
+- [x] 3.3 `cd backend && uv run pytest` — 9dc1a42
+- [x] 3.4 `pre-commit run --all-files` (from repo root) — 9dc1a42
 
 #### Manual
 

@@ -1,10 +1,10 @@
 ---
 change_id: persistence-scaffold
 title: Persistence scaffold
-status: implemented
+status: archived
 created: 2026-06-14
-updated: 2026-06-15
-archived_at: null
+updated: 2026-06-19
+archived_at: 2026-06-19T01:13:01Z
 ---
 
 ## Notes

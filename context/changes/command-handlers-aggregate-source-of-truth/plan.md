@@ -410,6 +410,12 @@ Extend the aggregate source-of-truth pattern to `RunAiReviewHandler`, then verif
 
 No schema migration required. Existing events rehydrate correctly if transition helpers match historical projection semantics.
 
+## Addenda
+
+### A1 — Rehydration colocated in aggregate (deviation from §3b)
+
+The plan specified `rehydrate.py` as the event-dispatch boundary and required `aggregate.py` to remain event-ignorant. During implementation the "Keep class public API minimal" lesson mandated `_`-prefixed transition helpers, making them inaccessible to an external rehydrator. The conflict was resolved by placing the `restore` classmethod (event fold) directly on `ADR`/`User`. `rehydrate.py` remains as a stable public entry point delegating to `ADR.restore`; aggregate instance methods never reference event types. Accepted as architecturally sound — the fold is a factory concern, not an instance concern.
+
 ## References
 
 - Research: `context/changes/command-handlers-aggregate-source-of-truth/research.md`

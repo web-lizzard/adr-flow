@@ -61,6 +61,8 @@ class RunAiReviewHandler:
 
         last_error: str | None = None
         validation_feedback: tuple[str, ...] = ()
+        last_result: ReviewResult | None = None
+        final_attempt_exception = False
         for attempt in range(1, self._MAX_ATTEMPTS + 1):
             self._logger.info(
                 "handler.run_ai_review.attempt",
@@ -79,6 +81,7 @@ class RunAiReviewHandler:
                     markdown,
                     validation_feedback=validation_feedback,
                 )
+                last_result = result
                 validation = validate_review_result(markdown, result)
                 if validation.passed:
                     annotation_count = len(result.annotations)
@@ -100,6 +103,7 @@ class RunAiReviewHandler:
             except Exception as exc:  # noqa: BLE001 - provider failures are retried
                 last_error = str(exc)
                 if attempt == self._MAX_ATTEMPTS:
+                    final_attempt_exception = True
                     self._logger.error(
                         "handler.run_ai_review.llm_call_failed",
                         adr_id=str(adr_id),
@@ -115,12 +119,24 @@ class RunAiReviewHandler:
                         error=last_error,
                     )
 
-        self._logger.error(
-            "handler.run_ai_review.failed",
-            adr_id=str(adr_id),
-            last_error=last_error or "Review failed",
-            attempts=self._MAX_ATTEMPTS,
-        )
+        if final_attempt_exception:
+            await self._fail_review(
+                stored_event,
+                adr_id,
+                last_error or "Review failed",
+            )
+            return
+
+        if last_result is not None:
+            annotation_count = len(last_result.annotations)
+            await self._complete_review(stored_event, adr_id, last_result)
+            self._logger.info(
+                "handler.run_ai_review.completed",
+                adr_id=str(adr_id),
+                annotation_count=annotation_count,
+            )
+            return
+
         await self._fail_review(
             stored_event,
             adr_id,
@@ -172,7 +188,7 @@ class RunAiReviewHandler:
             if adr is None:
                 return
 
-            adr.complete_review(result, result.reviewed_at)
+            new_adr = adr.complete_review(result, result.reviewed_at)  # noqa: F841
             completion_event = AIReviewCompleted(
                 adr_id=AdrId(adr_id),
                 review_result=result,
@@ -226,7 +242,7 @@ class RunAiReviewHandler:
             if adr is None:
                 return
 
-            adr.fail_review(code=code, message=message)
+            new_adr = adr.fail_review(code=code, message=message)  # noqa: F841
             failure_event = AIReviewFailed(
                 adr_id=AdrId(adr_id),
                 source_event_id=stored_event.id,

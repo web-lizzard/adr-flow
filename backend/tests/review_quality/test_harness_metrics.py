@@ -1,8 +1,8 @@
 """Aggregate metrics reporting for the review quality harness.
 
-The PRD ≥80% section-gap recall NFR applies to real LLM output validated in S-04,
-not this deterministic golden fixture set where synthetic results are hand-crafted
-to match expected gaps.
+The harness grades static gap presence and annotation actionability on
+fixture-driven synthetic or merged review results — not LLM recall against
+a precision/recall threshold.
 """
 
 import logging
@@ -24,34 +24,28 @@ def compute_aggregate_metrics(
     cases: tuple[ReviewQualityCase, ...],
     results: dict[str, ReviewResult],
 ) -> dict[str, float]:
-    precisions: list[float] = []
-    recalls: list[float] = []
-
-    for case in cases:
-        verdict = grade_review_output(case, results[case.name])
-        precisions.append(verdict.missing_section_precision)
-        recalls.append(verdict.missing_section_recall)
-
+    passed_count = sum(
+        1 for case in cases if grade_review_output(case, results[case.name]).passed
+    )
     count = len(cases)
     return {
-        "mean_precision": sum(precisions) / count,
-        "mean_recall": sum(recalls) / count,
+        "pass_rate": passed_count / count,
         "case_count": float(count),
     }
 
 
-def test_golden_set_achieves_perfect_metrics(caplog: pytest.LogCaptureFixture) -> None:
+def test_golden_set_achieves_perfect_pass_rate(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     results = {case.name: build_synthetic_result(case) for case in ALL_CASES}
     metrics = compute_aggregate_metrics(ALL_CASES, results)
 
-    assert metrics["mean_precision"] == 1.0
-    assert metrics["mean_recall"] == 1.0
+    assert metrics["pass_rate"] == 1.0
     assert metrics["case_count"] == float(len(ALL_CASES))
 
     summary = (
         f"review quality harness: {int(metrics['case_count'])} cases, "
-        f"mean precision={metrics['mean_precision']:.2f}, "
-        f"mean recall={metrics['mean_recall']:.2f}"
+        f"pass rate={metrics['pass_rate']:.2f}"
     )
     with caplog.at_level(logging.INFO):
         logger.info(summary)

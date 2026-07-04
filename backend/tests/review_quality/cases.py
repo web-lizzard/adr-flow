@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from domain.adr.required_sections import SectionName
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
     ReviewResult,
+    SectionRating,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -25,8 +27,6 @@ class ReviewQualityCase:
 @dataclass(frozen=True, slots=True)
 class ReviewQualityVerdict:
     passed: bool
-    missing_section_precision: float
-    missing_section_recall: float
     failures: tuple[str, ...]
 
 
@@ -44,7 +44,21 @@ def build_synthetic_result(case: ReviewQualityCase) -> ReviewResult:
         )
         for section in sorted(case.expected_missing_sections)
     )
-    return ReviewResult(annotations=annotations, reviewed_at=_REVIEWED_AT)
+    section_ratings = tuple(
+        SectionRating(
+            section=section,
+            score=0 if section.value in case.expected_missing_sections else 3,
+            feedback=""
+            if section.value in case.expected_missing_sections
+            else "Adequate.",
+        )
+        for section in SectionName
+    )
+    return ReviewResult(
+        annotations=annotations,
+        section_ratings=section_ratings,
+        reviewed_at=_REVIEWED_AT,
+    )
 
 
 ALL_CASES: tuple[ReviewQualityCase, ...] = (

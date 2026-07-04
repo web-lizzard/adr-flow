@@ -13,8 +13,8 @@ from tests.review_quality.cases import ReviewQualityCase
 from tests.review_quality.grader import (
     extract_flagged_sections,
     grade_actionability,
-    grade_missing_section_annotations,
     grade_review_output,
+    grade_static_gap_presence,
 )
 
 _NOW = datetime(2026, 6, 17, 12, 0, 0, tzinfo=UTC)
@@ -75,7 +75,7 @@ def _case(
     )
 
 
-def test_perfect_match_passes() -> None:
+def test_exact_gap_match_passes() -> None:
     case = _case(expected_missing_sections=frozenset({"Context", "Decision"}))
     result = _result(
         _missing_section_annotation("Context"),
@@ -85,47 +85,40 @@ def test_perfect_match_passes() -> None:
     verdict = grade_review_output(case, result)
 
     assert verdict.passed is True
-    assert verdict.missing_section_precision == 1.0
-    assert verdict.missing_section_recall == 1.0
     assert verdict.failures == ()
 
 
-def test_false_positive_fails_precision() -> None:
+def test_unexpected_gap_annotation_fails() -> None:
     case = _case(expected_missing_sections=frozenset({"Context"}))
     result = _result(
         _missing_section_annotation("Context"),
         _missing_section_annotation("Options"),
     )
 
-    precision, recall, failures = grade_missing_section_annotations(case, result)
+    passed, failures = grade_static_gap_presence(case, result)
 
-    assert precision == 0.5
-    assert recall == 1.0
-    assert (
-        "false positive: unexpected missing_section annotation for Options" in failures
-    )
+    assert passed is False
+    assert "unexpected missing_section annotation for Options" in failures
 
 
-def test_false_negative_fails_recall() -> None:
+def test_missing_expected_gap_annotation_fails() -> None:
     case = _case(expected_missing_sections=frozenset({"Context", "Decision"}))
     result = _result(_missing_section_annotation("Context"))
 
-    precision, recall, failures = grade_missing_section_annotations(case, result)
+    passed, failures = grade_static_gap_presence(case, result)
 
-    assert precision == 1.0
-    assert recall == 0.5
-    assert "false negative: missing annotation for Decision" in failures
+    assert passed is False
+    assert "missing static gap annotation for Decision" in failures
 
 
-def test_empty_annotations_with_expected_gaps_fails_recall() -> None:
+def test_empty_annotations_with_expected_gaps_fails() -> None:
     case = _case(expected_missing_sections=frozenset({"Status"}))
     result = _result()
 
     verdict = grade_review_output(case, result)
 
     assert verdict.passed is False
-    assert verdict.missing_section_recall == 0.0
-    assert "false negative: missing annotation for Status" in verdict.failures
+    assert "missing static gap annotation for Status" in verdict.failures
 
 
 def test_complete_adr_with_empty_annotations_passes() -> None:
@@ -135,8 +128,7 @@ def test_complete_adr_with_empty_annotations_passes() -> None:
     verdict = grade_review_output(case, result)
 
     assert verdict.passed is True
-    assert verdict.missing_section_precision == 1.0
-    assert verdict.missing_section_recall == 1.0
+    assert verdict.failures == ()
 
 
 def test_extract_flagged_sections_from_location_and_message() -> None:
@@ -232,8 +224,6 @@ def test_grade_review_output_fails_when_actionability_fails() -> None:
     verdict = grade_review_output(case, result)
 
     assert verdict.passed is False
-    assert verdict.missing_section_precision == 1.0
-    assert verdict.missing_section_recall == 1.0
     assert any(
         "non-empty suggestion required" in failure for failure in verdict.failures
     )

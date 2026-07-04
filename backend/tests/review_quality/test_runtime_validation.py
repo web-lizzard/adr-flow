@@ -1,33 +1,57 @@
 """Production runtime validation quality gate (F-01).
 
-Proves the runtime validator enforces the same actionability and
-missing-section constraints as the harness, and that deterministic fake
-completion output meets the PRD section-gap recall threshold on fixtures.
+Proves the runtime validator enforces actionability and rating schema on
+merged review output, and that the fake-LLM review pipeline produces valid
+merged results with correct static gaps on all fixtures.
 """
 
 import asyncio
 from datetime import UTC, datetime
 
+import pytest
+
 from application.review_quality import validate_review_result
 from application.services.adr_review_service import AdrReviewService
+from domain.adr.required_sections import SectionName
+from domain.adr.static_review import synthesize_static_review
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
     ReviewResult,
+    SectionRating,
 )
 from infrastructure.llm.fake_completion import FakeLlmCompletionPort
-from tests.review_quality.cases import ALL_CASES
+from tests.review_quality.cases import ALL_CASES, ReviewQualityCase
 from tests.review_quality.grader import grade_review_output
 
-PRD_RECALL_THRESHOLD = 0.80
 _REVIEWED_AT = datetime(2026, 6, 17, 12, 0, 0, tzinfo=UTC)
 
 
-def _result(*annotations: ReviewAnnotation) -> ReviewResult:
-    return ReviewResult(annotations=annotations, reviewed_at=_REVIEWED_AT)
+def _result(
+    *annotations: ReviewAnnotation,
+    section_ratings: tuple[SectionRating, ...] = (),
+) -> ReviewResult:
+    return ReviewResult(
+        annotations=annotations,
+        section_ratings=section_ratings,
+        reviewed_at=_REVIEWED_AT,
+    )
 
 
-def test_runtime_validator_accepts_valid_missing_section_coverage() -> None:
+def _five_ratings(
+    *, gap_sections: frozenset[str] = frozenset()
+) -> tuple[SectionRating, ...]:
+    return tuple(
+        SectionRating(
+            section=section,
+            score=0 if section.value in gap_sections else 3,
+            feedback="" if section.value in gap_sections else "Adequate.",
+        )
+        for section in SectionName
+    )
+
+
+def test_runtime_validator_accepts_valid_merged_result() -> None:
     markdown = "## Context\n\nWe need a store.\n\n## Options\n\nA or B.\n"
     result = _result(
         ReviewAnnotation(
@@ -48,6 +72,9 @@ def test_runtime_validator_accepts_valid_missing_section_coverage() -> None:
             location="## Consequences",
             suggestion="Describe trade-offs.",
         ),
+        section_ratings=_five_ratings(
+            gap_sections=frozenset({"Decision", "Status", "Consequences"})
+        ),
     )
 
     validation = validate_review_result(markdown, result)
@@ -56,7 +83,7 @@ def test_runtime_validator_accepts_valid_missing_section_coverage() -> None:
     assert validation.failures == ()
 
 
-def test_runtime_validator_rejects_missing_required_section_annotation() -> None:
+def test_runtime_validator_rejects_incomplete_section_ratings() -> None:
     markdown = "## Context\n\nWe need a store.\n"
     result = _result(
         ReviewAnnotation(
@@ -65,12 +92,17 @@ def test_runtime_validator_rejects_missing_required_section_annotation() -> None
             location="## Options",
             suggestion="List alternatives.",
         ),
+        section_ratings=(
+            SectionRating(section=SectionName.CONTEXT, score=3, feedback="Clear."),
+        ),
     )
 
     validation = validate_review_result(markdown, result)
 
     assert validation.passed is False
-    assert any("Decision" in failure for failure in validation.failures)
+    assert any(
+        "expected 5 section ratings" in failure for failure in validation.failures
+    )
 
 
 def test_runtime_validator_rejects_invalid_kind_specific_fields() -> None:
@@ -82,6 +114,7 @@ def test_runtime_validator_rejects_invalid_kind_specific_fields() -> None:
             location=None,
             suggestion="Shorten.",
         ),
+        section_ratings=_five_ratings(),
     )
 
     validation = validate_review_result(markdown, result)
@@ -92,6 +125,23 @@ def test_runtime_validator_rejects_invalid_kind_specific_fields() -> None:
     )
 
 
+@pytest.mark.parametrize("case", ALL_CASES, ids=lambda case: case.name)
+def test_static_synthesis_matches_fixture_expectations(case: ReviewQualityCase) -> None:
+    annotations, ratings = synthesize_static_review(case.markdown)
+
+    flagged = frozenset(
+        annotation.location.removeprefix("## ").strip()
+        for annotation in annotations
+        if annotation.location is not None
+    )
+    assert flagged == case.expected_missing_sections
+
+    rated_gap_sections = frozenset(
+        rating.section.value for rating in ratings if rating.score == 0
+    )
+    assert rated_gap_sections == case.expected_missing_sections
+
+
 async def _fake_review_all_fixtures() -> dict[str, ReviewResult]:
     service = AdrReviewService(FakeLlmCompletionPort())
     results: dict[str, ReviewResult] = {}
@@ -100,16 +150,12 @@ async def _fake_review_all_fixtures() -> dict[str, ReviewResult]:
     return results
 
 
-def test_fake_completion_fixture_recall_meets_prd_threshold() -> None:
+def test_fake_review_all_fixtures_pass_validation_and_harness() -> None:
     results = asyncio.run(_fake_review_all_fixtures())
-    recalls: list[float] = []
 
     for case in ALL_CASES:
         result = results[case.name]
         validation = validate_review_result(case.markdown, result)
         assert validation.passed is True, f"{case.name}: {validation.failures}"
         verdict = grade_review_output(case, result)
-        recalls.append(verdict.missing_section_recall)
-
-    mean_recall = sum(recalls) / len(recalls)
-    assert mean_recall >= PRD_RECALL_THRESHOLD
+        assert verdict.passed is True, f"{case.name}: {verdict.failures}"

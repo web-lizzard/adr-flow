@@ -6,30 +6,23 @@ from domain.adr.value_objects import ReviewResult
 from tests.review_quality.cases import ReviewQualityCase, ReviewQualityVerdict
 
 
-def grade_missing_section_annotations(
+def grade_static_gap_presence(
     case: ReviewQualityCase,
     result: ReviewResult,
-) -> tuple[float, float, tuple[str, ...]]:
-    """Compute precision/recall for missing-section coverage."""
+) -> tuple[bool, tuple[str, ...]]:
+    """Check missing_section annotations match expected static gaps."""
     expected = case.expected_missing_sections
     flagged = extract_flagged_sections(result)
 
-    true_positives = expected & flagged
-    false_positives = flagged - expected
-    false_negatives = expected - flagged
-
-    precision = 1.0 if not flagged else len(true_positives) / len(flagged)
-    recall = 1.0 if not expected else len(true_positives) / len(expected)
+    if flagged == expected:
+        return True, ()
 
     failures: list[str] = []
-    for section in sorted(false_positives):
-        failures.append(
-            f"false positive: unexpected missing_section annotation for {section}"
-        )
-    for section in sorted(false_negatives):
-        failures.append(f"false negative: missing annotation for {section}")
-
-    return precision, recall, tuple(failures)
+    for section in sorted(flagged - expected):
+        failures.append(f"unexpected missing_section annotation for {section}")
+    for section in sorted(expected - flagged):
+        failures.append(f"missing static gap annotation for {section}")
+    return False, tuple(failures)
 
 
 def grade_actionability(result: ReviewResult) -> tuple[bool, tuple[str, ...]]:
@@ -41,16 +34,9 @@ def grade_review_output(
     case: ReviewQualityCase,
     result: ReviewResult,
 ) -> ReviewQualityVerdict:
-    """Combine missing-section and actionability grades into a verdict."""
-    precision, recall, missing_failures = grade_missing_section_annotations(
-        case, result
-    )
+    """Combine static gap presence and actionability into a verdict."""
+    static_gaps_passed, static_failures = grade_static_gap_presence(case, result)
     actionability_passed, actionability_failures = grade_actionability(result)
-    failures = missing_failures + actionability_failures
-    passed = precision == 1.0 and recall == 1.0 and actionability_passed
-    return ReviewQualityVerdict(
-        passed=passed,
-        missing_section_precision=precision,
-        missing_section_recall=recall,
-        failures=failures,
-    )
+    failures = static_failures + actionability_failures
+    passed = static_gaps_passed and actionability_passed
+    return ReviewQualityVerdict(passed=passed, failures=failures)

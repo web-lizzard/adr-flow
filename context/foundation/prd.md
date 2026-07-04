@@ -40,7 +40,7 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 ### Guardrails
 
-- **≥80% of AI reviews** correctly detect missing required ADR sections (context, decision, alternatives, consequences).
+- Missing required ADR sections are detected **deterministically** before any LLM call; gap sections receive score-0 ratings and actionable `missing_section` annotations.
 - Shortening suggestions are **concrete and actionable** — each flagged spot has a proposal for how to shorten it.
 - **No draft loss** while editing an ADR; refresh, tab close, or session expiry must not erase the user's latest saved work.
 
@@ -100,15 +100,15 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 - FR-007: User can advance an ADR through four statuses: `draft` → `in_review` → `after_review` → `proposed`. Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written; 4-status model negotiated explicitly in Phase 4.
-- FR-008: User can trigger AI review by clicking "Publish for review", which transitions ADR from `draft` to `in_review`. AI review runs exactly once per ADR in MVP. Priority: must-have
+- FR-008: User can trigger AI review by clicking "Publish for review", which transitions ADR from `draft` to `in_review`. AI review runs exactly once per ADR in MVP (internally parallel per-section LLM calls are an implementation detail). Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written; re-review and quota-based variants deferred post-MVP.
 - FR-009: User can click "Publish" from `after_review` to transition ADR to `proposed`. No AI re-review is triggered. Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written; user retains control and accountability for publishing post-review.
 
 ### AI review output
 
-- FR-010: User receives AI feedback annotations identifying missing required ADR sections (context, options, decision, status, consequences) when ADR enters `after_review`. Priority: must-have
-  > Socrates: Counter-argument considered: "Section set should be configurable per organization-specific ADR convention." Resolution: MVP keeps fixed 5 sections; configurable conventions (analogous to per-user rules / system prompts) deferred to post-MVP. Captured as forward-looking note.
+- FR-010: User receives AI feedback when ADR enters `after_review`: deterministic detection of missing or empty required sections (context, options, decision, status, consequences) as `missing_section` annotations with score-0 section ratings, plus per-section quality ratings (0–5 with feedback) for all five sections. Priority: must-have
+  > Socrates: Counter-argument considered: "Section set should be configurable per organization-specific ADR convention." Resolution: MVP keeps fixed 5 sections; configurable conventions (analogous to per-user rules / system prompts) deferred to post-MVP. Captured as forward-looking note. Score 0 is static-only; scores 1–5 come from per-section LLM evaluation of present sections.
 - FR-011: User receives AI feedback identifying inconsistencies in the ADR content when ADR enters `after_review`. Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written.
 - FR-012: User receives ADR conciseness analysis with actionable suggestions on what specifically to shorten when ADR enters `after_review`. Priority: must-have
@@ -131,7 +131,7 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 ## Non-Functional Requirements
 
-- **Section gap detection accuracy:** At least 80% of AI reviews correctly detect missing required ADR sections (context, decision, alternatives, consequences).
+- **Static section gap detection:** Missing or empty required sections are identified deterministically before LLM calls; every gap section receives a score-0 rating and an actionable `missing_section` annotation.
 - **Annotation actionability:** Each detected issue (missing section, inconsistency, fragment to shorten) has at least one associated concrete corrective action proposal.
 - **No draft loss:** After refresh, tab close, browser crash, or session expiry, the user can recover the latest saved ADR content without losing substantive edits.
 - **Per-user data isolation:** No user can access another user's ADR through the application by any means (direct navigation, bookmark, or guessed link).
@@ -140,13 +140,15 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 ## Business Logic
 
-The product **evaluates ADR content for the presence of 5 required sections (context, options, decision, status, consequences), internal inconsistencies, and conciseness, and returns annotations to the user along with concrete shortening suggestions.**
+The product **evaluates ADR content in three phases: static gap detection, parallel per-section LLM quality scoring (0–5), and cross-section inconsistency/conciseness analysis — then returns annotations and section ratings to the user.**
 
 **Input:** ADR content written by the user in markdown, with section headings (`## Context`, `## Options`, `## Decision`, `## Status`, `## Consequences`) — in the state it was in when published via the "Publish for review" action.
 
-**Output:** the same ADR extended with three classes of annotations: (a) list of missing or empty sections, (b) list of detected inconsistencies with location in the text, (c) list of specific fragments to shorten along with proposed more concise wording.
+**Output:** the same ADR extended with:
+- (a) **Section ratings** — a score (0–5) and feedback for each of the five required sections (score 0 for statically detected gaps; scores 1–5 from LLM for present sections);
+- (b) **Annotations** — missing or empty sections (`missing_section`, from static detection), detected inconsistencies with location in the text, and specific fragments to shorten with proposed more concise wording (from LLM).
 
-**When the user sees the result:** after the ADR transitions from `in_review` to `after_review` — annotations are visible inline in the editor; the user can address them with edits, then publish the ADR to `proposed` status.
+**When the user sees the result:** after the ADR transitions from `in_review` to `after_review` — section ratings and annotations are visible in the review panel; the user can address them with edits, then publish the ADR to `proposed` status. If any review phase fails validation, the ADR remains in `in_review` with a `review_error` until the user resubmits.
 
 ## Access Control
 

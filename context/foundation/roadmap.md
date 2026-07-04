@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-08
-updated: 2026-06-19
+updated: 2026-07-04
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -23,23 +23,24 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 
 **S-05: User can edit a reviewed ADR without re-review and publish it as `proposed`** — delivered 2026-06-18; this was the validation milestone, the smallest end-to-end slice whose successful delivery proved the core product hypothesis (full one-session flow `draft → in_review → after_review → proposed`).
 
-**Post-core iteration focus: S-07** — user always receives LLM review output in `after_review` (validation logs only, never blocks). This unblocks the review loop when quality checks fail and is prerequisite for S-09 conditional re-review.
+**Post-core iteration focus: `adr-validation-re-shape`** — three-phase review pipeline (static gap detection, parallel per-section 0–5 ratings, strict merge validation). Supersedes S-07 (logs-only validation gate). Prerequisite for S-09 conditional re-review.
 
 ## At a glance
 
 | ID | Change ID | Outcome (user can …) | Prerequisites | PRD refs | Status |
 |---|---|---|---|---|---|
 | F-02 | persistence-scaffold | (foundation) Postgres driver, migration tooling, and initial schema contract for users and ADRs are in place | — | NFR: Per-user data isolation, NFR: Data retention, NFR: No draft loss, Access Control | done |
-| F-01 | review-quality-checks | (foundation) review output can be checked against required-section and actionability guardrails | — | NFR: Section gap detection accuracy, NFR: Annotation actionability | done |
+| F-01 | review-quality-checks | (foundation) review output can be checked against required-section and actionability guardrails | — | NFR: Static section gap detection, NFR: Annotation actionability | done |
 | S-01 | account-access | register, log in, and reach a protected per-user ADR workspace | F-02 | US-03, FR-001, FR-003, Access Control, NFR: Per-user data isolation | done |
 | S-02 | draft-authoring-persistence | create an ADR from the starter template, edit markdown, and recover saved draft content | S-01 | US-01, FR-004, FR-005, FR-006, NFR: No draft loss | done |
 | S-04 | first-ai-review-annotations | submit a draft for AI review and see actionable annotations in `after_review` | S-02, F-01 | US-01, FR-007, FR-008, FR-010, FR-011, FR-012 | done |
 | S-05 | publish-after-review | edit the reviewed ADR without re-review and publish it as `proposed` | S-04 | US-01, US-04, FR-005, FR-007, FR-009 | done |
 | S-03 | adr-history-cards | return later, browse owned ADR cards, and reopen an existing ADR | S-02 | US-02, FR-013, NFR: Data retention | done |
 | S-06 | remove-adr-from-active-list | remove an ADR from the active card view without permanently destroying it | S-03 | FR-015, NFR: Data retention | proposed |
-| S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Section gap detection accuracy, NFR: Annotation actionability | ready |
+| S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability | superseded |
+| R-01 | adr-validation-re-shape | receive static gap detection, per-section 0–5 ratings, and strict validation on AI review output | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability | implementing |
 | S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | ready |
-| S-09 | conditional-adr-re-review | request one additional AI review when the first review reported errors — once per ADR | S-07, S-05 | US-01, FR-008 | proposed |
+| S-09 | conditional-adr-re-review | request one additional AI review when the first review reported errors — once per ADR | R-01, S-05 | US-01, FR-008 | proposed |
 
 ## Streams
 
@@ -48,7 +49,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | Stream | Theme | Chain | Note |
 |---|---|---|---|
 | A | Persistence & core loop | `F-02` → `S-01` → `S-02` → `S-04` → `S-05` | Core loop delivered; north star S-05 done. |
-| B | Review-quality foundation | `F-01` → `S-07` → `S-09` | F-01 shipped blocking validation; S-07 relaxes to logs-only for MVP; S-09 adds conditional re-review. |
+| B | Review-quality foundation | `F-01` → `R-01` → `S-09` | F-01 shipped harness; R-01 (adr-validation-re-shape) delivers static gaps + per-section ratings + strict validation; S-09 adds conditional re-review. |
 | C | History & lifecycle | `S-03` → `S-06` | Joins Stream A at `S-02`. |
 | D | Auth transport | `S-08` | Parallel with Stream B; cookie → Bearer `access_token`, no refresh. |
 
@@ -83,13 +84,13 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **Outcome:** (foundation) review output can be checked against the required-section and actionability guardrails before the first review loop is treated as useful — a minimal verification harness, not a full review engine.
 - **Change ID:** review-quality-checks
-- **PRD refs:** NFR: Section gap detection accuracy, NFR: Annotation actionability
-- **Unlocks:** S-04, S-05, and the verification path for the PRD guardrails on AI annotations (≥80% section-gap detection; every issue carries a concrete corrective action)
+- **PRD refs:** NFR: Static section gap detection, NFR: Annotation actionability
+- **Unlocks:** S-04, S-05, and the verification path for the PRD guardrails on AI annotations (deterministic static gaps; every issue carries a concrete corrective action)
 - **Prerequisites:** —
 - **Parallel with:** F-02
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Delivered with blocking validation in `run_ai_review.py`; S-07 changes runtime behavior to logs-only while keeping the harness for measurement.
+- **Risk:** Delivered with harness grading static gap presence and actionability; R-01 reshapes runtime to match.
 - **Status:** done
 
 ## Slices
@@ -129,7 +130,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Will "no visible progress" for AI review cause mass tab closures during the review wait? — Owner: user. Block: no.
-- **Risk:** Delivered; today failed validation keeps ADR in `in_review` — S-07 fixes that regression risk for MVP pilots.
+- **Risk:** Delivered; strict validation in R-01 replaces the original blocking-then-logs-only S-07 path.
 - **Status:** done
 
 ### S-05: Publish After Review
@@ -172,13 +173,25 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 - **Outcome:** user always receives LLM review annotations in `after_review`; when quality checks fail, the failure is logged for measurement but the ADR still transitions out of `in_review`.
 - **Change ID:** review-validation-logs-only
-- **PRD refs:** FR-008, FR-010, FR-011, FR-012, NFR: Section gap detection accuracy, NFR: Annotation actionability
+- **PRD refs:** FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability
 - **Prerequisites:** S-04
 - **Parallel with:** S-06, S-08
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Sequenced first among the three new slices because blocking validation can strand ADRs in `in_review` and breaks the core loop; guardrail measurement moves to logs until review quality is stable enough to re-enable gating.
-- **Status:** ready
+- **Risk:** Superseded by R-01 (`adr-validation-re-shape`), which implements strict validation with static gap detection and per-section ratings instead of logs-only gating.
+- **Status:** superseded → see `context/changes/adr-validation-re-shape/`
+
+### R-01: ADR Validation Reshape
+
+- **Outcome:** user receives deterministic static gap detection (score-0 ratings + `missing_section` annotations), per-section quality ratings (1–5) for present sections, and cross-section inconsistency/conciseness annotations; failed validation keeps ADR in `in_review` with `review_error`.
+- **Change ID:** adr-validation-re-shape
+- **PRD refs:** FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability
+- **Prerequisites:** S-04
+- **Parallel with:** S-06, S-08
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Six parallel LLM calls per review replace one monolithic call; acceptable for MVP event-driven review with frontend polling.
+- **Status:** implementing
 
 ### S-08: JWT Bearer Access Token
 
@@ -197,13 +210,13 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Outcome:** user can request one additional AI review when the first review reported errors (non-empty actionable annotations) — at most once per ADR; edits in `after_review` still do not auto-trigger review.
 - **Change ID:** conditional-adr-re-review
 - **PRD refs:** US-01, FR-008
-- **Prerequisites:** S-07, S-05
+- **Prerequisites:** R-01, S-05
 - **Parallel with:** S-06, S-08
 - **Blockers:** —
 - **Unknowns:**
   - Should PRD non-goal "No re-review" and FR-008 "exactly once" wording be updated to match this narrower exception? — Owner: user. Block: no.
   - From which status can re-review be triggered — `after_review` only, or also `proposed`? — Owner: user. Block: no.
-- **Risk:** Scope expansion beyond original PRD non-goals; kept minimal (one conditional re-review per ADR, only when first review found issues). Depends on S-07 so users always see first-review output before deciding to re-review.
+- **Risk:** Scope expansion beyond original PRD non-goals; kept minimal (one conditional re-review per ADR, only when first review found issues). Depends on R-01 so users receive validated first-review output before deciding to re-review.
 - **Status:** proposed
 
 ## Backlog Handoff
@@ -211,16 +224,17 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | Roadmap ID | Change ID | Suggested issue title | Ready for `/plan` | Notes |
 |---|---|---|---|---|
 | F-02 | persistence-scaffold | Add Postgres driver, migrations, and initial User/ADR schema | no | Done. |
-| F-01 | review-quality-checks | Add review-quality checks for required-section and actionability guardrails | no | Done; S-07 changes runtime gating. |
+| F-01 | review-quality-checks | Add review-quality checks for required-section and actionability guardrails | no | Done; R-01 reshapes runtime validation. |
 | S-01 | account-access | Let users register, log in, and reach a protected ADR workspace | no | Done; S-08 migrates token transport. |
 | S-02 | draft-authoring-persistence | Let users create and safely save ADR drafts from the starter template | no | Done. |
 | S-04 | first-ai-review-annotations | Let users submit a draft and receive actionable AI review annotations | no | Done. |
 | S-05 | publish-after-review | Let users edit reviewed ADRs and publish them as proposed | no | Done (north star). |
 | S-03 | adr-history-cards | Let users browse ADR history cards and reopen existing ADRs | no | Done. |
 | S-06 | remove-adr-from-active-list | Let users remove ADRs from the active card view | yes | Run `/plan remove-adr-from-active-list`. |
-| S-07 | review-validation-logs-only | Return every LLM review to after_review; log validation failures only | yes | Run `/plan review-validation-logs-only` — highest leverage post-core fix. |
+| S-07 | review-validation-logs-only | Return every LLM review to after_review; log validation failures only | no | Superseded by R-01 (`adr-validation-re-shape`). |
+| R-01 | adr-validation-re-shape | Static gaps, per-section ratings, strict review validation | no | Implementing — `context/changes/adr-validation-re-shape/`. |
 | S-08 | jwt-bearer-access-token | Switch auth from session cookie to Bearer access_token (no refresh) | yes | Run `/plan jwt-bearer-access-token`; can parallel S-07. |
-| S-09 | conditional-adr-re-review | Let users request one re-review when first review found errors | no | Requires S-07; resolve open questions before `/plan`. |
+| S-09 | conditional-adr-re-review | Let users request one re-review when first review found errors | no | Requires R-01; resolve open questions before `/plan`. |
 
 ## Open Roadmap Questions
 

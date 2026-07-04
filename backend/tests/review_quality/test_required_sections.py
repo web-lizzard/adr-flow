@@ -62,4 +62,4 @@ def test_incomplete_result_fails_grader(case: ReviewQualityCase) -> None:
     verdict = grade_review_output(case, result)
 
     assert verdict.passed is False
-    assert f"false negative: missing annotation for {omitted}" in verdict.failures
+    assert f"missing static gap annotation for {omitted}" in verdict.failures

@@ -427,10 +427,10 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Automated
 
-- [ ] 5.1 `cd backend && uv run pytest tests/review_quality/ -q`
-- [ ] 5.2 `cd backend && uv run pytest`
-- [ ] 5.3 `pre-commit run --all-files` on touched files
+- [x] 5.1 `cd backend && uv run pytest tests/review_quality/ -q`
+- [x] 5.2 `cd backend && uv run pytest`
+- [x] 5.3 `pre-commit run --all-files` on touched files
 
 #### Manual
 
-- [ ] 5.4 PRD and roadmap accurately reflect superseded S-07 and new validation model
+- [x] 5.4 PRD and roadmap accurately reflect superseded S-07 and new validation model

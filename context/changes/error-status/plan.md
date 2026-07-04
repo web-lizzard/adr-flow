@@ -428,9 +428,9 @@ Negligible — one additional POST endpoint and a JSON field on existing `review
 
 #### Automated
 
-- [x] 1.1 Domain/handler/service tests pass: `uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_adr_rehydrate.py tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py -q`
-- [x] 1.2 Ruff passes: `uv run ruff check .`
-- [x] 1.3 Type check passes: `uv run ty check`
+- [x] 1.1 Domain/handler/service tests pass: `uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_adr_rehydrate.py tests/application/handlers/test_run_ai_review.py tests/application/services/test_adr_review_service.py -q` — 2b64a81
+- [x] 1.2 Ruff passes: `uv run ruff check .` — 2b64a81
+- [x] 1.3 Type check passes: `uv run ty check` — 2b64a81
 
 #### Manual
 

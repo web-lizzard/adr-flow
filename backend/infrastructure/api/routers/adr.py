@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from application.commands.create_adr import CreateAdrCommand, CreateAdrCommandHandler
 from application.commands.publish_adr import (
@@ -32,11 +32,6 @@ from application.queries.list_adrs import ListAdrsQuery, ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import (
     SearchAdrsByTitleQuery,
     SearchAdrsByTitleQueryHandler,
-)
-from domain.errors import (
-    AdrAccessDenied,
-    AdrNotFound,
-    AdrTitleAlreadyExists,
 )
 from infrastructure.api.dependencies import (
     get_create_adr_handler,
@@ -77,23 +72,12 @@ async def submit_adr_for_review(
         get_submit_adr_for_review_handler
     ),
 ) -> Response:
-    adr_id_str = str(adr_id)
-    try:
-        result = await handler.handle(
-            SubmitAdrForReviewCommand(adr_id=adr_id, user_id=user_id)
-        )
-    except AdrNotFound:
-        _logger.info(
-            "route.adrs.submit_review.rejected",
-            adr_id=adr_id_str,
-            status_code=404,
-            reason="adr_not_found",
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-
+    result = await handler.handle(
+        SubmitAdrForReviewCommand(adr_id=adr_id, user_id=user_id)
+    )
     _logger.info(
         "route.adrs.submit_review.completed",
-        adr_id=adr_id_str,
+        adr_id=str(adr_id),
         status_code=202,
         stored_event_id=str(result.stored_event.id),
     )
@@ -108,23 +92,12 @@ async def retry_adr_for_review(
         get_retry_adr_for_review_handler
     ),
 ) -> Response:
-    adr_id_str = str(adr_id)
-    try:
-        result = await handler.handle(
-            RetryAdrForReviewCommand(adr_id=adr_id, user_id=user_id)
-        )
-    except AdrNotFound:
-        _logger.info(
-            "route.adrs.retry_review.rejected",
-            adr_id=adr_id_str,
-            status_code=404,
-            reason="adr_not_found",
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-
+    result = await handler.handle(
+        RetryAdrForReviewCommand(adr_id=adr_id, user_id=user_id)
+    )
     _logger.info(
         "route.adrs.retry_review.completed",
-        adr_id=adr_id_str,
+        adr_id=str(adr_id),
         status_code=202,
         stored_event_id=str(result.stored_event.id),
     )
@@ -137,21 +110,10 @@ async def publish_adr(
     user_id: UUID = Depends(get_current_user_id),
     handler: PublishAdrCommandHandler = Depends(get_publish_adr_handler),
 ) -> Response:
-    adr_id_str = str(adr_id)
-    try:
-        await handler.handle(PublishAdrCommand(adr_id=adr_id, user_id=user_id))
-    except AdrNotFound:
-        _logger.info(
-            "route.adrs.publish.rejected",
-            adr_id=adr_id_str,
-            status_code=404,
-            reason="adr_not_found",
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-
+    await handler.handle(PublishAdrCommand(adr_id=adr_id, user_id=user_id))
     _logger.info(
         "route.adrs.publish.completed",
-        adr_id=adr_id_str,
+        adr_id=str(adr_id),
         status_code=204,
     )
     return Response(status_code=204)
@@ -165,19 +127,9 @@ async def get_adr_review_status(
         get_get_adr_review_status_handler
     ),
 ) -> ReviewStatusResponse:
-    try:
-        status = await handler.handle(
-            GetAdrReviewStatusQuery(adr_id=adr_id, user_id=user_id)
-        )
-    except AdrNotFound:
-        _logger.info(
-            "route.adrs.review_status.rejected",
-            adr_id=str(adr_id),
-            status_code=404,
-            reason="adr_not_found",
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-
+    status = await handler.handle(
+        GetAdrReviewStatusQuery(adr_id=adr_id, user_id=user_id)
+    )
     return _to_review_status_response(status)
 
 
@@ -187,21 +139,7 @@ async def create_adr(
     user_id: UUID = Depends(get_current_user_id),
     handler: CreateAdrCommandHandler = Depends(get_create_adr_handler),
 ) -> CreateAdrResponse:
-    try:
-        adr_id = await handler.handle(
-            CreateAdrCommand(user_id=user_id, title=body.title)
-        )
-    except AdrTitleAlreadyExists:
-        _logger.info(
-            "route.adrs.create_adr.rejected",
-            status_code=409,
-            reason="title_exists",
-        )
-        raise HTTPException(
-            status_code=409,
-            detail="An ADR with this title already exists",
-        ) from None
-
+    adr_id = await handler.handle(CreateAdrCommand(user_id=user_id, title=body.title))
     _logger.info(
         "route.adrs.create_adr.completed",
         adr_id=str(adr_id),
@@ -239,17 +177,7 @@ async def get_adr(
     user_id: UUID = Depends(get_current_user_id),
     handler: GetAdrQueryHandler = Depends(get_get_adr_handler),
 ) -> AdrResponse:
-    try:
-        adr = await handler.handle(GetAdrQuery(adr_id=adr_id, user_id=user_id))
-    except AdrNotFound:
-        _logger.info(
-            "route.adrs.get_adr.rejected",
-            adr_id=str(adr_id),
-            status_code=404,
-            reason="adr_not_found",
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-
+    adr = await handler.handle(GetAdrQuery(adr_id=adr_id, user_id=user_id))
     return _to_adr_response(adr)
 
 
@@ -305,72 +233,19 @@ async def _handle_update(
     action: str,
     success_status_code: int,
 ) -> None:
-    adr_id_str = str(adr_id)
-    try:
-        await handler.handle(
-            UpdateAdrContentCommand(
-                adr_id=adr_id,
-                user_id=user_id,
-                title=title,
-                content=content,
-            )
-        )
-    except AdrNotFound:
-        _log_update_rejected(
-            action, adr_id_str, status_code=404, reason="adr_not_found"
-        )
-        raise HTTPException(status_code=404, detail="ADR not found") from None
-    except AdrAccessDenied:
-        _log_update_rejected(
-            action, adr_id_str, status_code=403, reason="access_denied"
-        )
-        raise HTTPException(status_code=403, detail="Access denied") from None
-    except AdrTitleAlreadyExists:
-        _log_update_rejected(action, adr_id_str, status_code=409, reason="title_exists")
-        raise HTTPException(
-            status_code=409,
-            detail="An ADR with this title already exists",
-        ) from None
-
-    _log_update_completed(action, adr_id_str, status_code=success_status_code)
-
-
-def _log_update_rejected(
-    action: str,
-    adr_id: str,
-    *,
-    status_code: int,
-    reason: str,
-) -> None:
-    if action == "update_adr":
-        _logger.info(
-            "route.adrs.update_adr.rejected",
+    await handler.handle(
+        UpdateAdrContentCommand(
             adr_id=adr_id,
-            status_code=status_code,
-            reason=reason,
+            user_id=user_id,
+            title=title,
+            content=content,
         )
-    else:
-        _logger.info(
-            "route.adrs.beacon_save_adr.rejected",
-            adr_id=adr_id,
-            status_code=status_code,
-            reason=reason,
-        )
-
-
-def _log_update_completed(action: str, adr_id: str, *, status_code: int) -> None:
-    if action == "update_adr":
-        _logger.info(
-            "route.adrs.update_adr.completed",
-            adr_id=adr_id,
-            status_code=status_code,
-        )
-    else:
-        _logger.info(
-            "route.adrs.beacon_save_adr.completed",
-            adr_id=adr_id,
-            status_code=status_code,
-        )
+    )
+    _logger.info(
+        f"route.adrs.{action}.completed",
+        adr_id=str(adr_id),
+        status_code=success_status_code,
+    )
 
 
 def _to_review_status_response(status: AdrReviewStatus) -> ReviewStatusResponse:

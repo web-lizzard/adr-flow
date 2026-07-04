@@ -192,7 +192,7 @@ class RunAiReviewHandler:
             if adr is None:
                 return
 
-            new_adr = adr.fail_review(kind=kind, message=message)  # noqa: F841
+            adr.fail_review(kind=kind, message=message, updated_at=occurred_at)
             failure_event = AIReviewFailed(
                 adr_id=AdrId(adr_id),
                 source_event_id=stored_event.id,

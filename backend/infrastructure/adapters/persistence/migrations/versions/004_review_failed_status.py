@@ -32,7 +32,7 @@ def upgrade() -> None:
                             WHEN 'retryable_internal_error'
                                 THEN 'retryable_internal_error'
                             WHEN 'internal_error' THEN 'internal_error'
-                            ELSE 'adr_review_failed_error'
+                            ELSE 'internal_error'
                         END
                     )
                 )

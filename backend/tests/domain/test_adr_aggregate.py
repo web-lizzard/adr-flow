@@ -194,6 +194,7 @@ def test_retry_review_transitions_review_failed_to_in_review() -> None:
     adr = _in_review_adr().fail_review(
         kind="internal_error",
         message="Provider down",
+        updated_at=_LATER,
     )
 
     retried = adr.retry_review(updated_at=_LATER)
@@ -218,6 +219,7 @@ def test_fail_review_transitions_to_review_failed() -> None:
     failed = adr.fail_review(
         kind="internal_error",
         message="Provider down",
+        updated_at=_LATER,
     )
 
     assert failed.status == AdrStatus.REVIEW_FAILED
@@ -226,6 +228,7 @@ def test_fail_review_transitions_to_review_failed() -> None:
         message="Provider down",
     )
     assert failed.review_result is None
+    assert failed.updated_at == _LATER
 
 
 def test_fail_review_sets_error_and_clears_review_result() -> None:
@@ -234,6 +237,7 @@ def test_fail_review_sets_error_and_clears_review_result() -> None:
     failed = adr.fail_review(
         kind="internal_error",
         message="Invalid review output",
+        updated_at=_LATER,
     )
 
     assert failed.review_error == ReviewError(
@@ -314,7 +318,9 @@ def test_complete_review_rejects_after_review() -> None:
 def test_fail_review_records_error_while_in_review() -> None:
     adr = _in_review_adr()
 
-    failed = adr.fail_review(kind="internal_error", message="bad output")
+    failed = adr.fail_review(
+        kind="internal_error", message="bad output", updated_at=_LATER
+    )
 
     assert failed.status == AdrStatus.REVIEW_FAILED
     assert failed.review_error == ReviewError(
@@ -328,7 +334,7 @@ def test_fail_review_rejects_draft() -> None:
     adr = _draft_adr()
 
     with pytest.raises(AdrInvalidReviewStatus):
-        adr.fail_review(kind="internal_error", message="bad output")
+        adr.fail_review(kind="internal_error", message="bad output", updated_at=_LATER)
 
 
 def test_fail_review_rejects_after_review() -> None:
@@ -338,4 +344,4 @@ def test_fail_review_rejects_after_review() -> None:
     )
 
     with pytest.raises(AdrInvalidReviewStatus):
-        adr.fail_review(kind="internal_error", message="bad output")
+        adr.fail_review(kind="internal_error", message="bad output", updated_at=_LATER)

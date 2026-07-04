@@ -22,7 +22,7 @@ def test_domain_error_handler_maps_internal_error_to_500() -> None:
     assert response.status_code == 500
     assert (
         response.body
-        == b'{"kind":"internal_error","message":"Section Context has no body"}'
+        == b'{"kind":"internal_error","message":"An internal error occurred"}'
     )
 
 
@@ -34,7 +34,7 @@ def test_domain_error_handler_maps_retryable_internal_error_to_502() -> None:
 
     assert response.status_code == 502
     assert response.body == (
-        b'{"kind":"retryable_internal_error","message":"LLM provider unavailable"}'
+        b'{"kind":"retryable_internal_error","message":"An internal error occurred"}'
     )
 
 

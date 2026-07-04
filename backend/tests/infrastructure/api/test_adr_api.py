@@ -64,7 +64,7 @@ def test_create_adr_with_duplicate_title_returns_409(auth_client) -> None:
     response = auth_client.post("/api/adrs", json={"title": "Duplicate Title"})
 
     assert response.status_code == 409
-    assert "detail" in response.json()
+    assert response.json()["kind"] == "adr_title_already_exists"
 
 
 def test_create_adr_same_title_different_users_succeeds(auth_client) -> None:

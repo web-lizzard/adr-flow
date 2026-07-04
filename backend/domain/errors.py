@@ -71,8 +71,20 @@ class AdrInvalidReviewStatus(DomainError):
         super().__init__("Review outcome can only be recorded while ADR is in_review")
 
 
-class AdrReviewFailedError(DomainError):
-    """Raised when parallel review or post-merge validation fails."""
+class AdrInvalidRetryStatus(DomainError):
+    def __init__(self) -> None:
+        super().__init__("ADR can only be retried from review_failed status")
+
+
+class InternalError(DomainError):
+    """Non-retryable application failure during review (invariant / logic)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class RetryableInternalError(DomainError):
+    """Retryable infrastructure failure during review (LLM, provider, worker)."""
 
     section: str | None
 

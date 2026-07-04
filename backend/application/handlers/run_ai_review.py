@@ -8,6 +8,7 @@ from application.review_metadata import ReviewErrorMetadata
 from domain.adr import ADRSubmittedForReview, AIReviewCompleted, AIReviewFailed, AdrId
 from domain.adr.rehydrate import rehydrate_adr
 from domain.adr.value_objects import AdrStatus, ReviewResult
+from domain.errors import InternalError, RetryableInternalError
 
 
 class RunAiReviewHandler:
@@ -63,8 +64,18 @@ class RunAiReviewHandler:
                 content_length=len(markdown),
             )
             result = await self._adr_review_service.review_adr(markdown)
-        except Exception as exc:  # noqa: BLE001 - provider failures fail the review
-            await self._fail_review(stored_event, adr_id, str(exc))
+        except (RetryableInternalError, InternalError) as exc:
+            await self._fail_review(stored_event, adr_id, exc)
+            self._logger.error(
+                "handler.run_ai_review.failed",
+                adr_id=str(adr_id),
+                error=str(exc),
+                exc_info=True,
+            )
+            return
+        except Exception as exc:  # noqa: BLE001 - unexpected worker failures
+            retryable = RetryableInternalError(str(exc))
+            await self._fail_review(stored_event, adr_id, retryable)
             self._logger.error(
                 "handler.run_ai_review.failed",
                 adr_id=str(adr_id),
@@ -161,10 +172,11 @@ class RunAiReviewHandler:
         self,
         stored_event: StoredEvent,
         adr_id,
-        message: str,
+        error: RetryableInternalError | InternalError,
     ) -> None:
         occurred_at = datetime.now(UTC)
-        code = "validation_failed"
+        code = type(error).kind
+        message = str(error)
         async with self._uow_factory.begin() as uow:
             await uow.lock_aggregate(adr_id)
             stored_events = await uow.event_store.load_stream(adr_id, "adr")

@@ -12,6 +12,7 @@ class AdrStatus(StrEnum):
     IN_REVIEW = "in_review"
     AFTER_REVIEW = "after_review"
     PROPOSED = "proposed"
+    REVIEW_FAILED = "review_failed"
 
 
 class AdrId(BaseModel):

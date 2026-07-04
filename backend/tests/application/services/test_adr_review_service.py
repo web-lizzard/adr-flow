@@ -8,13 +8,13 @@ import pytest
 from pydantic import BaseModel
 
 from application.ports.llm_completion import ChatMessage
-from domain.errors import AdrReviewFailedError
 from domain.adr.required_sections import SectionName
 from domain.adr.review_llm_schema import (
     CrossSectionReviewPayload,
     SectionReviewPayload,
 )
 from domain.adr.value_objects import ReviewAnnotationKind, ReviewResult
+from domain.errors import RetryableInternalError
 from infrastructure.llm.errors import LlmProviderError
 from tests.review_quality.cases import load_fixture
 
@@ -186,7 +186,7 @@ def test_per_call_retry_succeeds_on_second_attempt(
     assert port.call_count == 12
 
 
-def test_exhausted_per_call_retries_raise_adr_review_failed_error(
+def test_exhausted_per_call_retries_raise_retryable_internal_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from application.services.adr_review_service import AdrReviewService
@@ -200,7 +200,7 @@ def test_exhausted_per_call_retries_raise_adr_review_failed_error(
         review_llm_retry_base_seconds=0,
     )
 
-    with pytest.raises(AdrReviewFailedError):
+    with pytest.raises(RetryableInternalError):
         asyncio.run(service.review_adr(markdown))
 
     assert port.call_count >= 2
@@ -236,7 +236,7 @@ def test_section_failure_after_retries_raises_without_partial_merge(
         review_llm_retry_base_seconds=0,
     )
 
-    with pytest.raises(AdrReviewFailedError):
+    with pytest.raises(RetryableInternalError):
         asyncio.run(service.review_adr(markdown))
 
 
@@ -336,6 +336,35 @@ def test_rate_limit_errors_wait_until_reset_header(
 
     assert all(delay == pytest.approx(17.0) for delay in sleeps)
     assert len(sleeps) == 6
+
+
+def test_validation_failure_returns_result_without_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.review_quality import ReviewValidationResult
+    from application.services.adr_review_service import AdrReviewService
+
+    markdown = load_fixture("complete.md")
+    port = RecordingCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
+
+    monkeypatch.setattr(
+        "application.services.adr_review_service.validate_review_result",
+        lambda _markdown, _result: ReviewValidationResult(
+            passed=False,
+            failures=("expected 5 section ratings",),
+        ),
+    )
+
+    result = asyncio.run(service.review_adr(markdown))
+
+    assert isinstance(result, ReviewResult)
+    assert len(result.section_ratings) == 5
 
 
 def test_merged_complete_fixture_passes_validation(

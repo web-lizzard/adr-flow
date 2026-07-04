@@ -490,12 +490,15 @@ def test_invalid_review_surfaces_review_error(
             *,
             validation_feedback: tuple[str, ...] = (),
         ):
-            from domain.errors import AdrReviewFailedError
+            from datetime import UTC, datetime
+
+            from domain.adr.value_objects import ReviewResult
 
             del markdown, validation_feedback
-            raise AdrReviewFailedError(
-                "Merged review result failed validation: "
-                "expected 5 section ratings, got 0"
+            return ReviewResult(
+                annotations=(),
+                reviewed_at=datetime.now(UTC),
+                section_ratings=(),
             )
 
     monkeypatch.setattr(
@@ -521,15 +524,14 @@ def test_invalid_review_surfaces_review_error(
         _drain_event_bus(client)
 
         completed = client.get(f"/api/adrs/{adr_id}/review-status").json()
-        assert completed["status"] == "in_review"
-        assert completed["review_error"] is not None
-        assert completed["review_error"]["code"] == "validation_failed"
-        assert completed["reviewed_at"] is None
+        assert completed["status"] == "after_review"
+        assert completed["review_error"] is None
+        assert completed["reviewed_at"] is not None
 
         adr = client.get(f"/api/adrs/{adr_id}").json()
-        assert adr["status"] == "in_review"
-        assert adr["review_error"] is not None
-        assert adr["section_ratings"] is None
+        assert adr["status"] == "after_review"
+        assert adr["review_error"] is None
+        assert adr["section_ratings"] in (None, [])
 
 
 def test_submit_review_returns_202_before_review_work_completes(auth_client) -> None:

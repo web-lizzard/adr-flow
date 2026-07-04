@@ -21,7 +21,7 @@ from domain.adr.value_objects import (
     ReviewResult,
     SectionRating,
 )
-from domain.errors import AdrReviewFailedError
+from domain.errors import InternalError, RetryableInternalError
 from domain.user.value_objects import UserId
 from tests.application.commands.fakes import (
     FakeEventStore,
@@ -164,7 +164,7 @@ def test_run_ai_review_fails_when_service_raises_adr_review_failed_error() -> No
         }
     )
     review_service = FakeAdrReviewService(
-        error=AdrReviewFailedError("Merged review result failed validation"),
+        error=RetryableInternalError("LLM review failed for Context after 2 attempts"),
     )
     uow_factory = FakeUnitOfWorkFactory(event_store=event_store)
     handler = RunAiReviewHandler(uow_factory, review_service)
@@ -176,19 +176,30 @@ def test_run_ai_review_fails_when_service_raises_adr_review_failed_error() -> No
     events, _, _ = persist_uow.event_store.appended[0]
     assert isinstance(events[0], AIReviewFailed)
     assert events[0].source_event_id == event_id
+    assert events[0].code == "retryable_internal_error"
     _, review_error, _ = persist_uow.adr_projection.recorded_failures[0]
-    assert review_error.code == "validation_failed"
-    assert "failed validation" in review_error.message
+    assert review_error.code == "retryable_internal_error"
+    assert "LLM review failed" in review_error.message
 
 
 @pytest.mark.parametrize(
-    "error",
+    ("error", "expected_code"),
     [
-        RuntimeError("provider down"),
-        AdrReviewFailedError("LLM review failed for Context after 2 attempts"),
+        (RuntimeError("provider down"), "retryable_internal_error"),
+        (
+            RetryableInternalError("LLM review failed for Context after 2 attempts"),
+            "retryable_internal_error",
+        ),
+        (
+            InternalError("Section Context has no body"),
+            "internal_error",
+        ),
     ],
 )
-def test_run_ai_review_fails_on_single_service_exception(error: Exception) -> None:
+def test_run_ai_review_fails_on_single_service_exception(
+    error: Exception,
+    expected_code: str,
+) -> None:
     adr_id = uuid4()
     user_id = uuid4()
     content = "## Context\n\nWe need a store.\n\n## Options\n\nA or B.\n"
@@ -218,8 +229,43 @@ def test_run_ai_review_fails_on_single_service_exception(error: Exception) -> No
     assert isinstance(events[0], AIReviewFailed)
     assert events[0].source_event_id == event_id
     _, review_error, _ = persist_uow.adr_projection.recorded_failures[0]
-    assert review_error.code == "validation_failed"
+    assert review_error.code == expected_code
     assert str(error) in review_error.message
+
+
+def test_run_ai_review_completes_when_merged_result_fails_validation() -> None:
+    adr_id = uuid4()
+    user_id = uuid4()
+    content = "## Context\n\nWe need a store.\n\n## Options\n\nA or B.\n"
+    event_id = uuid4()
+    stored_event = _stored_submitted_event(
+        adr_id=adr_id, user_id=user_id, content=content, event_id=event_id
+    )
+    event_store = FakeEventStore(
+        streams={
+            (adr_id, "adr"): in_review_stream(
+                adr_id=adr_id,
+                user_id=user_id,
+                content=content,
+                submit_event_id=event_id,
+            )
+        }
+    )
+    invalid_result = ReviewResult(
+        annotations=(),
+        reviewed_at=_REVIEWED_AT,
+        section_ratings=(),
+    )
+    review_service = FakeAdrReviewService(results=[invalid_result])
+    uow_factory = FakeUnitOfWorkFactory(event_store=event_store)
+    handler = RunAiReviewHandler(uow_factory, review_service)
+
+    asyncio.run(handler.handle(stored_event))
+
+    persist_uow = uow_factory.unit_of_works[1]
+    events, _, _ = persist_uow.event_store.appended[0]
+    assert isinstance(events[0], AIReviewCompleted)
+    assert persist_uow.adr_projection.recorded_failures == []
 
 
 def test_run_ai_review_is_idempotent_when_adr_already_after_review() -> None:

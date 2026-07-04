@@ -44,6 +44,7 @@ def test_adr_status_values_match_mvp_contract() -> None:
         "in_review",
         "after_review",
         "proposed",
+        "review_failed",
     }
 
 

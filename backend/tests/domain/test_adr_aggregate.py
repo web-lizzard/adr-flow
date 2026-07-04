@@ -21,6 +21,7 @@ from domain.adr.value_objects import (
 from domain.errors import (
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
+    AdrInvalidRetryStatus,
     AdrInvalidReviewStatus,
     AdrInvalidSubmitStatus,
 )
@@ -189,20 +190,58 @@ def test_publish_rejects_draft() -> None:
         adr.publish(updated_at=_LATER)
 
 
+def test_retry_review_transitions_review_failed_to_in_review() -> None:
+    adr = _in_review_adr().fail_review(
+        code="internal_error",
+        message="Provider down",
+    )
+
+    retried = adr.retry_review(updated_at=_LATER)
+
+    assert retried.status == AdrStatus.IN_REVIEW
+    assert retried.review_error is None
+    assert retried.review_result is None
+    assert retried.reviewed_at is None
+    assert retried.updated_at == _LATER
+
+
+def test_retry_review_rejects_non_review_failed() -> None:
+    adr = _draft_adr()
+
+    with pytest.raises(AdrInvalidRetryStatus):
+        adr.retry_review(updated_at=_LATER)
+
+
+def test_fail_review_transitions_to_review_failed() -> None:
+    adr = _in_review_adr()
+
+    failed = adr.fail_review(
+        code="internal_error",
+        message="Provider down",
+    )
+
+    assert failed.status == AdrStatus.REVIEW_FAILED
+    assert failed.review_error == ReviewError(
+        code="internal_error",
+        message="Provider down",
+    )
+    assert failed.review_result is None
+
+
 def test_fail_review_sets_error_and_clears_review_result() -> None:
     adr = _draft_adr().submit_for_review(updated_at=_NOW)
 
     failed = adr.fail_review(
-        code="validation_failed",
+        code="internal_error",
         message="Invalid review output",
     )
 
     assert failed.review_error == ReviewError(
-        code="validation_failed",
+        code="internal_error",
         message="Invalid review output",
     )
     assert failed.review_result is None
-    assert failed.status == AdrStatus.IN_REVIEW
+    assert failed.status == AdrStatus.REVIEW_FAILED
 
 
 def test_restore_soft_deleted_sets_is_deleted() -> None:
@@ -275,11 +314,11 @@ def test_complete_review_rejects_after_review() -> None:
 def test_fail_review_records_error_while_in_review() -> None:
     adr = _in_review_adr()
 
-    failed = adr.fail_review(code="validation_failed", message="bad output")
+    failed = adr.fail_review(code="internal_error", message="bad output")
 
-    assert failed.status == AdrStatus.IN_REVIEW
+    assert failed.status == AdrStatus.REVIEW_FAILED
     assert failed.review_error == ReviewError(
-        code="validation_failed",
+        code="internal_error",
         message="bad output",
     )
     assert failed.review_result is None
@@ -289,7 +328,7 @@ def test_fail_review_rejects_draft() -> None:
     adr = _draft_adr()
 
     with pytest.raises(AdrInvalidReviewStatus):
-        adr.fail_review(code="validation_failed", message="bad output")
+        adr.fail_review(code="internal_error", message="bad output")
 
 
 def test_fail_review_rejects_after_review() -> None:
@@ -299,4 +338,4 @@ def test_fail_review_rejects_after_review() -> None:
     )
 
     with pytest.raises(AdrInvalidReviewStatus):
-        adr.fail_review(code="validation_failed", message="bad output")
+        adr.fail_review(code="internal_error", message="bad output")

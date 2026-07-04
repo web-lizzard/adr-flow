@@ -26,6 +26,7 @@ from domain.adr.value_objects import (
 from domain.errors import (
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
+    AdrInvalidRetryStatus,
     AdrInvalidReviewStatus,
     AdrInvalidSubmitStatus,
 )
@@ -165,6 +166,12 @@ class ADR:
             raise AdrInvalidSubmitStatus()
         return self._with_submitted_for_review(updated_at)
 
+    def retry_review(self, updated_at: datetime) -> Self:
+        """Re-submit from ``review_failed``; clears review fields."""
+        if self.status != AdrStatus.REVIEW_FAILED:
+            raise AdrInvalidRetryStatus()
+        return self._with_submitted_for_review(updated_at)
+
     def publish(self, updated_at: datetime) -> Self:
         """Move from ``after_review`` to ``proposed``; preserves review fields."""
         if self.status != AdrStatus.AFTER_REVIEW:
@@ -214,6 +221,7 @@ class ADR:
     def _with_review_failed(self, code: str, message: str) -> Self:
         return replace(
             self,
+            status=AdrStatus.REVIEW_FAILED,
             review_result=None,
             review_error=ReviewError(code=code, message=message),
         )

@@ -8,7 +8,7 @@ from application.logging import get_logger
 from application.ports.llm_completion import ChatMessage, LlmCompletionPort
 from application.ports.retry_delay import ExponentialBackoff, RetryDelayPort
 from application.review_quality import validate_review_result
-from domain.errors import AdrReviewFailedError
+from domain.errors import InternalError, RetryableInternalError
 from domain.adr.required_sections import (
     ParsedAdrSections,
     SectionName,
@@ -88,9 +88,11 @@ class AdrReviewService:
                     )
         except ExceptionGroup as error_group:
             for exc in error_group.exceptions:
-                if isinstance(exc, AdrReviewFailedError):
+                if isinstance(exc, (RetryableInternalError, InternalError)):
                     raise exc
-            raise AdrReviewFailedError(str(error_group.exceptions[0])) from error_group
+            raise RetryableInternalError(
+                str(error_group.exceptions[0]),
+            ) from error_group
 
         section_payloads = [task.result() for task in section_tasks.values()]
         if cross_task is not None:
@@ -114,10 +116,6 @@ class AdrReviewService:
                 "adr_review.validation_failed",
                 failures=validation.failures,
             )
-            raise AdrReviewFailedError(
-                "Merged review result failed validation: "
-                + "; ".join(validation.failures)
-            )
 
         return result
 
@@ -129,10 +127,7 @@ class AdrReviewService:
     ) -> SectionReviewPayload:
         body = parsed.body_for(section)
         if body is None:
-            raise AdrReviewFailedError(
-                f"Section {section.value} is present but has no body",
-                section=section.value,
-            )
+            raise InternalError(f"Section {section.value} has no body")
 
         messages: list[ChatMessage] = [
             {"role": "system", "content": build_section_system_prompt(section)},
@@ -196,7 +191,7 @@ class AdrReviewService:
                     )
                     await asyncio.sleep(delay_seconds)
 
-        raise AdrReviewFailedError(
+        raise RetryableInternalError(
             f"LLM review failed for {section} after "
             f"{self._review_llm_attempts_per_call} attempts: {last_error}",
             section=section,

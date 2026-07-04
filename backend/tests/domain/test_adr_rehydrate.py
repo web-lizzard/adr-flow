@@ -155,7 +155,7 @@ def test_rehydrate_adr_maps_ai_review_failed() -> None:
     adr = rehydrate_adr(events)
 
     assert adr is not None
-    assert adr.status == AdrStatus.IN_REVIEW
+    assert adr.status == AdrStatus.REVIEW_FAILED
     assert adr.review_error == ReviewError(
         code="validation_failed",
         message="Invalid review output",

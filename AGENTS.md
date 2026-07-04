@@ -9,6 +9,7 @@ ADR Flow is a split-stack MVP: Nuxt 4 UI in `frontend/` and a FastAPI API in `ba
 - Run hooks before pushing: `pre-commit run --all-files` (trailing whitespace, Prettier on `frontend/`, Ruff on `backend/`, ESLint, `tsc`, `ty`).
 - Respect release-age policy: `frontend/pnpm-workspace.yaml` (`minimumReleaseAge: 10080`) and `backend/pyproject.toml` (`exclude-newer = "7 days"`). Refresh locks with `pnpm install` / `uv lock` when bumping deps.
 - Local dev: `just dev` (split: `just dev-frontend`, `just dev-backend`) per @Justfile.
+- Cursor hooks in `.cursor/hooks/` run lint/format and related tests after each agent file edit (`afterFileEdit`). Do **not** run `pnpm run test`, `vitest`, `pytest`, `just test`, or `just test-*` after routine code edits unless the user asks, a hook failed, or you are debugging a specific test failure.
 
 ## Project Structure
 
@@ -33,6 +34,8 @@ Deeper product and architecture: @context/foundation/prd.md, @context/foundation
 - `cd frontend && pnpm run test` — Vitest (`tests/`).
 - `cd backend && uv run pytest` — pytest (`tests/`).
 - `just test` / `just test-frontend` / `just test-backend` — both or one side.
+
+During agent edits, related tests run automatically via `.cursor/hooks/test-after-edit.sh` (Vitest `related` for `frontend/`, mapped pytest targets for `backend/`). Use the commands above only when explicitly verifying a change set, investigating hook failures, or when the user requests a full suite.
 
 ## Coding Style
 

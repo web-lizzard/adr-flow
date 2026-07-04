@@ -415,13 +415,13 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Automated
 
-- [x] 4.1 API integration test asserts section_ratings in GET response
-- [x] 4.2 `cd frontend && pnpm run typecheck && pnpm run lint`
-- [x] 4.3 `cd frontend && pnpm run test -- adr-review-annotations adr-editor-page`
+- [x] 4.1 API integration test asserts section_ratings in GET response — cdffc21
+- [x] 4.2 `cd frontend && pnpm run typecheck && pnpm run lint` — cdffc21
+- [x] 4.3 `cd frontend && pnpm run test -- adr-review-annotations adr-editor-page` — cdffc21
 
 #### Manual
 
-- [x] 4.4 Browser: ratings visible below annotations; score-0 gaps display correctly
+- [x] 4.4 Browser: ratings visible below annotations; score-0 gaps display correctly — cdffc21
 
 ### Phase 5: Tests, Docs & S-07 Close-Out
 

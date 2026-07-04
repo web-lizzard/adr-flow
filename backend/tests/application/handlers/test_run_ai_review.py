@@ -176,9 +176,9 @@ def test_run_ai_review_fails_when_service_raises_adr_review_failed_error() -> No
     events, _, _ = persist_uow.event_store.appended[0]
     assert isinstance(events[0], AIReviewFailed)
     assert events[0].source_event_id == event_id
-    assert events[0].code == "retryable_internal_error"
+    assert events[0].kind == "retryable_internal_error"
     _, review_error, _ = persist_uow.adr_projection.recorded_failures[0]
-    assert review_error.code == "retryable_internal_error"
+    assert review_error.kind == "retryable_internal_error"
     assert "LLM review failed" in review_error.message
 
 
@@ -229,7 +229,7 @@ def test_run_ai_review_fails_on_single_service_exception(
     assert isinstance(events[0], AIReviewFailed)
     assert events[0].source_event_id == event_id
     _, review_error, _ = persist_uow.adr_projection.recorded_failures[0]
-    assert review_error.code == expected_code
+    assert review_error.kind == expected_code
     assert str(error) in review_error.message
 
 

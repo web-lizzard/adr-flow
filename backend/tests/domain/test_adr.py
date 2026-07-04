@@ -120,7 +120,7 @@ def test_adr_aggregate_and_events_construct() -> None:
     review_failed = AIReviewFailed(
         adr_id=adr_id,
         source_event_id=uuid4(),
-        code="validation_failed",
+        kind="validation_failed",
         message="Invalid review output",
         occurred_at=now,
     )

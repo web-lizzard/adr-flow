@@ -175,7 +175,7 @@ class RunAiReviewHandler:
         error: RetryableInternalError | InternalError,
     ) -> None:
         occurred_at = datetime.now(UTC)
-        code = type(error).kind
+        kind = type(error).kind
         message = str(error)
         async with self._uow_factory.begin() as uow:
             await uow.lock_aggregate(adr_id)
@@ -192,19 +192,19 @@ class RunAiReviewHandler:
             if adr is None:
                 return
 
-            new_adr = adr.fail_review(code=code, message=message)  # noqa: F841
+            new_adr = adr.fail_review(kind=kind, message=message)  # noqa: F841
             failure_event = AIReviewFailed(
                 adr_id=AdrId(adr_id),
                 source_event_id=stored_event.id,
-                code=code,
                 message=message,
+                kind=kind,
                 occurred_at=occurred_at,
             )
             review_error = ReviewErrorMetadata(
                 source_event_id=stored_event.id,
-                code=code,
                 message=message,
                 failed_at=occurred_at,
+                kind=kind,
             )
             stored_failure = await uow.event_store.append(
                 [failure_event],
@@ -226,6 +226,6 @@ class RunAiReviewHandler:
             )
         self._logger.info(
             "handler.run_ai_review.failure_persisted",
-            code=code,
+            kind=kind,
             message=message,
         )

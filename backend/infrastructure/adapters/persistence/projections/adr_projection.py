@@ -91,11 +91,12 @@ class SqlAdrProjection(AdrProjection):
             update(Adr)
             .where(Adr.id == adr_id)
             .values(
+                status=AdrStatus.REVIEW_FAILED.value,
                 review_error={
                     "source_event_id": str(review_error.source_event_id),
-                    "code": review_error.code,
                     "message": review_error.message,
                     "failed_at": review_error.failed_at.isoformat(),
+                    "kind": review_error.kind,
                 },
                 updated_at=updated_at,
             )

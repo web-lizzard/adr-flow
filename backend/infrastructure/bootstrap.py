@@ -3,14 +3,17 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import cast
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from starlette.types import ExceptionHandler
 
 from application.commands.create_adr import CreateAdrCommandHandler
 from application.commands.publish_adr import PublishAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
+from application.commands.retry_adr_for_review import RetryAdrForReviewCommandHandler
 from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.handlers.run_ai_review import RunAiReviewHandler
@@ -23,6 +26,7 @@ from application.queries.list_adrs import ListAdrsQueryHandler
 from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandler
 from application.runtime.dispatcher import EventDispatcher
 from domain.adr import ADRSubmittedForReview
+from domain.errors import DomainError
 from infrastructure.adapters.auth.password_hasher import Argon2PasswordHasher
 from infrastructure.adapters.auth.token_service import JwtTokenService
 from infrastructure.adapters.persistence.event_store import SqlEventStore
@@ -33,6 +37,7 @@ from infrastructure.adapters.persistence.repositories.user_repository import (
     SqlUserRepository,
 )
 from infrastructure.adapters.persistence.unit_of_work import SqlUnitOfWorkFactory
+from infrastructure.api.exception_handlers import domain_error_handler
 from infrastructure.api.middleware.request_logging import RequestLoggingMiddleware
 from infrastructure.api.routers.adr import router as adr_router
 from infrastructure.api.routers.auth import router as auth_router
@@ -108,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     create_adr_handler = CreateAdrCommandHandler(uow_factory)
     update_adr_content_handler = UpdateAdrContentCommandHandler(uow_factory)
     submit_adr_for_review_handler = SubmitAdrForReviewCommandHandler(uow_factory)
+    retry_adr_for_review_handler = RetryAdrForReviewCommandHandler(uow_factory)
     publish_adr_handler = PublishAdrCommandHandler(uow_factory)
     get_adr_handler = GetAdrQueryHandler(adr_repository)
     get_adr_review_status_handler = GetAdrReviewStatusQueryHandler(adr_repository)
@@ -156,6 +162,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.info("bootstrap.engine_disposed")
 
     app = FastAPI(lifespan=lifespan)
+    app.add_exception_handler(DomainError, cast(ExceptionHandler, domain_error_handler))
     app.state.engine = engine
     app.state.user_repository = user_repository
     app.state.password_hasher = password_hasher
@@ -169,6 +176,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.create_adr_handler = create_adr_handler
     app.state.update_adr_content_handler = update_adr_content_handler
     app.state.submit_adr_for_review_handler = submit_adr_for_review_handler
+    app.state.retry_adr_for_review_handler = retry_adr_for_review_handler
     app.state.publish_adr_handler = publish_adr_handler
     app.state.get_adr_handler = get_adr_handler
     app.state.get_adr_review_status_handler = get_adr_review_status_handler

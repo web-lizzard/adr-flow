@@ -244,7 +244,8 @@ def test_patch_in_review_status_returns_error(auth_client) -> None:
     )
 
     assert response.status_code == 400
-    assert "review" in response.json()["detail"].lower()
+    assert response.json()["kind"] == "adr_edit_while_in_review"
+    assert "review" in response.json()["message"].lower()
 
 
 def test_list_adrs_returns_empty_for_new_user(auth_client) -> None:
@@ -717,7 +718,107 @@ def test_publish_rejects_non_after_review_status(auth_client, db_engine) -> None
     response = auth_client.post(f"/api/adrs/{adr_id}/publish")
 
     assert response.status_code == 400
-    assert "after_review" in response.json()["detail"]
+    assert response.json()["kind"] == "adr_invalid_publish_status"
+    assert "after_review" in response.json()["message"]
+
+
+def test_domain_error_handler_returns_kind(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/retry-review")
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["kind"] == "adr_invalid_retry_status"
+    assert "review_failed" in body["message"]
+
+
+def test_retry_review_from_review_failed_returns_202(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from domain.errors import RetryableInternalError
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class FailingReviewService:
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ):
+            del markdown, validation_feedback
+            raise RetryableInternalError("LLM provider unavailable")
+
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: FailingReviewService(),
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        cookie_secure=False,
+        cookie_path="/api",
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        client.post(
+            "/api/auth/register",
+            json={"email": "retry-user@example.com", "password": "password123"},
+        )
+        adr_id = _create_adr(client, "Retry Review ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        failed = client.get(f"/api/adrs/{adr_id}").json()
+        assert failed["status"] == "review_failed"
+        assert failed["review_error"] is not None
+        assert failed["review_error"]["kind"] == "retryable_internal_error"
+
+        response = client.post(f"/api/adrs/{adr_id}/retry-review")
+        assert response.status_code == 202
+        assert response.content == b""
+
+        retried = client.get(f"/api/adrs/{adr_id}").json()
+        assert retried["status"] == "in_review"
+        assert retried["review_error"] is None
+
+
+def test_retry_review_from_draft_returns_400(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/retry-review")
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["kind"] == "adr_invalid_retry_status"
+
+
+def test_retry_review_returns_404_for_missing_adr(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/retry-review")
+
+    assert response.status_code == 404
+
+
+def test_unauthenticated_retry_review_returns_401(auth_client) -> None:
+    response = auth_client.post(f"/api/adrs/{UUID(int=0)}/retry-review")
+
+    assert response.status_code == 401
 
 
 def test_publish_returns_404_for_missing_adr(auth_client) -> None:

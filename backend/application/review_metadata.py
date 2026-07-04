@@ -8,6 +8,6 @@ from uuid import UUID
 @dataclass(frozen=True, slots=True)
 class ReviewErrorMetadata:
     source_event_id: UUID
-    code: str
     message: str
     failed_at: datetime
+    kind: str

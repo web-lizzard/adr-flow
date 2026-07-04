@@ -440,10 +440,10 @@ Negligible — one additional POST endpoint and a JSON field on existing `review
 
 #### Automated
 
-- [ ] 2.1 Command and API tests pass: `uv run pytest tests/application/commands/test_retry_adr_for_review.py tests/infrastructure/api/test_adr_api.py -q`
-- [ ] 2.2 Migration applies: `just migrate-backend-test`
-- [ ] 2.3 Ruff passes: `uv run ruff check .`
-- [ ] 2.4 Type check passes: `uv run ty check`
+- [x] 2.1 Command and API tests pass: `uv run pytest tests/application/commands/test_retry_adr_for_review.py tests/infrastructure/api/test_adr_api.py -q`
+- [x] 2.2 Migration applies: `just migrate-backend-test`
+- [x] 2.3 Ruff passes: `uv run ruff check .`
+- [x] 2.4 Type check passes: `uv run ty check`
 
 #### Manual
 

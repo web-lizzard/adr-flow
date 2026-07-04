@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request
 from application.commands.create_adr import CreateAdrCommandHandler
 from application.commands.publish_adr import PublishAdrCommandHandler
 from application.commands.register_user import RegisterUserCommandHandler
+from application.commands.retry_adr_for_review import RetryAdrForReviewCommandHandler
 from application.commands.submit_adr_for_review import SubmitAdrForReviewCommandHandler
 from application.commands.update_adr_content import UpdateAdrContentCommandHandler
 from application.ports.token_service import TokenService
@@ -57,6 +58,12 @@ def get_submit_adr_for_review_handler(
     request: Request,
 ) -> SubmitAdrForReviewCommandHandler:
     return request.app.state.submit_adr_for_review_handler
+
+
+def get_retry_adr_for_review_handler(
+    request: Request,
+) -> RetryAdrForReviewCommandHandler:
+    return request.app.state.retry_adr_for_review_handler
 
 
 def get_publish_adr_handler(request: Request) -> PublishAdrCommandHandler:

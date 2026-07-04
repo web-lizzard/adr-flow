@@ -42,9 +42,9 @@ def test_adr_response_includes_review_fields() -> None:
         review_error=ReviewErrorResponse.from_metadata(
             ReviewErrorMetadata(
                 source_event_id=source_event_id,
-                code="validation_failed",
                 message="Invalid review output",
                 failed_at=failed_at,
+                kind="adr_review_failed_error",
             )
         ),
     )
@@ -52,7 +52,7 @@ def test_adr_response_includes_review_fields() -> None:
     assert response.review_annotations is not None
     assert response.reviewed_at == reviewed_at
     assert response.review_error is not None
-    assert response.review_error.code == "validation_failed"
+    assert response.review_error.kind == "adr_review_failed_error"
 
 
 def test_review_status_response_exposes_counts() -> None:

@@ -130,9 +130,9 @@ def test_adr_projection_review_lifecycle(
                         adr_id,
                         review_error=ReviewErrorMetadata(
                             source_event_id=source_event_id,
-                            code="validation_failed",
                             message="Invalid review output",
                             failed_at=failed_at,
+                            kind="retryable_internal_error",
                         ),
                         updated_at=failed_at,
                     )
@@ -141,12 +141,12 @@ def test_adr_projection_review_lifecycle(
                 row = (
                     await session.execute(select(Adr).where(Adr.id == adr_id))
                 ).scalar_one()
-                assert row.status == "in_review"
+                assert row.status == "review_failed"
                 assert row.review_error == {
                     "source_event_id": str(source_event_id),
-                    "code": "validation_failed",
                     "message": "Invalid review output",
                     "failed_at": failed_at.isoformat(),
+                    "kind": "retryable_internal_error",
                 }
         finally:
             await engine.dispose()

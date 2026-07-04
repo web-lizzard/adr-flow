@@ -54,17 +54,17 @@ class SectionRatingResponse(BaseModel):
 
 class ReviewErrorResponse(BaseModel):
     source_event_id: UUID
-    code: str
     message: str
     failed_at: datetime
+    kind: str
 
     @classmethod
     def from_metadata(cls, metadata: ReviewErrorMetadata) -> "ReviewErrorResponse":
         return cls(
             source_event_id=metadata.source_event_id,
-            code=metadata.code,
             message=metadata.message,
             failed_at=metadata.failed_at,
+            kind=metadata.kind,
         )
 
 

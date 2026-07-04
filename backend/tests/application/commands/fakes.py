@@ -243,6 +243,42 @@ def after_review_stream(
     return stream
 
 
+def review_failed_stream(
+    *,
+    adr_id: UUID,
+    user_id: UUID,
+    content: str,
+    submit_event_id: UUID | None = None,
+    kind: str = "retryable_internal_error",
+    message: str = "LLM review failed",
+) -> list[StoredEvent]:
+    """Event stream ending in ``review_failed`` (created + submitted + failed)."""
+    source_event_id = submit_event_id or uuid4()
+    stream = in_review_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        content=content,
+        submit_event_id=source_event_id,
+    )
+    failed_at = datetime(2026, 6, 16, 12, 0, tzinfo=UTC)
+    stream.append(
+        StoredEvent(
+            id=uuid4(),
+            aggregate_type="adr",
+            aggregate_id=adr_id,
+            event=AIReviewFailed(
+                adr_id=AdrId(adr_id),
+                source_event_id=source_event_id,
+                message=message,
+                kind=kind,
+                occurred_at=failed_at,
+            ),
+            occurred_at=failed_at,
+        )
+    )
+    return stream
+
+
 def stream_with_review_failure(
     *,
     adr_id: UUID,
@@ -267,7 +303,7 @@ def stream_with_review_failure(
             event=AIReviewFailed(
                 adr_id=AdrId(adr_id),
                 source_event_id=source_event_id,
-                code="validation_failed",
+                kind="adr_review_failed_error",
                 message=message,
                 occurred_at=failed_at,
             ),

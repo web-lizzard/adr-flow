@@ -112,7 +112,7 @@ def _deserialize_review_error(payload: dict | None) -> ReviewErrorMetadata | Non
         failed_at = datetime.fromisoformat(failed_at)
     return ReviewErrorMetadata(
         source_event_id=UUID(str(payload["source_event_id"])),
-        code=str(payload["code"]),
         message=str(payload["message"]),
         failed_at=failed_at,
+        kind=str(payload.get("kind") or payload.get("code", "adr_review_failed_error")),
     )

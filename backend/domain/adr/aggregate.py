@@ -130,7 +130,7 @@ class ADR:
                         msg = "AIReviewFailed before ADRCreated"
                         raise ValueError(msg)
                     adr = adr._with_review_failed(
-                        code=event.code,
+                        kind=event.kind,
                         message=event.message,
                     )
                 case ADRPublished():
@@ -184,11 +184,11 @@ class ADR:
             raise AdrInvalidReviewStatus()
         return self._with_review_completed(result=result, reviewed_at=reviewed_at)
 
-    def fail_review(self, code: str, message: str) -> Self:
+    def fail_review(self, kind: str, message: str) -> Self:
         """Record failed AI review; requires ``in_review``."""
         if self.status != AdrStatus.IN_REVIEW:
             raise AdrInvalidReviewStatus()
-        return self._with_review_failed(code=code, message=message)
+        return self._with_review_failed(kind=kind, message=message)
 
     def _with_content_updated(self, content: AdrContent, updated_at: datetime) -> Self:
         return replace(self, content=content, updated_at=updated_at)
@@ -218,12 +218,12 @@ class ADR:
             updated_at=reviewed_at,
         )
 
-    def _with_review_failed(self, code: str, message: str) -> Self:
+    def _with_review_failed(self, kind: str, message: str) -> Self:
         return replace(
             self,
             status=AdrStatus.REVIEW_FAILED,
             review_result=None,
-            review_error=ReviewError(code=code, message=message),
+            review_error=ReviewError(kind=kind, message=message),
         )
 
     def _with_published(self, updated_at: datetime) -> Self:

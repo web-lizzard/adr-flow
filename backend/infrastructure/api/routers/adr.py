@@ -9,6 +9,10 @@ from application.commands.publish_adr import (
     PublishAdrCommand,
     PublishAdrCommandHandler,
 )
+from application.commands.retry_adr_for_review import (
+    RetryAdrForReviewCommand,
+    RetryAdrForReviewCommandHandler,
+)
 from application.commands.submit_adr_for_review import (
     SubmitAdrForReviewCommand,
     SubmitAdrForReviewCommandHandler,
@@ -33,7 +37,6 @@ from domain.errors import (
     AdrAccessDenied,
     AdrNotFound,
     AdrTitleAlreadyExists,
-    DomainError,
 )
 from infrastructure.api.dependencies import (
     get_create_adr_handler,
@@ -42,6 +45,7 @@ from infrastructure.api.dependencies import (
     get_get_adr_review_status_handler,
     get_list_adrs_handler,
     get_publish_adr_handler,
+    get_retry_adr_for_review_handler,
     get_search_adrs_handler,
     get_submit_adr_for_review_handler,
     get_update_adr_content_handler,
@@ -65,12 +69,6 @@ router = APIRouter(prefix="/adrs", tags=["adrs"])
 _logger = get_logger(__name__)
 
 
-def _domain_error_reason(exc: DomainError) -> str:
-    if exc.message:
-        return exc.message
-    return getattr(type(exc), "kind", "domain_error")
-
-
 @router.post("/{adr_id}/submit-review", status_code=202)
 async def submit_adr_for_review(
     adr_id: UUID,
@@ -92,21 +90,40 @@ async def submit_adr_for_review(
             reason="adr_not_found",
         )
         raise HTTPException(status_code=404, detail="ADR not found") from None
-    except DomainError as exc:
-        reason = _domain_error_reason(exc)
-        _logger.info(
-            "route.adrs.submit_review.rejected",
-            adr_id=adr_id_str,
-            status_code=400,
-            reason=reason,
-        )
-        raise HTTPException(
-            status_code=400,
-            detail=reason,
-        ) from None
 
     _logger.info(
         "route.adrs.submit_review.completed",
+        adr_id=adr_id_str,
+        status_code=202,
+        stored_event_id=str(result.stored_event.id),
+    )
+    return Response(status_code=202)
+
+
+@router.post("/{adr_id}/retry-review", status_code=202)
+async def retry_adr_for_review(
+    adr_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    handler: RetryAdrForReviewCommandHandler = Depends(
+        get_retry_adr_for_review_handler
+    ),
+) -> Response:
+    adr_id_str = str(adr_id)
+    try:
+        result = await handler.handle(
+            RetryAdrForReviewCommand(adr_id=adr_id, user_id=user_id)
+        )
+    except AdrNotFound:
+        _logger.info(
+            "route.adrs.retry_review.rejected",
+            adr_id=adr_id_str,
+            status_code=404,
+            reason="adr_not_found",
+        )
+        raise HTTPException(status_code=404, detail="ADR not found") from None
+
+    _logger.info(
+        "route.adrs.retry_review.completed",
         adr_id=adr_id_str,
         status_code=202,
         stored_event_id=str(result.stored_event.id),
@@ -131,18 +148,6 @@ async def publish_adr(
             reason="adr_not_found",
         )
         raise HTTPException(status_code=404, detail="ADR not found") from None
-    except DomainError as exc:
-        reason = _domain_error_reason(exc)
-        _logger.info(
-            "route.adrs.publish.rejected",
-            adr_id=adr_id_str,
-            status_code=400,
-            reason=reason,
-        )
-        raise HTTPException(
-            status_code=400,
-            detail=reason,
-        ) from None
 
     _logger.info(
         "route.adrs.publish.completed",
@@ -325,13 +330,6 @@ async def _handle_update(
         raise HTTPException(
             status_code=409,
             detail="An ADR with this title already exists",
-        ) from None
-    except DomainError as exc:
-        reason = _domain_error_reason(exc)
-        _log_update_rejected(action, adr_id_str, status_code=400, reason=reason)
-        raise HTTPException(
-            status_code=400,
-            detail=reason,
         ) from None
 
     _log_update_completed(action, adr_id_str, status_code=success_status_code)

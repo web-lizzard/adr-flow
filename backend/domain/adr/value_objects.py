@@ -103,5 +103,5 @@ class ReviewResult(BaseModel):
 class ReviewError(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    code: str
+    kind: str
     message: str

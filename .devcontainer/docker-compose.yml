@@ -11,6 +11,7 @@ services:
     depends_on:
       - redis
       - postgres
+      - ollama
 
   # --- bootstrap-devcontainer service: redis ---
   # Host ports avoid 6379/5432 conflicts; in-container URLs still use redis:6379 / postgres:5432.
@@ -33,7 +34,18 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  # --- bootstrap-devcontainer service: ollama ---
+  # In-container API: http://ollama:11434/v1 (OpenAI-compatible /chat/completions).
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
 volumes:
   postgres-data:
+  ollama-data:
   gcloud-config:
   cursor-plans:

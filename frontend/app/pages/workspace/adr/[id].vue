@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import AdrReviewAnnotations from "@/components/adr/AdrReviewAnnotations.vue";
+import AdrReviewSidebar from "@/components/adr/AdrReviewSidebar.vue";
 import AdrStatusBadge from "@/components/adr/AdrStatusBadge.vue";
 import Button from "@/components/ui/button/Button.vue";
 import { useAdrPublishFeedback } from "@/composables/useAdrPublishFeedback";
 import { getAuthErrorMessage } from "@/stores/auth";
 
 definePageMeta({
-  layout: "default",
+  layout: "adr-editor",
   middleware: ["auth"],
 });
 
@@ -51,10 +51,48 @@ const showReviewPanel = computed(() => {
   }
   return (
     (current.reviewAnnotations?.length ?? 0) > 0 ||
+    (current.sectionRatings?.length ?? 0) > 0 ||
     current.reviewError !== null ||
     current.status === "after_review"
   );
 });
+const isReviewSidebarOpen = ref(false);
+
+function shouldAutoOpenReviewSidebar(
+  current: NonNullable<typeof adr.currentAdr.value>,
+): boolean {
+  return current.status === "after_review" || current.reviewError !== null;
+}
+
+watch(
+  () => adr.currentAdr.value,
+  (current, previous) => {
+    if (!current) {
+      isReviewSidebarOpen.value = false;
+      return;
+    }
+
+    if (current.id !== previous?.id) {
+      isReviewSidebarOpen.value = shouldAutoOpenReviewSidebar(current);
+      return;
+    }
+
+    const reviewJustFinished =
+      previous?.status === "in_review" && current.status === "after_review";
+    const reviewJustFailed =
+      previous?.reviewError === null && current.reviewError !== null;
+
+    if (reviewJustFinished || reviewJustFailed) {
+      isReviewSidebarOpen.value = true;
+      return;
+    }
+
+    if (!previous && shouldAutoOpenReviewSidebar(current)) {
+      isReviewSidebarOpen.value = true;
+    }
+  },
+  { immediate: true },
+);
 
 const isBlockingSave = computed(() => isSubmitting.value || isPublishing.value);
 const { saveOnBlur } = useAdrPersistence(adrId, adrStore, isBlockingSave);
@@ -175,6 +213,16 @@ async function onPublish() {
         v-if="adr.currentAdr.value"
         :status="adr.currentAdr.value.status"
       />
+      <Button
+        v-if="showReviewPanel && !isReviewSidebarOpen"
+        type="button"
+        variant="outline"
+        size="sm"
+        class="ml-auto"
+        @click="isReviewSidebarOpen = true"
+      >
+        View review
+      </Button>
     </div>
 
     <p
@@ -238,38 +286,46 @@ async function onPublish() {
       <div class="h-96 w-full animate-pulse rounded-md bg-muted" />
     </div>
 
-    <div v-else-if="adr.currentAdr.value" class="space-y-4">
-      <div class="space-y-2">
-        <Label for="adr-title">Title</Label>
-        <Input
-          id="adr-title"
-          :model-value="adr.currentAdr.value.title"
-          :disabled="isEditorDisabled"
-          @update:model-value="onTitleInput"
-          @blur="onTitleBlur"
-        />
-        <p v-if="titleError" class="text-sm text-destructive">
-          {{ titleError }}
-        </p>
+    <div
+      v-else-if="adr.currentAdr.value"
+      class="flex flex-col gap-6 lg:flex-row lg:items-start"
+    >
+      <div class="min-w-0 flex-1 space-y-4">
+        <div class="space-y-2">
+          <Label for="adr-title">Title</Label>
+          <Input
+            id="adr-title"
+            :model-value="adr.currentAdr.value.title"
+            :disabled="isEditorDisabled"
+            @update:model-value="onTitleInput"
+            @blur="onTitleBlur"
+          />
+          <p v-if="titleError" class="text-sm text-destructive">
+            {{ titleError }}
+          </p>
+        </div>
+
+        <ClientOnly>
+          <AdrMarkdownEditor
+            :model-value="adr.currentAdr.value.content"
+            :readonly="isEditorDisabled"
+            @update:model-value="onContentInput"
+            @blur="onEditorBlur"
+          />
+          <template #fallback>
+            <div class="h-96 w-full animate-pulse rounded-md bg-muted" />
+          </template>
+        </ClientOnly>
       </div>
 
-      <ClientOnly>
-        <AdrMarkdownEditor
-          :model-value="adr.currentAdr.value.content"
-          :readonly="isEditorDisabled"
-          @update:model-value="onContentInput"
-          @blur="onEditorBlur"
-        />
-        <template #fallback>
-          <div class="h-96 w-full animate-pulse rounded-md bg-muted" />
-        </template>
-      </ClientOnly>
-
-      <AdrReviewAnnotations
+      <AdrReviewSidebar
         v-if="showReviewPanel"
+        :open="isReviewSidebarOpen"
         :annotations="adr.currentAdr.value.reviewAnnotations"
+        :section-ratings="adr.currentAdr.value.sectionRatings"
         :review-error="adr.currentAdr.value.reviewError"
         :status="adr.currentAdr.value.status"
+        @close="isReviewSidebarOpen = false"
       />
     </div>
   </div>

@@ -21,6 +21,12 @@ export type ReviewError = {
   failed_at: string;
 };
 
+export type SectionRating = {
+  section: string;
+  score: number;
+  feedback: string;
+};
+
 export type AdrResponse = {
   id: string;
   title: string;
@@ -29,6 +35,7 @@ export type AdrResponse = {
   created_at: string;
   updated_at: string;
   review_annotations?: ReviewAnnotation[] | null;
+  section_ratings?: SectionRating[] | null;
   reviewed_at?: string | null;
   review_error?: ReviewError | null;
 };

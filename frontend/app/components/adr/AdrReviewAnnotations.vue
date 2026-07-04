@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import type { ReviewAnnotation, ReviewError } from "@/stores/adr";
+import type {
+  ReviewAnnotation,
+  ReviewError,
+  SectionRating,
+} from "@/stores/adr";
 
 const props = defineProps<{
   annotations: ReviewAnnotation[] | null;
+  sectionRatings?: SectionRating[] | null;
   reviewError: ReviewError | null;
   status?: string;
+  showTitle?: boolean;
 }>();
 
 const kindLabels: Record<string, string> = {
@@ -23,17 +29,27 @@ const groupedAnnotations = computed(() => {
   return groups;
 });
 
+const hasAnnotations = computed(() => (props.annotations?.length ?? 0) > 0);
+const hasRatings = computed(() => (props.sectionRatings?.length ?? 0) > 0);
+
 const showEmptyState = computed(
   () =>
     props.status === "after_review" &&
     !props.reviewError &&
-    (props.annotations?.length ?? 0) === 0,
+    !hasAnnotations.value &&
+    !hasRatings.value,
 );
 </script>
 
 <template>
-  <section class="space-y-4 rounded-lg border p-4">
-    <h2 class="text-lg font-semibold">Review feedback</h2>
+  <section
+    :class="
+      showTitle !== false ? 'space-y-4 rounded-lg border p-4' : 'space-y-4'
+    "
+  >
+    <h2 v-if="showTitle !== false" class="text-lg font-semibold">
+      Review feedback
+    </h2>
 
     <div
       v-if="reviewError"
@@ -72,6 +88,25 @@ const showEmptyState = computed(
             </p>
             <p v-if="annotation.suggestion" class="mt-1 text-muted-foreground">
               Suggestion: {{ annotation.suggestion }}
+            </p>
+          </li>
+        </ul>
+      </div>
+
+      <div v-if="hasRatings" class="space-y-2">
+        <h3 class="text-sm font-medium">Section ratings</h3>
+        <ul class="space-y-2">
+          <li
+            v-for="rating in sectionRatings"
+            :key="rating.section"
+            class="rounded-md bg-muted/50 p-3 text-sm"
+          >
+            <p class="font-medium">
+              {{ rating.section }}
+              <span class="text-muted-foreground">{{ rating.score }}/5</span>
+            </p>
+            <p v-if="rating.feedback" class="mt-1 text-muted-foreground">
+              {{ rating.feedback }}
             </p>
           </li>
         </ul>

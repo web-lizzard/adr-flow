@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { computed, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import AdrReviewAnnotations from "../app/components/adr/AdrReviewAnnotations.vue";
+import AdrReviewSidebar from "../app/components/adr/AdrReviewSidebar.vue";
 import AdrStatusBadge from "../app/components/adr/AdrStatusBadge.vue";
 import EditorPage from "../app/pages/workspace/adr/[id].vue";
 
@@ -33,6 +33,11 @@ const currentAdr = ref<{
     message: string;
     location?: string | null;
     suggestion?: string | null;
+  }> | null;
+  sectionRatings: Array<{
+    section: string;
+    score: number;
+    feedback: string;
   }> | null;
   reviewedAt: string | null;
   reviewError: {
@@ -125,6 +130,7 @@ function baseAdr(
     createdAt: "2026-06-16T10:00:00Z",
     updatedAt: "2026-06-16T10:00:00Z",
     reviewAnnotations: null,
+    sectionRatings: null,
     reviewedAt: null,
     reviewError: null,
     ...overrides,
@@ -242,7 +248,7 @@ describe("ADR editor page", () => {
 
     await titleInput.trigger("blur");
     expect(saveOnBlurMock).toHaveBeenCalledTimes(1);
-    expect(wrapper.findComponent(AdrReviewAnnotations).exists()).toBe(true);
+    expect(wrapper.findComponent(AdrReviewSidebar).exists()).toBe(true);
   });
 
   it("shows review error metadata in the annotation panel", async () => {
@@ -259,7 +265,7 @@ describe("ADR editor page", () => {
     const wrapper = mountEditorPage();
     await flushPromises();
 
-    expect(wrapper.findComponent(AdrReviewAnnotations).exists()).toBe(true);
+    expect(wrapper.findComponent(AdrReviewSidebar).exists()).toBe(true);
     expect(wrapper.text()).toContain("Review output was invalid");
     expect(wrapper.text()).not.toContain("Checking for review results");
   });
@@ -286,7 +292,7 @@ describe("ADR editor page", () => {
     });
     await flushPromises();
 
-    expect(wrapper.findComponent(AdrReviewAnnotations).exists()).toBe(true);
+    expect(wrapper.findComponent(AdrReviewSidebar).exists()).toBe(true);
     expect(wrapper.text()).toContain("Add a Decision section");
     expect(wrapper.text()).not.toContain("Checking for review results");
   });
@@ -368,6 +374,84 @@ describe("ADR editor page", () => {
     expect(wrapper.findComponent(AdrStatusBadge).text()).toContain("Proposed");
     const titleInput = wrapper.get('[data-testid="title-input"]');
     expect((titleInput.element as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it("opens the review sidebar automatically when review completes", async () => {
+    currentAdr.value = baseAdr({ status: "in_review" });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    expect(wrapper.find("aside[aria-label='Review feedback']").exists()).toBe(
+      false,
+    );
+
+    currentAdr.value = baseAdr({
+      status: "after_review",
+      sectionRatings: [
+        { section: "Context", score: 3, feedback: "Clear enough." },
+      ],
+      reviewedAt: "2026-06-16T12:00:00Z",
+    });
+    await flushPromises();
+
+    expect(wrapper.find("aside[aria-label='Review feedback']").exists()).toBe(
+      true,
+    );
+    expect(wrapper.text()).toContain("Clear enough.");
+    expect(findButtonByText(wrapper, "View review")).toBeUndefined();
+  });
+
+  it("lets the user close and reopen the review sidebar", async () => {
+    currentAdr.value = baseAdr({
+      status: "after_review",
+      sectionRatings: [
+        { section: "Decision", score: 4, feedback: "Clear rationale." },
+      ],
+      reviewedAt: "2026-06-16T12:00:00Z",
+    });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    expect(wrapper.find("aside[aria-label='Review feedback']").exists()).toBe(
+      true,
+    );
+
+    await findButtonByText(wrapper, "Close")!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find("aside[aria-label='Review feedback']").exists()).toBe(
+      false,
+    );
+    expect(findButtonByText(wrapper, "View review")).toBeDefined();
+
+    await findButtonByText(wrapper, "View review")!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find("aside[aria-label='Review feedback']").exists()).toBe(
+      true,
+    );
+    expect(wrapper.text()).toContain("Clear rationale.");
+  });
+
+  it("shows section ratings in the review panel after review", async () => {
+    currentAdr.value = baseAdr({
+      status: "after_review",
+      sectionRatings: [
+        { section: "Context", score: 0, feedback: "" },
+        { section: "Decision", score: 4, feedback: "Clear rationale." },
+      ],
+      reviewedAt: "2026-06-16T12:00:00Z",
+    });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Section ratings");
+    expect(wrapper.text()).toContain("Context");
+    expect(wrapper.text()).toContain("0/5");
+    expect(wrapper.text()).toContain("Clear rationale.");
   });
 
   it("links back to the workspace", async () => {

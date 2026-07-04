@@ -66,6 +66,7 @@ describe("useAdrStore", () => {
       createdAt: "2026-06-16T10:00:00Z",
       updatedAt: "2026-06-16T10:00:00Z",
       reviewAnnotations: null,
+      sectionRatings: null,
       reviewedAt: null,
       reviewError: null,
     });
@@ -264,7 +265,7 @@ describe("useAdrStore", () => {
     expect(store.isDirty).toBe(true);
   });
 
-  it("load(id) maps review annotations, reviewedAt, and reviewError from API", async () => {
+  it("load(id) maps review annotations, section ratings, reviewedAt, and reviewError from API", async () => {
     fetchAdrMock.mockResolvedValue({
       ...sampleAdr,
       status: "after_review",
@@ -275,6 +276,10 @@ describe("useAdrStore", () => {
           location: "## Consequences",
           suggestion: "Describe trade-offs",
         },
+      ],
+      section_ratings: [
+        { section: "Context", score: 0, feedback: "" },
+        { section: "Decision", score: 4, feedback: "Clear rationale." },
       ],
       reviewed_at: "2026-06-16T12:00:00Z",
       review_error: null,
@@ -290,6 +295,10 @@ describe("useAdrStore", () => {
         location: "## Consequences",
         suggestion: "Describe trade-offs",
       },
+    ]);
+    expect(store.currentAdr?.sectionRatings).toEqual([
+      { section: "Context", score: 0, feedback: "" },
+      { section: "Decision", score: 4, feedback: "Clear rationale." },
     ]);
     expect(store.currentAdr?.reviewedAt).toBe("2026-06-16T12:00:00Z");
     expect(store.currentAdr?.reviewError).toBeNull();

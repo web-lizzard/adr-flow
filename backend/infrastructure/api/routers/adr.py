@@ -56,6 +56,7 @@ from infrastructure.api.schemas.adr import (
     ReviewErrorResponse,
     ReviewStatusResponse,
     SearchAdrsResponse,
+    SectionRatingResponse,
     UpdateAdrRequest,
 )
 from application.logging import get_logger
@@ -403,6 +404,16 @@ def _to_adr_response(adr: AdrReadModel) -> AdrResponse:
             for annotation in adr.review_annotations.annotations
         ]
         if adr.review_annotations is not None
+        else None,
+        section_ratings=[
+            SectionRatingResponse(
+                section=rating.section,
+                score=rating.score,
+                feedback=rating.feedback,
+            )
+            for rating in adr.review_annotations.section_ratings
+        ]
+        if adr.review_annotations is not None and adr.review_annotations.section_ratings
         else None,
         reviewed_at=adr.reviewed_at,
         review_error=ReviewErrorResponse.from_metadata(adr.review_error)

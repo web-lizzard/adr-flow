@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 from application.review_metadata import ReviewErrorMetadata
+from domain.adr.required_sections import SectionName
 from domain.adr.value_objects import ReviewAnnotationKind, ReviewResult
 
 
@@ -45,6 +46,12 @@ class ReviewAnnotationResponse(BaseModel):
     suggestion: str | None = None
 
 
+class SectionRatingResponse(BaseModel):
+    section: SectionName
+    score: int
+    feedback: str
+
+
 class ReviewErrorResponse(BaseModel):
     source_event_id: UUID
     code: str
@@ -69,6 +76,7 @@ class AdrResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     review_annotations: list[ReviewAnnotationResponse] | None = None
+    section_ratings: list[SectionRatingResponse] | None = None
     reviewed_at: datetime | None = None
     review_error: ReviewErrorResponse | None = None
 

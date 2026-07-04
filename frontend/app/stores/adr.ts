@@ -11,9 +11,10 @@ import {
   type AdrSummary,
   type ReviewAnnotation,
   type ReviewError,
+  type SectionRating,
 } from "../../composables/useApi";
 
-export type { ReviewAnnotation, ReviewError };
+export type { ReviewAnnotation, ReviewError, SectionRating };
 
 export type Adr = {
   id: string;
@@ -23,6 +24,7 @@ export type Adr = {
   createdAt: string;
   updatedAt: string;
   reviewAnnotations: ReviewAnnotation[] | null;
+  sectionRatings: SectionRating[] | null;
   reviewedAt: string | null;
   reviewError: ReviewError | null;
 };
@@ -43,6 +45,7 @@ function toAdr(response: AdrResponse): Adr {
     createdAt: response.created_at,
     updatedAt: response.updated_at,
     reviewAnnotations: response.review_annotations ?? null,
+    sectionRatings: response.section_ratings ?? null,
     reviewedAt: response.reviewed_at ?? null,
     reviewError: response.review_error ?? null,
   };

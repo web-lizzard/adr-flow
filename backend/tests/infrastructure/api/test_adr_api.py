@@ -388,6 +388,30 @@ def test_submit_review_moves_draft_to_in_review_and_completes(auth_client) -> No
     assert adr["review_annotations"] is not None
 
 
+def test_get_adr_includes_section_ratings_after_review(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+    _wait_for_review_status(auth_client, adr_id, expected="after_review")
+
+    adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert adr["section_ratings"] is not None
+    assert len(adr["section_ratings"]) == 5
+    rated_sections = {rating["section"] for rating in adr["section_ratings"]}
+    assert rated_sections == {
+        "Context",
+        "Options",
+        "Decision",
+        "Status",
+        "Consequences",
+    }
+    for rating in adr["section_ratings"]:
+        assert "score" in rating
+        assert 0 <= rating["score"] <= 5
+        assert "feedback" in rating
+
+
 def test_submit_review_rejects_non_draft_status(auth_client) -> None:
     adr_id = _seed_after_review_adr(auth_client)
 
@@ -444,14 +468,11 @@ def test_submit_review_returns_404_for_other_users_adr(auth_client) -> None:
     assert response.status_code == 404
 
 
-def test_review_status_exposes_failure_metadata_after_invalid_review(
+def test_invalid_review_surfaces_review_error(
     postgres_url: str,
     db_engine,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from datetime import UTC, datetime
-
-    from domain.adr.value_objects import ReviewResult
     from fastapi.testclient import TestClient
 
     from infrastructure.bootstrap import create_app
@@ -468,10 +489,13 @@ def test_review_status_exposes_failure_metadata_after_invalid_review(
             markdown: str,
             *,
             validation_feedback: tuple[str, ...] = (),
-        ) -> ReviewResult:
-            return ReviewResult(
-                annotations=(),
-                reviewed_at=datetime.now(UTC),
+        ):
+            from domain.errors import AdrReviewFailedError
+
+            del markdown, validation_feedback
+            raise AdrReviewFailedError(
+                "Merged review result failed validation: "
+                "expected 5 section ratings, got 0"
             )
 
     monkeypatch.setattr(
@@ -496,15 +520,16 @@ def test_review_status_exposes_failure_metadata_after_invalid_review(
         client.post(f"/api/adrs/{adr_id}/submit-review")
         _drain_event_bus(client)
 
-        failed = client.get(f"/api/adrs/{adr_id}/review-status").json()
-        assert failed["status"] == "in_review"
-        assert failed["review_error"] is not None
-        assert failed["review_error"]["code"] == "validation_failed"
-        assert failed["review_error"]["message"]
+        completed = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert completed["status"] == "in_review"
+        assert completed["review_error"] is not None
+        assert completed["review_error"]["code"] == "validation_failed"
+        assert completed["reviewed_at"] is None
 
         adr = client.get(f"/api/adrs/{adr_id}").json()
         assert adr["status"] == "in_review"
         assert adr["review_error"] is not None
+        assert adr["section_ratings"] is None
 
 
 def test_submit_review_returns_202_before_review_work_completes(auth_client) -> None:
@@ -522,7 +547,7 @@ def test_submit_review_returns_202_before_review_work_completes(auth_client) -> 
     assert in_review["reviewed_at"] is None
 
 
-class _CountingInvalidReviewService:
+class _CountingValidReviewService:
     def __init__(self) -> None:
         self.calls = 0
 
@@ -534,12 +559,24 @@ class _CountingInvalidReviewService:
     ):
         from datetime import UTC, datetime
 
-        from domain.adr.value_objects import ReviewResult
+        from domain.adr.required_sections import SectionName
+        from domain.adr.static_review import synthesize_static_review
+        from domain.adr.value_objects import ReviewResult, SectionRating
 
+        del validation_feedback
         self.calls += 1
+        static_annotations, static_ratings = synthesize_static_review(markdown)
+        gap_sections = {rating.section for rating in static_ratings}
+        llm_ratings = tuple(
+            SectionRating(section=section, score=3, feedback="Adequate content.")
+            for section in SectionName
+            if section not in gap_sections
+        )
         return ReviewResult(
-            annotations=(),
+            annotations=static_annotations,
             reviewed_at=datetime.now(UTC),
+            reviewed_content=markdown,
+            section_ratings=(*static_ratings, *llm_ratings),
         )
 
 
@@ -558,7 +595,7 @@ def test_replay_processes_unprocessed_submit_event(
         connection.execute(text("DELETE FROM users"))
         connection.execute(text("DELETE FROM events"))
 
-    review_service = _CountingInvalidReviewService()
+    review_service = _CountingValidReviewService()
     monkeypatch.setattr(
         "infrastructure.bootstrap.build_adr_review_service",
         lambda _settings: review_service,
@@ -587,10 +624,10 @@ def test_replay_processes_unprocessed_submit_event(
 
         _drain_event_bus(client)
 
-        assert review_service.calls == 2
-        failed = client.get(f"/api/adrs/{adr_id}/review-status").json()
-        assert failed["status"] == "in_review"
-        assert failed["review_error"] is not None
+        assert review_service.calls == 1
+        completed = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert completed["status"] == "after_review"
+        assert completed["review_error"] is None
 
 
 def test_replay_does_not_duplicate_completed_review(

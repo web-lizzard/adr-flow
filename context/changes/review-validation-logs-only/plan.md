@@ -234,12 +234,12 @@ No data migration. Historical ADRs stuck in `in_review` with `validation_failed`
 
 #### Automated
 
-- [x] 1.1 `cd backend && uv run ruff check .` passes
-- [x] 1.2 `cd backend && uv run ty check` passes
+- [x] 1.1 `cd backend && uv run ruff check .` passes — 89d7742
+- [x] 1.2 `cd backend && uv run ty check` passes — 89d7742
 
 #### Manual
 
-- [x] 1.3 Trace handler logic for four terminal scenarios (valid first, invalid→valid retry, invalid both, exception final)
+- [x] 1.3 Trace handler logic for four terminal scenarios (valid first, invalid→valid retry, invalid both, exception final) — 89d7742
 
 ### Phase 2: Backend Tests
 

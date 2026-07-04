@@ -70,7 +70,7 @@ class RegisterUserCommandHandler:
             stored_events = await uow.event_store.append(
                 [event],
                 aggregate_id=user_id,
-                aggregate_type="User",
+                aggregate_type="user",
             )
             await uow.event_store.mark_processed(
                 stored_events[0].id,

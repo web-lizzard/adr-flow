@@ -31,7 +31,7 @@ def test_register_user_emits_event_and_inserts_projection() -> None:
     assert uow.locked_aggregates == [user_id]
     events, aggregate_id, aggregate_type = uow.event_store.appended[0]
     assert aggregate_id == user_id
-    assert aggregate_type == "User"
+    assert aggregate_type == "user"
     event = events[0]
     assert isinstance(event, UserRegistered)
     assert event.email.value == "user@example.com"

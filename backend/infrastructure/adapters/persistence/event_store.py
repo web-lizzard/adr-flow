@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports.event_store import EventStore, StoredEvent
@@ -102,7 +102,7 @@ class SqlEventStore(EventStore):
         result = await self._session.execute(
             select(Event)
             .where(Event.aggregate_id == aggregate_id)
-            .where(Event.aggregate_type == aggregate_type)
+            .where(func.lower(Event.aggregate_type) == aggregate_type.lower())
             .order_by(Event.occurred_at.asc(), Event.id.asc())
         )
         rows = result.scalars().all()

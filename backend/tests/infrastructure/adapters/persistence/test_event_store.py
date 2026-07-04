@@ -129,7 +129,7 @@ def test_event_store_skips_sync_projection_events_for_async_replay(
                             )
                         ],
                         aggregate_id=user_id,
-                        aggregate_type="User",
+                        aggregate_type="user",
                     )
 
             async with session_factory() as session:

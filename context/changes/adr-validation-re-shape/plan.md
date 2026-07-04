@@ -391,9 +391,9 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Automated
 
-- [x] 2.1 Service tests for static phase, parallel calls, per-call retry, and failure raising
-- [x] 2.2 Fake LLM tests updated for section-scoped responses
-- [x] 2.3 `cd backend && uv run pytest tests/application/services/test_adr_review_service.py tests/infrastructure/llm/test_fake_completion.py -q`
+- [x] 2.1 Service tests for static phase, parallel calls, per-call retry, and failure raising — 394de65
+- [x] 2.2 Fake LLM tests updated for section-scoped responses — 394de65
+- [x] 2.3 `cd backend && uv run pytest tests/application/services/test_adr_review_service.py tests/infrastructure/llm/test_fake_completion.py -q` — 394de65
 
 #### Manual
 

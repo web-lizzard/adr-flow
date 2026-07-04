@@ -397,7 +397,7 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Manual
 
-- [ ] 2.4 Local fake-provider review completes for complete and incomplete ADRs
+- [x] 2.4 Local fake-provider review completes for complete and incomplete ADRs
 
 ### Phase 3: Validation & Handler
 
@@ -409,7 +409,7 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Manual
 
-- [ ] 3.4 Incomplete ADR review succeeds with static gaps; partial LLM failure shows review_error
+- [x] 3.4 Incomplete ADR review succeeds with static gaps; partial LLM failure shows review_error
 
 ### Phase 4: API & Frontend
 

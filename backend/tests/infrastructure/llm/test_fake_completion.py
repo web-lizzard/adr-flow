@@ -2,43 +2,63 @@
 
 import asyncio
 
-from domain.adr.review_llm_schema import ReviewPayload
+from domain.adr.required_sections import SectionName
+from domain.adr.review_instructions import (
+    build_cross_section_system_prompt,
+    build_cross_section_user_message,
+    build_section_system_prompt,
+    build_section_user_message,
+)
+from domain.adr.review_llm_schema import (
+    CrossSectionReviewPayload,
+    SectionReviewPayload,
+)
 from domain.adr.value_objects import ReviewAnnotationKind
 from infrastructure.llm.fake_completion import FakeLlmCompletionPort
+from tests.review_quality.cases import load_fixture
 
 
-def test_fake_completion_returns_missing_section_annotations() -> None:
-    markdown = "## Context\n\nWe need a store.\n"
+def test_fake_completion_returns_section_rating_payload() -> None:
+    section = SectionName.CONTEXT
+    body = "We need a database for the project."
     port = FakeLlmCompletionPort()
 
     payload = asyncio.run(
         port.complete_structured(
-            messages=[{"role": "user", "content": markdown}],
-            response_model=ReviewPayload,
+            messages=[
+                {"role": "system", "content": build_section_system_prompt(section)},
+                {
+                    "role": "user",
+                    "content": build_section_user_message(section, body),
+                },
+            ],
+            response_model=SectionReviewPayload,
         )
     )
 
-    kinds = {item.kind for item in payload.annotations}
-    assert ReviewAnnotationKind.MISSING_SECTION in kinds
-    assert len(payload.annotations) >= 4
-
-
-def test_fake_completion_returns_inconsistency_when_decision_and_status_present() -> (
-    None
-):
-    markdown = (
-        "## Context\n\nWe need a store.\n"
-        "## Options\n\nA or B.\n"
-        "## Decision\n\nChoose A.\n"
-        "## Status\n\nAccepted.\n"
-        "## Consequences\n\nWe ship A.\n"
+    assert payload.section is section
+    assert 1 <= payload.score <= 5
+    assert payload.feedback
+    assert all(
+        annotation.kind is not ReviewAnnotationKind.MISSING_SECTION
+        for annotation in payload.annotations
     )
+
+
+def test_fake_completion_returns_cross_section_inconsistency() -> None:
+    markdown = load_fixture("complete.md")
     port = FakeLlmCompletionPort()
 
     payload = asyncio.run(
         port.complete_structured(
-            messages=[{"role": "user", "content": markdown}],
-            response_model=ReviewPayload,
+            messages=[
+                {
+                    "role": "system",
+                    "content": build_cross_section_system_prompt(),
+                },
+                {"role": "user", "content": build_cross_section_user_message(markdown)},
+            ],
+            response_model=CrossSectionReviewPayload,
         )
     )
 
@@ -46,14 +66,26 @@ def test_fake_completion_returns_inconsistency_when_decision_and_status_present(
     assert ReviewAnnotationKind.INCONSISTENCY in kinds
 
 
-def test_fake_completion_returns_conciseness_for_long_body() -> None:
-    markdown = "## Context\n\n" + ("word " * 200)
+def test_fake_completion_returns_conciseness_on_context_with_long_doc() -> None:
+    section = SectionName.CONTEXT
+    body = "We need a store."
+    doc_markdown = "## Context\n\n" + ("word " * 200)
     port = FakeLlmCompletionPort()
 
     payload = asyncio.run(
         port.complete_structured(
-            messages=[{"role": "user", "content": markdown}],
-            response_model=ReviewPayload,
+            messages=[
+                {"role": "system", "content": build_section_system_prompt(section)},
+                {
+                    "role": "user",
+                    "content": build_section_user_message(
+                        section,
+                        body,
+                        doc_markdown=doc_markdown,
+                    ),
+                },
+            ],
+            response_model=SectionReviewPayload,
         )
     )
 

@@ -1,4 +1,4 @@
-"""AdrReviewService orchestration tests."""
+"""AdrReviewService parallel orchestration tests."""
 
 import asyncio
 from datetime import UTC, datetime
@@ -8,19 +8,37 @@ import pytest
 from pydantic import BaseModel
 
 from application.ports.llm_completion import ChatMessage
-from domain.adr.review_llm_schema import ReviewAnnotationPayload, ReviewPayload
+from domain.errors import AdrReviewFailedError
+from domain.adr.required_sections import SectionName
+from domain.adr.review_llm_schema import (
+    CrossSectionReviewPayload,
+    SectionReviewPayload,
+)
 from domain.adr.value_objects import ReviewAnnotationKind, ReviewResult
 from infrastructure.llm.errors import LlmProviderError
+from tests.review_quality.cases import load_fixture
 
 T = TypeVar("T", bound=BaseModel)
 
 _REVIEWED_AT = datetime(2026, 6, 18, 12, 0, tzinfo=UTC)
 
 
+def _section_payload(section: SectionName, *, score: int = 4) -> SectionReviewPayload:
+    return SectionReviewPayload(
+        section=section,
+        score=score,
+        feedback=f"Solid {section.value} content.",
+    )
+
+
+def _cross_payload() -> CrossSectionReviewPayload:
+    return CrossSectionReviewPayload(annotations=())
+
+
 class RecordingCompletionPort:
-    def __init__(self, *, payload: ReviewPayload) -> None:
-        self._payload = payload
-        self.messages: list[ChatMessage] = []
+    def __init__(self) -> None:
+        self.call_count = 0
+        self.messages_by_call: list[list[ChatMessage]] = []
 
     async def complete_structured(
         self,
@@ -28,37 +46,62 @@ class RecordingCompletionPort:
         messages: list[ChatMessage],
         response_model: type[T],
     ) -> T:
-        self.messages = list(messages)
-        return response_model.model_validate(self._payload.model_dump())
+        self.call_count += 1
+        self.messages_by_call.append(list(messages))
+        if response_model is SectionReviewPayload:
+            section = _section_from_system_prompt(messages[0]["content"])
+            return response_model.model_validate(_section_payload(section).model_dump())
+        if response_model is CrossSectionReviewPayload:
+            return response_model.model_validate(_cross_payload().model_dump())
+        msg = f"Unexpected response model: {response_model}"
+        raise TypeError(msg)
 
 
-class FailingCompletionPort:
+class FlakyCompletionPort:
+    def __init__(self) -> None:
+        self.call_count = 0
+        self._failed_keys: set[str] = set()
+
     async def complete_structured(
         self,
         *,
         messages: list[ChatMessage],
         response_model: type[T],
     ) -> T:
+        self.call_count += 1
+        key = messages[0]["content"]
+        if key not in self._failed_keys:
+            self._failed_keys.add(key)
+            raise LlmProviderError("transient failure")
+        if response_model is SectionReviewPayload:
+            section = _section_from_system_prompt(messages[0]["content"])
+            return response_model.model_validate(_section_payload(section).model_dump())
+        return response_model.model_validate(_cross_payload().model_dump())
+
+
+class AlwaysFailingCompletionPort:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    async def complete_structured(
+        self,
+        *,
+        messages: list[ChatMessage],
+        response_model: type[T],
+    ) -> T:
+        self.call_count += 1
         raise LlmProviderError("provider down")
 
 
-def test_review_adr_maps_valid_payload_to_review_result(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from application.services.adr_review_service import AdrReviewService
+def _section_from_system_prompt(system_content: str) -> SectionName:
+    for section in SectionName:
+        if f"ADR {section.value} section" in system_content:
+            return section
+    msg = "Could not determine section from system prompt"
+    raise ValueError(msg)
 
-    markdown = "## Context\n\nWe need a store.\n"
-    payload = ReviewPayload(
-        annotations=(
-            ReviewAnnotationPayload(
-                kind=ReviewAnnotationKind.MISSING_SECTION,
-                message="Missing Decision section",
-                location="## Decision",
-                suggestion="Document the chosen option.",
-            ),
-        )
-    )
-    port = RecordingCompletionPort(payload=payload)
+
+def _patch_reviewed_at(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "application.services.adr_review_service.datetime",
         type(
@@ -67,54 +110,128 @@ def test_review_adr_maps_valid_payload_to_review_result(
             {"now": staticmethod(lambda tz=None: _REVIEWED_AT)},
         ),
     )
-    service = AdrReviewService(port)
+
+
+def test_static_gaps_produce_score_zero_ratings_without_llm_for_gap_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.services.adr_review_service import AdrReviewService
+
+    markdown = load_fixture("missing_context.md")
+    port = RecordingCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+
+    result = asyncio.run(service.review_adr(markdown))
+
+    context_rating = next(
+        rating
+        for rating in result.section_ratings
+        if rating.section is SectionName.CONTEXT
+    )
+    assert context_rating.score == 0
+    assert context_rating.feedback == ""
+    missing = [
+        annotation
+        for annotation in result.annotations
+        if annotation.kind is ReviewAnnotationKind.MISSING_SECTION
+    ]
+    assert len(missing) == 1
+    assert missing[0].location == "## Context"
+    assert port.call_count == 5
+
+
+def test_present_sections_invoke_parallel_llm_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.services.adr_review_service import AdrReviewService
+
+    markdown = load_fixture("complete.md")
+    port = RecordingCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+
+    result = asyncio.run(service.review_adr(markdown))
+
+    assert port.call_count == 6
+    assert len(result.section_ratings) == 5
+    assert all(rating.score >= 1 for rating in result.section_ratings)
+
+
+def test_per_call_retry_succeeds_on_second_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.services.adr_review_service import AdrReviewService
+
+    markdown = load_fixture("complete.md")
+    port = FlakyCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
 
     result = asyncio.run(service.review_adr(markdown))
 
     assert isinstance(result, ReviewResult)
-    assert result.reviewed_content == markdown
-    assert result.reviewed_at == _REVIEWED_AT
-    assert len(result.annotations) == 1
-    assert result.annotations[0].kind == ReviewAnnotationKind.MISSING_SECTION
-    assert result.annotations[0].message == "Missing Decision section"
+    assert port.call_count == 12
 
 
-def test_review_adr_sends_system_and_user_messages() -> None:
+def test_exhausted_per_call_retries_raise_adr_review_failed_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from application.services.adr_review_service import AdrReviewService
 
-    markdown = "## Context\n\nBody.\n"
-    payload = ReviewPayload(annotations=())
-    port = RecordingCompletionPort(payload=payload)
-    service = AdrReviewService(port)
+    markdown = load_fixture("complete.md")
+    port = AlwaysFailingCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
 
-    asyncio.run(service.review_adr(markdown))
+    with pytest.raises(AdrReviewFailedError):
+        asyncio.run(service.review_adr(markdown))
 
-    roles = [message["role"] for message in port.messages]
-    assert roles == ["system", "user"]
-    assert "Required sections" in port.messages[0]["content"]
-    assert markdown in port.messages[1]["content"]
+    assert port.call_count >= 2
 
 
-def test_review_adr_propagates_provider_error() -> None:
+def test_section_failure_after_retries_raises_without_partial_merge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from application.services.adr_review_service import AdrReviewService
 
-    service = AdrReviewService(FailingCompletionPort())
+    class ContextFailingPort(RecordingCompletionPort):
+        async def complete_structured(
+            self,
+            *,
+            messages: list[ChatMessage],
+            response_model: type[T],
+        ) -> T:
+            if response_model is SectionReviewPayload:
+                section = _section_from_system_prompt(messages[0]["content"])
+                if section is SectionName.CONTEXT:
+                    raise LlmProviderError("context review failed")
+            return await super().complete_structured(
+                messages=messages,
+                response_model=response_model,
+            )
 
-    with pytest.raises(LlmProviderError, match="provider down"):
-        asyncio.run(service.review_adr("## Context\n\nBody.\n"))
+    markdown = load_fixture("complete.md")
+    port = ContextFailingPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+
+    with pytest.raises(AdrReviewFailedError):
+        asyncio.run(service.review_adr(markdown))
 
 
-def test_review_adr_attaches_validation_feedback_to_user_message() -> None:
+def test_merged_complete_fixture_passes_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from application.services.adr_review_service import AdrReviewService
+    from application.review_quality import validate_review_result
 
-    markdown = "## Context\n\nBody.\n"
-    feedback = ("false negative: missing annotation for Decision",)
-    payload = ReviewPayload(annotations=())
-    port = RecordingCompletionPort(payload=payload)
-    service = AdrReviewService(port)
+    markdown = load_fixture("complete.md")
+    port = RecordingCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    service = AdrReviewService(port, review_llm_attempts_per_call=2)
 
-    asyncio.run(service.review_adr(markdown, validation_feedback=feedback))
+    result = asyncio.run(service.review_adr(markdown))
 
-    user_content = port.messages[1]["content"]
-    assert feedback[0] in user_content
-    assert "static validation" in user_content.casefold()
+    validation = validate_review_result(markdown, result)
+    assert validation.passed, validation.failures

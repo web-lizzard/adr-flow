@@ -69,3 +69,13 @@ class AdrEditWhileInReview(DomainError):
 class AdrInvalidReviewStatus(DomainError):
     def __init__(self) -> None:
         super().__init__("Review outcome can only be recorded while ADR is in_review")
+
+
+class AdrReviewFailedError(DomainError):
+    """Raised when parallel review or post-merge validation fails."""
+
+    section: str | None
+
+    def __init__(self, message: str, *, section: str | None = None) -> None:
+        super().__init__(message)
+        self.section = section

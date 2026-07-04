@@ -41,4 +41,7 @@ def build_adr_review_service(settings: Settings) -> AdrReviewService:
         provider=settings.llm_provider,
         model=settings.llm_model,
     )
-    return AdrReviewService(completion_port)
+    return AdrReviewService(
+        completion_port,
+        review_llm_attempts_per_call=settings.review_llm_attempts_per_call,
+    )

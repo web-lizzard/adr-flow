@@ -38,6 +38,11 @@ class Settings(BaseSettings):
         default=60.0,
         validation_alias="LLM_TIMEOUT_SECONDS",
     )
+    review_llm_attempts_per_call: int = Field(
+        default=2,
+        ge=1,
+        validation_alias="REVIEW_LLM_ATTEMPTS_PER_CALL",
+    )
     log_json: bool = Field(default=False, validation_alias="LOG_JSON")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 

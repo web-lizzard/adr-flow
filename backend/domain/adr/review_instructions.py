@@ -87,6 +87,15 @@ def build_cross_section_system_prompt() -> str:
     )
 
 
+def build_cross_section_user_message(markdown: str) -> str:
+    """Wrap full ADR markdown for the cross-section inconsistency request."""
+    return (
+        "Check whether Status reflects the recorded Decision in this ADR "
+        "and return annotations as specified:\n\n"
+        f"{markdown}"
+    )
+
+
 def build_section_user_message(
     section: SectionName,
     body: str,

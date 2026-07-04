@@ -26,6 +26,7 @@ _HEADING_TO_SECTION: dict[str, SectionName] = {
 }
 
 _PLACEHOLDER_TOKENS = frozenset({"tbd", "todo", "n/a"})
+PLACEHOLDER_TOKENS: tuple[str, ...] = tuple(sorted(_PLACEHOLDER_TOKENS))
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +61,7 @@ def parse_adr_sections(markdown: str) -> ParsedAdrSections:
     for line in markdown.splitlines():
         if line.startswith("## "):
             flush()
-            current_section = _HEADING_TO_SECTION.get(line.rstrip())
+            current_section = _HEADING_TO_SECTION.get(line)
         elif current_section is not None:
             current_body_lines.append(line)
 

@@ -1,78 +1,87 @@
 """Domain review instruction builder tests."""
 
+import pytest
+
 from domain.adr import SectionName
 from domain.adr.review_instructions import (
-    build_review_system_prompt,
-    build_review_user_message,
+    build_cross_section_system_prompt,
+    build_section_system_prompt,
+    build_section_user_message,
 )
 
 _PLACEHOLDER_TOKENS = ("tbd", "todo", "n/a")
 
 
-def test_system_prompt_lists_all_required_sections() -> None:
-    prompt = build_review_system_prompt()
+@pytest.mark.parametrize("section", list(SectionName))
+def test_section_system_prompt_lists_target_section(section: SectionName) -> None:
+    prompt = build_section_system_prompt(section)
 
-    for section in SectionName:
-        assert section.value in prompt
-
-
-def test_system_prompt_describes_placeholder_rules() -> None:
-    prompt = build_review_system_prompt().casefold()
-
-    for token in _PLACEHOLDER_TOKENS:
-        assert token in prompt
+    assert section.value in prompt
 
 
-def test_system_prompt_includes_per_kind_actionability_criteria() -> None:
-    prompt = build_review_system_prompt().casefold()
+@pytest.mark.parametrize("section", list(SectionName))
+def test_section_system_prompt_excludes_missing_section_instructions(
+    section: SectionName,
+) -> None:
+    prompt = build_section_system_prompt(section).casefold()
 
-    assert "missing_section" in prompt
+    assert "one missing_section annotation per gap" not in prompt
+    assert "treat a section as missing" not in prompt
+    assert "gaps are detected before your call" in prompt
+
+
+@pytest.mark.parametrize("section", list(SectionName))
+def test_section_system_prompt_includes_universal_rubric_anchors(
+    section: SectionName,
+) -> None:
+    prompt = build_section_system_prompt(section).casefold()
+
+    for anchor in ("score 1", "score 2", "score 3", "score 4", "score 5"):
+        assert anchor in prompt
+
+
+def test_cross_section_system_prompt_covers_decision_status_inconsistency() -> None:
+    prompt = build_cross_section_system_prompt().casefold()
+
+    assert "decision" in prompt
+    assert "status" in prompt
     assert "inconsistency" in prompt
-    assert "conciseness" in prompt
-    assert "suggestion" in prompt
-    assert "location" in prompt
-    assert "one missing_section annotation per gap" in prompt or (
-        "one" in prompt and "missing_section" in prompt
+    assert "treat a section as missing" not in prompt
+    assert "gaps are detected before your call" in prompt
+
+
+def test_section_user_message_includes_section_body() -> None:
+    body = "We need a database for the project."
+
+    message = build_section_user_message(SectionName.CONTEXT, body)
+
+    assert body in message
+    assert SectionName.CONTEXT.value in message
+
+
+def test_context_user_message_includes_full_document_for_conciseness() -> None:
+    body = "We need a database."
+    doc_markdown = f"## Context\n\n{body}\n\n## Options\n\nPostgreSQL vs MongoDB.\n"
+
+    message = build_section_user_message(
+        SectionName.CONTEXT,
+        body,
+        doc_markdown=doc_markdown,
     )
 
-
-def test_system_prompt_includes_inconsistency_and_conciseness_product_rules() -> None:
-    prompt = build_review_system_prompt().casefold()
-
-    assert "decision" in prompt and "status" in prompt
-    assert "verbose" in prompt or "concise" in prompt or "length" in prompt
+    assert "## Options" in message
+    assert "concise" in message.casefold() or "length" in message.casefold()
 
 
-def test_user_message_wraps_adr_markdown() -> None:
-    markdown = "## Context\n\nWe need a store.\n"
+def test_non_context_user_message_omits_doc_markdown_hint() -> None:
+    body = "We will use PostgreSQL."
+    doc_markdown = "## Context\n\nLong context.\n"
 
-    user_message = build_review_user_message(markdown)
-
-    assert markdown in user_message
-    assert "adr" in user_message.casefold()
-
-
-def test_user_message_includes_validation_feedback_on_retry() -> None:
-    markdown = "## Context\n\nWe need a store.\n"
-    feedback = (
-        "false negative: missing annotation for Decision",
-        "annotation 0 (missing_section): non-empty suggestion required",
+    message = build_section_user_message(
+        SectionName.DECISION,
+        body,
+        doc_markdown=doc_markdown,
     )
 
-    user_message = build_review_user_message(
-        markdown,
-        validation_feedback=feedback,
-    )
-
-    assert "static validation" in user_message.casefold()
-    assert feedback[0] in user_message
-    assert feedback[1] in user_message
-    assert markdown in user_message
-
-
-def test_user_message_omits_feedback_section_when_empty() -> None:
-    markdown = "## Context\n\nWe need a store.\n"
-
-    user_message = build_review_user_message(markdown, validation_feedback=())
-
-    assert "static validation" not in user_message.casefold()
+    assert body in message
+    assert "## Context" not in message

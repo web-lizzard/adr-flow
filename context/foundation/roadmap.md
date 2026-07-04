@@ -38,7 +38,7 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 | S-03 | adr-history-cards | return later, browse owned ADR cards, and reopen an existing ADR | S-02 | US-02, FR-013, NFR: Data retention | done |
 | S-06 | remove-adr-from-active-list | remove an ADR from the active card view without permanently destroying it | S-03 | FR-015, NFR: Data retention | proposed |
 | S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability | superseded |
-| R-01 | adr-validation-re-shape | receive static gap detection, per-section 0–5 ratings, and strict validation on AI review output | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability | implementing |
+| R-01 | adr-validation-re-shape | receive static gap detection, per-section 0–5 ratings, and strict validation on AI review output | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability | done |
 | S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | ready |
 | S-09 | conditional-adr-re-review | request one additional AI review when the first review reported errors — once per ADR | R-01, S-05 | US-01, FR-008 | proposed |
 
@@ -191,7 +191,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Six parallel LLM calls per review replace one monolithic call; acceptable for MVP event-driven review with frontend polling.
-- **Status:** implementing
+- **Status:** done
 
 ### S-08: JWT Bearer Access Token
 
@@ -271,3 +271,4 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **S-04: user can submit a draft for AI review and see actionable missing-section, inconsistency, and conciseness annotations in `after_review`.** — Archived 2026-06-18 → `context/archive/2026-06-17-first-ai-review-annotations/`. Lesson: —.
 - **S-05: user can edit the reviewed ADR without re-triggering review and publish it as `proposed`.** — Archived 2026-06-18 → `context/archive/2026-06-18-publish-after-review/`. Lesson: —.
 - **F-02: (foundation) Postgres driver, migration tooling, and initial schema contract for `User` and `ADR` entities are in place — including per-user ownership (`user_id`), the four-status lifecycle field, markdown content storage, timestamps, and a soft-delete flag for FR-015.** — Archived 2026-06-19 → `context/archive/2026-06-14-persistence-scaffold/`. Lesson: —.
+- **R-01: user receives deterministic static gap detection (score-0 ratings + `missing_section` annotations), per-section quality ratings (1–5) for present sections, and cross-section inconsistency/conciseness annotations; failed validation keeps ADR in `in_review` with `review_error`.** — Archived 2026-07-04 → `context/archive/2026-06-26-adr-validation-re-shape/`. Lesson: —.

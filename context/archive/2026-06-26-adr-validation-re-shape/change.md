@@ -1,10 +1,10 @@
 ---
 change_id: adr-validation-re-shape
 title: Adr validation re shape
-status: impl_reviewed
+status: archived
 created: 2026-06-26
 updated: 2026-07-04
-archived_at: null
+archived_at: 2026-07-04T18:45:02Z
 ---
 
 ## Notes

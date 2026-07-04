@@ -28,6 +28,8 @@ from domain.adr.review_llm_schema import (
 from domain.adr.static_review import synthesize_static_review
 from domain.adr.value_objects import ReviewResult
 
+from infrastructure.llm.rate_limit import retry_delay_seconds
+
 _logger = get_logger(__name__)
 
 _ResponseModel = TypeVar(
@@ -43,9 +45,11 @@ class AdrReviewService:
         completion_port: LlmCompletionPort,
         *,
         review_llm_attempts_per_call: int = 2,
+        review_llm_retry_base_seconds: float = 2.0,
     ) -> None:
         self._completion_port = completion_port
         self._review_llm_attempts_per_call = review_llm_attempts_per_call
+        self._review_llm_retry_base_seconds = review_llm_retry_base_seconds
 
     async def review_adr(
         self,
@@ -165,7 +169,7 @@ class AdrReviewService:
         section: str,
     ) -> _ResponseModel:
         last_error: Exception | None = None
-        for _ in range(self._review_llm_attempts_per_call):
+        for attempt_index in range(self._review_llm_attempts_per_call):
             try:
                 return await self._completion_port.complete_structured(
                     messages=messages,
@@ -173,6 +177,23 @@ class AdrReviewService:
                 )
             except Exception as exc:
                 last_error = exc
+                if attempt_index + 1 >= self._review_llm_attempts_per_call:
+                    break
+                delay_seconds = retry_delay_seconds(
+                    attempt_index,
+                    base_seconds=self._review_llm_retry_base_seconds,
+                    error=exc,
+                )
+                if delay_seconds > 0:
+                    _logger.warning(
+                        "adr_review.llm_call_retry_scheduled",
+                        section=section,
+                        attempt=attempt_index + 1,
+                        max_attempts=self._review_llm_attempts_per_call,
+                        delay_seconds=delay_seconds,
+                        error=str(exc),
+                    )
+                    await asyncio.sleep(delay_seconds)
 
         raise AdrReviewFailedError(
             f"LLM review failed for {section} after "

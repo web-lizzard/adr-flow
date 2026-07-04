@@ -5,15 +5,12 @@ from application.ports.adr_review import AdrReviewPort
 from application.ports.event_store import StoredEvent
 from application.ports.unit_of_work import UnitOfWorkFactory
 from application.review_metadata import ReviewErrorMetadata
-from application.review_quality import validate_review_result
 from domain.adr import ADRSubmittedForReview, AIReviewCompleted, AIReviewFailed, AdrId
 from domain.adr.rehydrate import rehydrate_adr
 from domain.adr.value_objects import AdrStatus, ReviewResult
 
 
 class RunAiReviewHandler:
-    _MAX_ATTEMPTS = 2
-
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
@@ -59,88 +56,29 @@ class RunAiReviewHandler:
                 )
                 return
 
-        last_error: str | None = None
-        validation_feedback: tuple[str, ...] = ()
-        last_result: ReviewResult | None = None
-        final_attempt_exception = False
-        for attempt in range(1, self._MAX_ATTEMPTS + 1):
+        try:
             self._logger.info(
-                "handler.run_ai_review.attempt",
+                "handler.run_ai_review.llm_call_started",
                 adr_id=str(adr_id),
-                attempt=attempt,
-                max_attempts=self._MAX_ATTEMPTS,
+                content_length=len(markdown),
             )
-            try:
-                self._logger.info(
-                    "handler.run_ai_review.llm_call_started",
-                    adr_id=str(adr_id),
-                    attempt=attempt,
-                    content_length=len(markdown),
-                )
-                result = await self._adr_review_service.review_adr(
-                    markdown,
-                    validation_feedback=validation_feedback,
-                )
-                last_result = result
-                validation = validate_review_result(markdown, result)
-                if validation.passed:
-                    annotation_count = len(result.annotations)
-                    await self._complete_review(stored_event, adr_id, result)
-                    self._logger.info(
-                        "handler.run_ai_review.completed",
-                        adr_id=str(adr_id),
-                        annotation_count=annotation_count,
-                    )
-                    return
-                last_error = "; ".join(validation.failures)
-                validation_feedback = validation.failures
-                self._logger.warning(
-                    "handler.run_ai_review.validation_failed",
-                    adr_id=str(adr_id),
-                    attempt=attempt,
-                    failures=validation.failures,
-                )
-            except Exception as exc:  # noqa: BLE001 - provider failures are retried
-                last_error = str(exc)
-                if attempt == self._MAX_ATTEMPTS:
-                    final_attempt_exception = True
-                    self._logger.error(
-                        "handler.run_ai_review.llm_call_failed",
-                        adr_id=str(adr_id),
-                        attempt=attempt,
-                        error=last_error,
-                        exc_info=True,
-                    )
-                else:
-                    self._logger.warning(
-                        "handler.run_ai_review.llm_call_failed",
-                        adr_id=str(adr_id),
-                        attempt=attempt,
-                        error=last_error,
-                    )
-
-        if final_attempt_exception:
-            await self._fail_review(
-                stored_event,
-                adr_id,
-                last_error or "Review failed",
+            result = await self._adr_review_service.review_adr(markdown)
+        except Exception as exc:  # noqa: BLE001 - provider failures fail the review
+            await self._fail_review(stored_event, adr_id, str(exc))
+            self._logger.error(
+                "handler.run_ai_review.failed",
+                adr_id=str(adr_id),
+                error=str(exc),
+                exc_info=True,
             )
             return
 
-        if last_result is not None:
-            annotation_count = len(last_result.annotations)
-            await self._complete_review(stored_event, adr_id, last_result)
-            self._logger.info(
-                "handler.run_ai_review.completed",
-                adr_id=str(adr_id),
-                annotation_count=annotation_count,
-            )
-            return
-
-        await self._fail_review(
-            stored_event,
-            adr_id,
-            last_error or "Review failed",
+        annotation_count = len(result.annotations)
+        await self._complete_review(stored_event, adr_id, result)
+        self._logger.info(
+            "handler.run_ai_review.completed",
+            adr_id=str(adr_id),
+            annotation_count=annotation_count,
         )
 
     def _skip_reason(

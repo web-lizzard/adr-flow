@@ -1,7 +1,7 @@
 """AdrReviewService parallel orchestration tests."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 
 import pytest
@@ -120,7 +120,11 @@ def test_static_gaps_produce_score_zero_ratings_without_llm_for_gap_sections(
     markdown = load_fixture("missing_context.md")
     port = RecordingCompletionPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     result = asyncio.run(service.review_adr(markdown))
 
@@ -149,7 +153,11 @@ def test_present_sections_invoke_parallel_llm_calls(
     markdown = load_fixture("complete.md")
     port = RecordingCompletionPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     result = asyncio.run(service.review_adr(markdown))
 
@@ -166,7 +174,11 @@ def test_per_call_retry_succeeds_on_second_attempt(
     markdown = load_fixture("complete.md")
     port = FlakyCompletionPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     result = asyncio.run(service.review_adr(markdown))
 
@@ -182,7 +194,11 @@ def test_exhausted_per_call_retries_raise_adr_review_failed_error(
     markdown = load_fixture("complete.md")
     port = AlwaysFailingCompletionPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     with pytest.raises(AdrReviewFailedError):
         asyncio.run(service.review_adr(markdown))
@@ -214,10 +230,109 @@ def test_section_failure_after_retries_raises_without_partial_merge(
     markdown = load_fixture("complete.md")
     port = ContextFailingPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     with pytest.raises(AdrReviewFailedError):
         asyncio.run(service.review_adr(markdown))
+
+
+def test_per_call_retry_uses_exponential_backoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.services.adr_review_service import AdrReviewService
+
+    markdown = load_fixture("complete.md")
+    port = FlakyCompletionPort()
+    _patch_reviewed_at(monkeypatch)
+    sleeps: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(
+        "application.services.adr_review_service.asyncio.sleep",
+        record_sleep,
+    )
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=2.0,
+    )
+
+    result = asyncio.run(service.review_adr(markdown))
+
+    assert isinstance(result, ReviewResult)
+    assert sleeps == [2.0] * 6
+
+
+def test_rate_limit_errors_wait_until_reset_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application.services.adr_review_service import AdrReviewService
+
+    now = datetime(2026, 7, 4, 16, 0, 0, tzinfo=UTC)
+    reset_at = now + timedelta(seconds=15)
+
+    class RateLimitedThenOkPort(FlakyCompletionPort):
+        async def complete_structured(
+            self,
+            *,
+            messages: list[ChatMessage],
+            response_model: type[T],
+        ) -> T:
+            self.call_count += 1
+            key = messages[0]["content"]
+            if key not in self._failed_keys:
+                self._failed_keys.add(key)
+                raise LlmProviderError(
+                    "LLM completion request failed: Error code: 429",
+                    rate_limit_reset_at=reset_at,
+                )
+            if response_model is SectionReviewPayload:
+                section = _section_from_system_prompt(messages[0]["content"])
+                return response_model.model_validate(
+                    _section_payload(section).model_dump(),
+                )
+            return response_model.model_validate(_cross_payload().model_dump())
+
+    markdown = load_fixture("complete.md")
+    port = RateLimitedThenOkPort()
+    _patch_reviewed_at(monkeypatch)
+    sleeps: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(
+        "application.services.adr_review_service.asyncio.sleep",
+        record_sleep,
+    )
+    monkeypatch.setattr(
+        "infrastructure.llm.rate_limit.random.uniform",
+        lambda _low, _high: 2.0,
+    )
+    monkeypatch.setattr(
+        "infrastructure.llm.rate_limit.datetime",
+        type(
+            "_FixedDatetime",
+            (),
+            {"now": staticmethod(lambda tz=None: now)},
+        ),
+    )
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=2.0,
+    )
+
+    asyncio.run(service.review_adr(markdown))
+
+    assert all(delay == pytest.approx(17.0) for delay in sleeps)
+    assert len(sleeps) == 6
 
 
 def test_merged_complete_fixture_passes_validation(
@@ -229,7 +344,11 @@ def test_merged_complete_fixture_passes_validation(
     markdown = load_fixture("complete.md")
     port = RecordingCompletionPort()
     _patch_reviewed_at(monkeypatch)
-    service = AdrReviewService(port, review_llm_attempts_per_call=2)
+    service = AdrReviewService(
+        port,
+        review_llm_attempts_per_call=2,
+        review_llm_retry_base_seconds=0,
+    )
 
     result = asyncio.run(service.review_adr(markdown))
 

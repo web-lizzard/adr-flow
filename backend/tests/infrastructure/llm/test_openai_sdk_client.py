@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
@@ -123,6 +124,30 @@ def test_openai_sdk_client_raises_provider_error_on_api_failure() -> None:
                 response_model=ReviewPayload,
             )
         )
+
+
+def test_openai_sdk_client_attaches_reset_at_on_rate_limit() -> None:
+    reset_ms = int((datetime.now(UTC) + timedelta(seconds=30)).timestamp() * 1000)
+    response = httpx.Response(
+        429,
+        request=httpx.Request("POST", "http://test"),
+        headers={"X-RateLimit-Reset": str(reset_ms)},
+    )
+    error = APIStatusError("rate limited", response=response, body={"error": "limit"})
+    client = _build_client(parse_side_effect=[error])
+
+    with pytest.raises(LlmProviderError) as exc_info:
+        asyncio.run(
+            client.complete_structured(
+                messages=[{"role": "user", "content": "## Context\n\nTBD\n"}],
+                response_model=ReviewPayload,
+            )
+        )
+
+    assert exc_info.value.rate_limit_reset_at == datetime.fromtimestamp(
+        reset_ms / 1000,
+        tz=UTC,
+    )
 
 
 def test_openai_sdk_client_raises_parse_error_on_invalid_json_object() -> None:

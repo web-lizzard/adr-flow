@@ -43,6 +43,11 @@ class Settings(BaseSettings):
         ge=1,
         validation_alias="REVIEW_LLM_ATTEMPTS_PER_CALL",
     )
+    review_llm_retry_base_seconds: float = Field(
+        default=2.0,
+        ge=0.0,
+        validation_alias="REVIEW_LLM_RETRY_BASE_SECONDS",
+    )
     log_json: bool = Field(default=False, validation_alias="LOG_JSON")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 

@@ -403,9 +403,9 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Automated
 
-- [ ] 3.1 `test_review_quality.py` updated for rating schema validation
-- [ ] 3.2 Handler tests pass with strict failure behavior
-- [ ] 3.3 `cd backend && uv run pytest tests/application/ -q`
+- [x] 3.1 `test_review_quality.py` updated for rating schema validation
+- [x] 3.2 Handler tests pass with strict failure behavior
+- [x] 3.3 `cd backend && uv run pytest tests/application/ -q`
 
 #### Manual
 

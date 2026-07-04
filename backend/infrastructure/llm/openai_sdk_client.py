@@ -10,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 from application.logging import get_logger
 from application.ports.llm_completion import ChatMessage
 from infrastructure.llm.errors import LlmParseError, LlmProviderError
+from infrastructure.llm.rate_limit import rate_limit_reset_at_from_api_error
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -70,12 +71,10 @@ class OpenAiSdkCompletionClient:
                     start=start,
                 )
             _log_api_error(exc, start)
-            msg = f"LLM completion request failed: {exc}"
-            raise LlmProviderError(msg) from exc
+            raise _provider_error(exc) from exc
         except APIStatusError as exc:
             _log_api_error(exc, start)
-            msg = f"LLM completion request failed: {exc}"
-            raise LlmProviderError(msg) from exc
+            raise _provider_error(exc) from exc
         except OpenAIError as exc:
             _logger.error(
                 "llm.review.http_error",
@@ -114,8 +113,7 @@ class OpenAiSdkCompletionClient:
             )
         except APIStatusError as exc:
             _log_api_error(exc, start)
-            msg = f"LLM completion request failed: {exc}"
-            raise LlmProviderError(msg) from exc
+            raise _provider_error(exc) from exc
         except OpenAIError as exc:
             _logger.error(
                 "llm.review.http_error",
@@ -156,6 +154,15 @@ def _user_message_length(messages: list[ChatMessage]) -> int:
 def _is_schema_error(exc: BadRequestError) -> bool:
     message = str(exc).lower()
     return any(marker in message for marker in _SCHEMA_ERROR_MARKERS)
+
+
+def _provider_error(exc: APIStatusError | BadRequestError) -> LlmProviderError:
+    msg = f"LLM completion request failed: {exc}"
+    reset_at = None
+    if isinstance(exc, APIStatusError) and exc.response is not None:
+        if exc.response.status_code == 429:
+            reset_at = rate_limit_reset_at_from_api_error(exc)
+    return LlmProviderError(msg, rate_limit_reset_at=reset_at)
 
 
 def _log_api_error(exc: APIStatusError | BadRequestError, start: float) -> None:

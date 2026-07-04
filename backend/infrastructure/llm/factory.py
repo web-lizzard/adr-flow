@@ -44,4 +44,5 @@ def build_adr_review_service(settings: Settings) -> AdrReviewService:
     return AdrReviewService(
         completion_port,
         review_llm_attempts_per_call=settings.review_llm_attempts_per_call,
+        review_llm_retry_base_seconds=settings.review_llm_retry_base_seconds,
     )

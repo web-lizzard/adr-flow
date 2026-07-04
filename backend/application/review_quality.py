@@ -2,12 +2,13 @@
 
 from dataclasses import dataclass
 
-from domain.adr import SectionName, find_missing_or_empty_sections
+from domain.adr.required_sections import SectionName
 from domain.adr.review_actionability import required_fields_for_kind
 from domain.adr.value_objects import (
     ReviewAnnotation,
     ReviewAnnotationKind,
     ReviewResult,
+    SectionRating,
 )
 
 _SECTION_NAMES_BY_CASEFOLD: dict[str, str] = {
@@ -25,10 +26,11 @@ def validate_review_result(
     markdown: str,
     result: ReviewResult,
 ) -> ReviewValidationResult:
-    """Validate actionability and missing-section coverage for review output."""
-    missing_failures = _missing_section_failures(markdown, result)
+    """Validate actionability and section rating schema for review output."""
+    del markdown
+    rating_failures = _section_rating_failures(result.section_ratings)
     actionability_failures = _actionability_failures(result)
-    failures = missing_failures + actionability_failures
+    failures = rating_failures + actionability_failures
     return ReviewValidationResult(passed=not failures, failures=failures)
 
 
@@ -82,22 +84,33 @@ def _is_non_empty(value: str | None) -> bool:
     return value is not None and bool(value.strip())
 
 
-def _missing_section_failures(
-    markdown: str,
-    result: ReviewResult,
+def _section_rating_failures(
+    section_ratings: tuple[SectionRating, ...],
 ) -> tuple[str, ...]:
-    expected = frozenset(
-        section.value for section in find_missing_or_empty_sections(markdown)
-    )
-    flagged = _flagged_missing_sections(result)
-
     failures: list[str] = []
-    for section in sorted(flagged - expected):
+    expected_count = len(SectionName)
+
+    if len(section_ratings) != expected_count:
         failures.append(
-            f"false positive: unexpected missing_section annotation for {section}"
+            f"expected {expected_count} section ratings, got {len(section_ratings)}"
         )
-    for section in sorted(expected - flagged):
-        failures.append(f"false negative: missing annotation for {section}")
+
+    rated_sections = [rating.section for rating in section_ratings]
+    if len(rated_sections) != len(set(rated_sections)):
+        failures.append("duplicate section ratings")
+
+    missing_sections = set(SectionName) - set(rated_sections)
+    if missing_sections:
+        missing = ", ".join(section.value for section in missing_sections)
+        failures.append(f"missing section ratings: {missing}")
+
+    for index, rating in enumerate(section_ratings):
+        prefix = f"section rating {index} ({rating.section.value})"
+        if rating.score < 0 or rating.score > 5:
+            failures.append(f"{prefix}: score must be between 0 and 5")
+        if rating.score >= 1 and not rating.feedback.strip():
+            failures.append(f"{prefix}: non-empty feedback required")
+
     return tuple(failures)
 
 

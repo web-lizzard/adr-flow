@@ -79,7 +79,7 @@ def test_to_review_result_maps_payload_fields() -> None:
 
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda case: case.name)
-def test_synthetic_payload_round_trips_through_validate_review_result(
+def test_synthetic_payload_without_section_ratings_fails_validation(
     case,
 ) -> None:
     expected = build_synthetic_result(case)
@@ -102,7 +102,10 @@ def test_synthetic_payload_round_trips_through_validate_review_result(
     )
     validation = validate_review_result(case.markdown, result)
 
-    assert validation.passed is True, validation.failures
+    assert validation.passed is False
+    assert any(
+        "expected 5 section ratings" in failure for failure in validation.failures
+    )
 
 
 def test_section_review_payload_rejects_score_outside_one_to_five() -> None:

@@ -378,14 +378,14 @@ No database migration. Existing `review_annotations` JSONB rows deserialize with
 
 #### Automated
 
-- [x] 1.1 Domain unit tests for SectionRating validation and static synthesis
-- [x] 1.2 Prompt builder tests for section and cross-section prompts
-- [x] 1.3 `cd backend && uv run ruff check . && uv run ty check`
-- [x] 1.4 `cd backend && uv run pytest tests/domain/adr/ -q`
+- [x] 1.1 Domain unit tests for SectionRating validation and static synthesis — dfdb01a
+- [x] 1.2 Prompt builder tests for section and cross-section prompts — dfdb01a
+- [x] 1.3 `cd backend && uv run ruff check . && uv run ty check` — dfdb01a
+- [x] 1.4 `cd backend && uv run pytest tests/domain/adr/ -q` — dfdb01a
 
 #### Manual
 
-- [ ] 1.5 Spot-check generated prompts include rubric anchors per section
+- [x] 1.5 Spot-check generated prompts include rubric anchors per section — dfdb01a
 
 ### Phase 2: Parallel Review Service
 

@@ -73,6 +73,21 @@ def is_rate_limit_error(error: Exception) -> bool:
     return False
 
 
+class LlmRetryDelay:
+    """Retry delay adapter with rate-limit header awareness."""
+
+    def compute_delay(
+        self,
+        attempt_index: int,
+        *,
+        base_seconds: float,
+        error: Exception,
+    ) -> float:
+        return retry_delay_seconds(
+            attempt_index, base_seconds=base_seconds, error=error
+        )
+
+
 def retry_delay_seconds(
     attempt_index: int,
     *,

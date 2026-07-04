@@ -6,6 +6,7 @@ from typing import TypeVar
 
 from application.logging import get_logger
 from application.ports.llm_completion import ChatMessage, LlmCompletionPort
+from application.ports.retry_delay import ExponentialBackoff, RetryDelayPort
 from application.review_quality import validate_review_result
 from domain.errors import AdrReviewFailedError
 from domain.adr.required_sections import (
@@ -28,8 +29,6 @@ from domain.adr.review_llm_schema import (
 from domain.adr.static_review import synthesize_static_review
 from domain.adr.value_objects import ReviewResult
 
-from infrastructure.llm.rate_limit import retry_delay_seconds
-
 _logger = get_logger(__name__)
 
 _ResponseModel = TypeVar(
@@ -46,10 +45,12 @@ class AdrReviewService:
         *,
         review_llm_attempts_per_call: int = 2,
         review_llm_retry_base_seconds: float = 2.0,
+        retry_delay: RetryDelayPort | None = None,
     ) -> None:
         self._completion_port = completion_port
         self._review_llm_attempts_per_call = review_llm_attempts_per_call
         self._review_llm_retry_base_seconds = review_llm_retry_base_seconds
+        self._retry_delay: RetryDelayPort = retry_delay or ExponentialBackoff()
 
     async def review_adr(
         self,
@@ -179,7 +180,7 @@ class AdrReviewService:
                 last_error = exc
                 if attempt_index + 1 >= self._review_llm_attempts_per_call:
                     break
-                delay_seconds = retry_delay_seconds(
+                delay_seconds = self._retry_delay.compute_delay(
                     attempt_index,
                     base_seconds=self._review_llm_retry_base_seconds,
                     error=exc,

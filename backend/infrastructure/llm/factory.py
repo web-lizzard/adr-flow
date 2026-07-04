@@ -5,6 +5,7 @@ from application.services.adr_review_service import AdrReviewService
 from infrastructure.config import Settings
 from infrastructure.llm.fake_completion import FakeLlmCompletionPort
 from infrastructure.llm.openai_sdk_client import OpenAiSdkCompletionClient
+from infrastructure.llm.rate_limit import LlmRetryDelay
 
 _logger = get_logger(__name__)
 _OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -45,4 +46,5 @@ def build_adr_review_service(settings: Settings) -> AdrReviewService:
         completion_port,
         review_llm_attempts_per_call=settings.review_llm_attempts_per_call,
         review_llm_retry_base_seconds=settings.review_llm_retry_base_seconds,
+        retry_delay=LlmRetryDelay(),
     )

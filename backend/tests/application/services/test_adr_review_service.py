@@ -323,10 +323,13 @@ def test_rate_limit_errors_wait_until_reset_header(
             {"now": staticmethod(lambda tz=None: now)},
         ),
     )
+    from infrastructure.llm.rate_limit import LlmRetryDelay
+
     service = AdrReviewService(
         port,
         review_llm_attempts_per_call=2,
         review_llm_retry_base_seconds=2.0,
+        retry_delay=LlmRetryDelay(),
     )
 
     asyncio.run(service.review_adr(markdown))

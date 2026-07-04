@@ -45,7 +45,7 @@ class PublishAdrCommandHandler:
                 raise AdrNotFound()
 
             updated_at = datetime.now(UTC)
-            adr.publish(updated_at)
+            new_adr = adr.publish(updated_at)
             event = ADRPublished(
                 adr_id=AdrId(command.adr_id),
                 occurred_at=updated_at,
@@ -64,7 +64,7 @@ class PublishAdrCommandHandler:
                 self._logger.info(
                     "command.publish_adr.rejected",
                     reason="invalid_status",
-                    current_status=adr.status.value,
+                    current_status=new_adr.status.value,
                     adr_id=adr_id,
                 )
                 raise AdrInvalidPublishStatus()

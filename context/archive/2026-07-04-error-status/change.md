@@ -1,10 +1,10 @@
 ---
 change_id: error-status
 title: Error status
-status: implemented
+status: archived
 created: 2026-07-04
 updated: 2026-07-05
-archived_at: null
+archived_at: 2026-07-05T00:09:34Z
 ---
 
 ## Notes

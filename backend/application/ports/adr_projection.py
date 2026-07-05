@@ -16,6 +16,10 @@ class AdrProjection(Protocol):
 
     async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool: ...
 
+    async def mark_soft_deleted(
+        self, adr_id: UUID, *, updated_at: datetime
+    ) -> bool: ...
+
     async def apply_review_result(
         self,
         adr_id: UUID,

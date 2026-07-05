@@ -850,3 +850,74 @@ def test_publish_returns_404_for_other_users_adr(auth_client) -> None:
     response = auth_client.post(f"/api/adrs/{adr_id}/publish")
 
     assert response.status_code == 404
+
+
+def test_delete_adr_returns_204_and_excludes_from_list(auth_client, db_engine) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client, "Delete Me ADR")
+    _create_adr(auth_client, "Keep Me ADR")
+
+    response = auth_client.delete(f"/api/adrs/{adr_id}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    list_response = auth_client.get("/api/adrs")
+    assert list_response.status_code == 200
+    titles = [adr["title"] for adr in list_response.json()["results"]]
+    assert "Delete Me ADR" not in titles
+    assert "Keep Me ADR" in titles
+
+    get_response = auth_client.get(f"/api/adrs/{adr_id}")
+    assert get_response.status_code == 404
+
+    with db_engine.begin() as connection:
+        row = connection.execute(
+            text("SELECT is_deleted, status FROM adrs WHERE id = :id"),
+            {"id": adr_id},
+        ).one()
+        assert row.is_deleted is True
+        assert row.status == "draft"
+
+
+def test_delete_adr_twice_returns_400_already_deleted(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    first = auth_client.delete(f"/api/adrs/{adr_id}")
+    assert first.status_code == 204
+
+    second = auth_client.delete(f"/api/adrs/{adr_id}")
+    assert second.status_code == 400
+    assert second.json()["kind"] == "adr_already_deleted"
+
+
+def test_delete_adr_returns_404_for_missing_adr(auth_client) -> None:
+    _register_user(auth_client)
+
+    response = auth_client.delete(f"/api/adrs/{UUID(int=0)}")
+
+    assert response.status_code == 404
+
+
+def test_unauthenticated_delete_returns_401(auth_client) -> None:
+    response = auth_client.delete(f"/api/adrs/{UUID(int=0)}")
+
+    assert response.status_code == 401
+
+
+def test_delete_adr_returns_404_for_other_users_adr(auth_client) -> None:
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "delete-owner@example.com", "password": "password123"},
+    )
+    adr_id = _create_adr(auth_client)
+    auth_client.cookies.clear()
+
+    auth_client.post(
+        "/api/auth/register",
+        json={"email": "delete-intruder@example.com", "password": "password123"},
+    )
+    response = auth_client.delete(f"/api/adrs/{adr_id}")
+
+    assert response.status_code == 404

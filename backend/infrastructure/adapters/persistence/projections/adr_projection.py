@@ -61,6 +61,21 @@ class SqlAdrProjection(AdrProjection):
         )
         return result.rowcount == 1
 
+    async def mark_soft_deleted(self, adr_id: UUID, *, updated_at: datetime) -> bool:
+        result = cast(
+            CursorResult,
+            await self._session.execute(
+                update(Adr)
+                .where(Adr.id == adr_id)
+                .where(Adr.is_deleted.is_(False))
+                .values(
+                    is_deleted=True,
+                    updated_at=updated_at,
+                )
+            ),
+        )
+        return result.rowcount == 1
+
     async def apply_review_result(
         self,
         adr_id: UUID,

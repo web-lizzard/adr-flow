@@ -82,3 +82,60 @@ def test_adr_projection_inserts_and_updates_content(
             await engine.dispose()
 
     asyncio.run(run_scenario())
+
+
+def test_mark_soft_deleted_returns_true_once_false_on_second_call(
+    postgres_url: str,
+    db_engine,
+) -> None:
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    adr_id = uuid4()
+    user_id = uuid4()
+    created_at = datetime(2026, 6, 16, 10, 0, tzinfo=UTC)
+    deleted_at = datetime(2026, 7, 5, 10, 0, tzinfo=UTC)
+
+    async def run_scenario() -> None:
+        engine = create_async_engine(normalize_runtime_database_url(postgres_url))
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    projection = SqlAdrProjection(session)
+                    await projection.insert(
+                        draft_adr(
+                            adr_id=adr_id,
+                            user_id=user_id,
+                            title="Soft delete me",
+                            created_at=created_at,
+                            updated_at=created_at,
+                        )
+                    )
+
+            async with session_factory() as session:
+                async with session.begin():
+                    projection = SqlAdrProjection(session)
+                    first = await projection.mark_soft_deleted(
+                        adr_id,
+                        updated_at=deleted_at,
+                    )
+                    second = await projection.mark_soft_deleted(
+                        adr_id,
+                        updated_at=deleted_at,
+                    )
+                    assert first is True
+                    assert second is False
+
+            async with session_factory() as session:
+                result = await session.execute(select(Adr).where(Adr.id == adr_id))
+                row = result.scalar_one()
+                assert row.is_deleted is True
+                assert row.status == "draft"
+                assert row.updated_at == deleted_at
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run_scenario())

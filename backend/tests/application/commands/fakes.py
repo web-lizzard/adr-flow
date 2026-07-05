@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from application.ports.event_store import StoredEvent
 from domain.adr import (
     ADRCreated,
+    ADRSoftDeleted,
     ADRSubmittedForReview,
     AIReviewCompleted,
     AIReviewFailed,
@@ -94,6 +95,7 @@ class FakeAdrProjection:
         self.updated: list = []
         self.marked_in_review: list[tuple[UUID, datetime]] = []
         self.marked_proposed: list[tuple[UUID, datetime]] = []
+        self.marked_soft_deleted: list[tuple[UUID, datetime]] = []
         self.applied_results: list[tuple[UUID, ReviewResult, datetime]] = []
         self.recorded_failures: list = []
 
@@ -108,6 +110,10 @@ class FakeAdrProjection:
 
     async def mark_proposed(self, adr_id: UUID, *, updated_at: datetime) -> bool:
         self.marked_proposed.append((adr_id, updated_at))
+        return True
+
+    async def mark_soft_deleted(self, adr_id: UUID, *, updated_at: datetime) -> bool:
+        self.marked_soft_deleted.append((adr_id, updated_at))
         return True
 
     async def apply_review_result(
@@ -274,6 +280,34 @@ def review_failed_stream(
                 occurred_at=failed_at,
             ),
             occurred_at=failed_at,
+        )
+    )
+    return stream
+
+
+def soft_deleted_stream(
+    *,
+    adr_id: UUID,
+    user_id: UUID,
+    title: str = "My ADR",
+    content: str = "## Context",
+    deleted_at: datetime | None = None,
+) -> list[StoredEvent]:
+    """Event stream ending in ``is_deleted=True`` (created + soft-deleted)."""
+    when = deleted_at or datetime(2026, 7, 5, 10, 0, tzinfo=UTC)
+    stream = adr_created_stream(
+        adr_id=adr_id,
+        user_id=user_id,
+        title=title,
+        content=content,
+    )
+    stream.append(
+        StoredEvent(
+            id=uuid4(),
+            aggregate_type="adr",
+            aggregate_id=adr_id,
+            event=ADRSoftDeleted(adr_id=AdrId(adr_id), occurred_at=when),
+            occurred_at=when,
         )
     )
     return stream

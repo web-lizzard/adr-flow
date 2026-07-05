@@ -413,10 +413,10 @@ None. `is_deleted` column and read-path filters already exist from F-02/S-03.
 
 #### Automated
 
-- [ ] 2.1 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_soft_delete_adr.py -q`
-- [ ] 2.2 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k delete -q`
-- [ ] 2.3 Full backend suite passes: `cd backend && uv run pytest -q`
-- [ ] 2.4 Ruff and ty pass on touched backend files
+- [x] 2.1 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_soft_delete_adr.py -q`
+- [x] 2.2 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k delete -q`
+- [x] 2.3 Full backend suite passes: `cd backend && uv run pytest -q`
+- [x] 2.4 Ruff and ty pass on touched backend files
 
 #### Manual
 

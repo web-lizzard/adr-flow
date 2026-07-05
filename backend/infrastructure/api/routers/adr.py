@@ -13,6 +13,10 @@ from application.commands.retry_adr_for_review import (
     RetryAdrForReviewCommand,
     RetryAdrForReviewCommandHandler,
 )
+from application.commands.soft_delete_adr import (
+    SoftDeleteAdrCommand,
+    SoftDeleteAdrCommandHandler,
+)
 from application.commands.submit_adr_for_review import (
     SubmitAdrForReviewCommand,
     SubmitAdrForReviewCommandHandler,
@@ -42,6 +46,7 @@ from infrastructure.api.dependencies import (
     get_publish_adr_handler,
     get_retry_adr_for_review_handler,
     get_search_adrs_handler,
+    get_soft_delete_adr_handler,
     get_submit_adr_for_review_handler,
     get_update_adr_content_handler,
 )
@@ -113,6 +118,21 @@ async def publish_adr(
     await handler.handle(PublishAdrCommand(adr_id=adr_id, user_id=user_id))
     _logger.info(
         "route.adrs.publish.completed",
+        adr_id=str(adr_id),
+        status_code=204,
+    )
+    return Response(status_code=204)
+
+
+@router.delete("/{adr_id}", status_code=204)
+async def delete_adr(
+    adr_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    handler: SoftDeleteAdrCommandHandler = Depends(get_soft_delete_adr_handler),
+) -> Response:
+    await handler.handle(SoftDeleteAdrCommand(adr_id=adr_id, user_id=user_id))
+    _logger.info(
+        "route.adrs.delete.completed",
         adr_id=str(adr_id),
         status_code=204,
     )

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 
 from application.commands.register_user import (
     RegisterUserCommand,
@@ -25,33 +25,30 @@ from domain.errors import (
     ValueObjectError,
 )
 from infrastructure.api.dependencies import (
-    SESSION_COOKIE_NAME,
     get_authenticate_user_handler,
     get_current_user_handler,
     get_current_user_id,
     get_register_user_handler,
-    get_settings,
     get_token_service,
 )
-from infrastructure.api.schemas.auth import LoginRequest, RegisterRequest, UserResponse
+from infrastructure.api.schemas.auth import (
+    AuthResponse,
+    LoginRequest,
+    RegisterRequest,
+    UserResponse,
+)
 from application.logging import get_logger
-from infrastructure.config import Settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _logger = get_logger(__name__)
 
-SESSION_MAX_AGE_SECONDS = 86400
 
-
-@router.post("/register", status_code=201, response_model=UserResponse)
+@router.post("/register", status_code=201, response_model=AuthResponse)
 async def register(
     body: RegisterRequest,
-    response: Response,
     handler: RegisterUserCommandHandler = Depends(get_register_user_handler),
     token_service: TokenService = Depends(get_token_service),
-    settings: Settings = Depends(get_settings),
-    get_user_handler: GetCurrentUserQueryHandler = Depends(get_current_user_handler),
-) -> UserResponse:
+) -> AuthResponse:
     try:
         user_id = await handler.handle(
             RegisterUserCommand(email=body.email, password=body.password)
@@ -78,22 +75,16 @@ async def register(
         ) from None
 
     token = token_service.create_token(user_id)
-    _set_session_cookie(response, token, settings)
-
-    user = await get_user_handler.handle(GetCurrentUserQuery(user_id=user_id))
     _logger.info("route.auth.register.completed", status_code=201)
-    return _to_user_response(user)
+    return AuthResponse(access_token=token)
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", response_model=AuthResponse)
 async def login(
     body: LoginRequest,
-    response: Response,
     handler: AuthenticateUserQueryHandler = Depends(get_authenticate_user_handler),
     token_service: TokenService = Depends(get_token_service),
-    settings: Settings = Depends(get_settings),
-    get_user_handler: GetCurrentUserQueryHandler = Depends(get_current_user_handler),
-) -> UserResponse:
+) -> AuthResponse:
     try:
         user_id = await handler.handle(
             AuthenticateUserQuery(email=body.email, password=body.password)
@@ -110,11 +101,8 @@ async def login(
         ) from None
 
     token = token_service.create_token(user_id)
-    _set_session_cookie(response, token, settings)
-
-    user = await get_user_handler.handle(GetCurrentUserQuery(user_id=user_id))
     _logger.info("route.auth.login.completed", status_code=200)
-    return _to_user_response(user)
+    return AuthResponse(access_token=token)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -128,22 +116,6 @@ async def me(
         raise HTTPException(status_code=401, detail="Not authenticated") from None
 
     return _to_user_response(user)
-
-
-def _set_session_cookie(
-    response: Response,
-    token: str,
-    settings: Settings,
-) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        path=settings.cookie_path,
-        max_age=SESSION_MAX_AGE_SECONDS,
-    )
 
 
 def _to_user_response(user: UserReadModel) -> UserResponse:

@@ -21,7 +21,6 @@ from application.queries.search_adrs_by_title import SearchAdrsByTitleQueryHandl
 from application.logging import get_logger
 from infrastructure.config import Settings
 
-SESSION_COOKIE_NAME = "session"
 _logger = get_logger(__name__)
 
 
@@ -97,9 +96,14 @@ def get_current_user_id(
     request: Request,
     token_service: TokenService = Depends(get_token_service),
 ) -> UUID:
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if token is None:
-        _logger.info("auth.missing_cookie", path=request.url.path)
+    authorization = request.headers.get("Authorization")
+    if authorization is None or not authorization.startswith("Bearer "):
+        _logger.info("auth.missing_token", path=request.url.path)
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        _logger.info("auth.missing_token", path=request.url.path)
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     user_id = token_service.decode_token(token)

@@ -510,8 +510,6 @@ def test_invalid_review_surfaces_review_error(
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     with TestClient(create_app(settings=settings)) as client:
@@ -607,8 +605,6 @@ def test_replay_processes_unprocessed_submit_event(
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     with TestClient(create_app(settings=settings)) as client:
@@ -651,8 +647,6 @@ def test_replay_does_not_duplicate_completed_review(
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     with TestClient(create_app(settings=settings)) as client:
@@ -768,8 +762,6 @@ def test_retry_review_from_review_failed_returns_202(
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     with TestClient(create_app(settings=settings)) as client:

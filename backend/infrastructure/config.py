@@ -25,8 +25,6 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = Field(
         validation_alias="CORS_ORIGINS"
     )
-    cookie_secure: bool = Field(validation_alias="COOKIE_SECURE")
-    cookie_path: str = Field(validation_alias="COOKIE_PATH")
     llm_provider: LlmProviderMode = Field(
         default="fake",
         validation_alias="LLM_PROVIDER",
@@ -56,13 +54,6 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
-
-    @field_validator("cookie_secure", mode="before")
-    @classmethod
-    def parse_cookie_secure(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.lower() == "true"
         return value
 
     @field_validator("log_json", mode="before")

@@ -104,8 +104,6 @@ def review_bus_client(postgres_url: str, db_engine) -> Iterator[TestClient]:
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     with TestClient(create_app(settings=settings)) as client:

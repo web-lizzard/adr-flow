@@ -28,3 +28,7 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     created_at: datetime
+
+
+class AuthResponse(BaseModel):
+    access_token: str

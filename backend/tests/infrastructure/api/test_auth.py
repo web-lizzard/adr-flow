@@ -8,9 +8,10 @@ import jwt
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from infrastructure.api.dependencies import SESSION_COOKIE_NAME
 from infrastructure.bootstrap import create_app
 from infrastructure.config import Settings
+
+SESSION_COOKIE_NAME = "session"
 
 _JWT_SECRET = "test-jwt-secret-at-least-32-characters"
 _OTHER_JWT_SECRET = "other-jwt-secret-also-32-chars-min"
@@ -75,8 +76,6 @@ def test_register_default_cookie_path_matches_browser_api_contract(
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
     )
     app = create_app(settings=settings)
 
@@ -289,8 +288,6 @@ def test_login_cookie_includes_secure_when_configured(postgres_url) -> None:
         database_url=postgres_url,
         jwt_secret=_JWT_SECRET,
         cors_origins=["http://testserver"],
-        cookie_secure=True,
-        cookie_path="/api",
     )
     app = create_app(settings=settings)
 

@@ -25,8 +25,6 @@ def auth_client(postgres_url: str) -> Iterator[TestClient]:
         database_url=postgres_url,
         jwt_secret="test-jwt-secret-at-least-32-characters",
         cors_origins=["http://testserver"],
-        cookie_secure=False,
-        cookie_path="/api",
         llm_provider="fake",
     )
     app = create_app(settings=settings)

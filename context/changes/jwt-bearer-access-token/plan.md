@@ -445,9 +445,9 @@ Remove obsolete cookie env vars from deployment surfaces and update documentatio
 
 #### Automated
 
-- [ ] 3.1 ESLint passes: `cd frontend && pnpm run lint`
-- [ ] 3.2 Typecheck passes: `cd frontend && pnpm run typecheck`
-- [ ] 3.3 Auth store tests pass: `cd frontend && pnpm exec vitest run tests/auth.store.test.ts`
+- [x] 3.1 ESLint passes: `cd frontend && pnpm run lint`
+- [x] 3.2 Typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 3.3 Auth store tests pass: `cd frontend && pnpm exec vitest run tests/auth.store.test.ts`
 
 #### Manual
 

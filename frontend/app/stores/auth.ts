@@ -1,4 +1,8 @@
-import { apiPath } from "../../composables/useApi";
+import { apiFetch, apiPath } from "../../composables/useApi";
+import {
+  clearAccessToken,
+  setAccessToken,
+} from "../../composables/useAuthToken";
 
 export type AuthUser = {
   id: string;
@@ -10,6 +14,10 @@ type UserResponse = {
   id: string;
   email: string;
   created_at: string;
+};
+
+type AuthResponse = {
+  access_token: string;
 };
 
 function toAuthUser(response: UserResponse): AuthUser {
@@ -26,10 +34,15 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isAuthenticated = computed(() => user.value !== null);
 
+  function clearAuth(): void {
+    user.value = null;
+    clearAccessToken();
+  }
+
   async function fetchUser(): Promise<boolean> {
     loading.value = true;
     try {
-      const response = await $fetch<UserResponse>(apiPath("/auth/me"));
+      const response = await apiFetch<UserResponse>(apiPath("/auth/me"));
       user.value = toAuthUser(response);
       return true;
     } catch {
@@ -43,11 +56,12 @@ export const useAuthStore = defineStore("auth", () => {
   async function register(email: string, password: string): Promise<void> {
     loading.value = true;
     try {
-      const response = await $fetch<UserResponse>(apiPath("/auth/register"), {
+      const response = await $fetch<AuthResponse>(apiPath("/auth/register"), {
         method: "POST",
         body: { email, password },
       });
-      user.value = toAuthUser(response);
+      setAccessToken(response.access_token);
+      await fetchUser();
     } finally {
       loading.value = false;
     }
@@ -56,11 +70,12 @@ export const useAuthStore = defineStore("auth", () => {
   async function login(email: string, password: string): Promise<void> {
     loading.value = true;
     try {
-      const response = await $fetch<UserResponse>(apiPath("/auth/login"), {
+      const response = await $fetch<AuthResponse>(apiPath("/auth/login"), {
         method: "POST",
         body: { email, password },
       });
-      user.value = toAuthUser(response);
+      setAccessToken(response.access_token);
+      await fetchUser();
     } finally {
       loading.value = false;
     }
@@ -73,6 +88,7 @@ export const useAuthStore = defineStore("auth", () => {
     fetchUser,
     register,
     login,
+    clearAuth,
   };
 });
 

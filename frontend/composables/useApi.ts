@@ -1,3 +1,5 @@
+import { getAccessToken } from "./useAuthToken";
+
 export type HealthResponse = {
   status: string;
 };
@@ -74,65 +76,108 @@ export function apiPath(segment: string): string {
   return `${base}${path}`;
 }
 
+function is401(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status?: number }).status === 401
+  );
+}
+
+function shouldRedirectToLogin(): boolean {
+  if (typeof window === "undefined" || import.meta.server === true) {
+    return false;
+  }
+  const path = window.location.pathname;
+  return path !== "/login" && path !== "/register";
+}
+
+export async function apiFetch<T>(
+  url: string,
+  options?: Parameters<typeof $fetch>[1],
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...((options?.headers as Record<string, string> | undefined) ?? {}),
+  };
+  const token = getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    return await $fetch<T>(url, { ...options, headers });
+  } catch (error) {
+    if (is401(error)) {
+      const { useAuthStore } = await import("../app/stores/auth");
+      useAuthStore().clearAuth();
+      if (shouldRedirectToLogin()) {
+        await navigateTo("/login");
+      }
+    }
+    throw error;
+  }
+}
+
 export function fetchHealth() {
   return $fetch<HealthResponse>(apiPath("/health"));
 }
 
 export function createAdr(title: string) {
-  return $fetch<CreateAdrResponse>(apiPath("/adrs"), {
+  return apiFetch<CreateAdrResponse>(apiPath("/adrs"), {
     method: "POST",
     body: { title },
   });
 }
 
 export function fetchAdr(id: string) {
-  return $fetch<AdrResponse>(apiPath(`/adrs/${id}`));
+  return apiFetch<AdrResponse>(apiPath(`/adrs/${id}`));
 }
 
 export function updateAdr(
   id: string,
   data: { title?: string; content?: string },
 ) {
-  return $fetch<AdrResponse>(apiPath(`/adrs/${id}`), {
+  return apiFetch<AdrResponse>(apiPath(`/adrs/${id}`), {
     method: "PATCH",
     body: data,
   });
 }
 
 export function searchAdrs(query: string) {
-  return $fetch<SearchAdrsResponse>(apiPath("/adrs/search"), {
+  return apiFetch<SearchAdrsResponse>(apiPath("/adrs/search"), {
     query: { q: query },
   });
 }
 
 export function listAdrs() {
-  return $fetch<ListAdrsResponse>(apiPath("/adrs"));
+  return apiFetch<ListAdrsResponse>(apiPath("/adrs"));
 }
 
 export function submitAdrForReview(id: string) {
-  return $fetch<void>(apiPath(`/adrs/${id}/submit-review`), {
+  return apiFetch<void>(apiPath(`/adrs/${id}/submit-review`), {
     method: "POST",
   });
 }
 
 export function retryAdrForReview(id: string) {
-  return $fetch<void>(apiPath(`/adrs/${id}/retry-review`), {
+  return apiFetch<void>(apiPath(`/adrs/${id}/retry-review`), {
     method: "POST",
   });
 }
 
 export function publishAdr(id: string) {
-  return $fetch<void>(apiPath(`/adrs/${id}/publish`), {
+  return apiFetch<void>(apiPath(`/adrs/${id}/publish`), {
     method: "POST",
   });
 }
 
 export function deleteAdr(id: string) {
-  return $fetch<void>(apiPath(`/adrs/${id}`), {
+  return apiFetch<void>(apiPath(`/adrs/${id}`), {
     method: "DELETE",
   });
 }
 
 export function fetchAdrReviewStatus(id: string) {
-  return $fetch<ReviewStatusResponse>(apiPath(`/adrs/${id}/review-status`));
+  return apiFetch<ReviewStatusResponse>(apiPath(`/adrs/${id}/review-status`));
 }

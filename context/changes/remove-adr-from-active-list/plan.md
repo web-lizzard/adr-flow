@@ -413,15 +413,15 @@ None. `is_deleted` column and read-path filters already exist from F-02/S-03.
 
 #### Automated
 
-- [x] 2.1 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_soft_delete_adr.py -q`
-- [x] 2.2 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k delete -q`
-- [x] 2.3 Full backend suite passes: `cd backend && uv run pytest -q`
-- [x] 2.4 Ruff and ty pass on touched backend files
+- [x] 2.1 Command tests pass: `cd backend && uv run pytest tests/application/commands/test_soft_delete_adr.py -q` — 268a7ef
+- [x] 2.2 API tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -k delete -q` — 268a7ef
+- [x] 2.3 Full backend suite passes: `cd backend && uv run pytest -q` — 268a7ef
+- [x] 2.4 Ruff and ty pass on touched backend files — 268a7ef
 
 #### Manual
 
-- [ ] 2.5 `curl -X DELETE` (with session cookie) removes ADR from list response
-- [ ] 2.6 OpenAPI docs show `DELETE /api/adrs/{adr_id}` returning 204
+- [x] 2.5 `curl -X DELETE` (with session cookie) removes ADR from list response — 268a7ef
+- [x] 2.6 OpenAPI docs show `DELETE /api/adrs/{adr_id}` returning 204 — 268a7ef
 
 ### Phase 3: Frontend Remove UX
 

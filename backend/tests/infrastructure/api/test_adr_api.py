@@ -9,13 +9,17 @@ from domain.adr.template import ADR_STARTER_TEMPLATE
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.infrastructure.api.conftest import (
+    clear_bearer_auth,
+    register_and_get_token,
+    set_bearer_auth,
+)
 
-def _register_user(client: TestClient, email: str = "adr-user@example.com") -> None:
-    response = client.post(
-        "/api/auth/register",
-        json={"email": email, "password": "password123"},
-    )
-    assert response.status_code == 201
+
+def _register_user(client: TestClient, email: str = "adr-user@example.com") -> str:
+    token = register_and_get_token(client, email)
+    set_bearer_auth(client, token)
+    return token
 
 
 def _create_adr(client: TestClient, title: str = "My First ADR") -> UUID:
@@ -68,17 +72,13 @@ def test_create_adr_with_duplicate_title_returns_409(auth_client) -> None:
 
 
 def test_create_adr_same_title_different_users_succeeds(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "user-a@example.com", "password": "password123"},
-    )
+    token_a = register_and_get_token(auth_client, "user-a@example.com")
+    set_bearer_auth(auth_client, token_a)
     auth_client.post("/api/adrs", json={"title": "Shared Title"})
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "user-b@example.com", "password": "password123"},
-    )
+    token_b = register_and_get_token(auth_client, "user-b@example.com")
+    set_bearer_auth(auth_client, token_b)
     response = auth_client.post("/api/adrs", json={"title": "Shared Title"})
 
     assert response.status_code == 201
@@ -186,17 +186,13 @@ def test_search_by_title_returns_empty_for_non_matching_query(auth_client) -> No
 
 
 def test_search_does_not_return_other_users_adrs(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     auth_client.post("/api/adrs", json={"title": "Owner Only ADR"})
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "other@example.com", "password": "password123"},
-    )
+    token_other = register_and_get_token(auth_client, "other@example.com")
+    set_bearer_auth(auth_client, token_other)
     response = auth_client.get("/api/adrs/search", params={"q": "Owner"})
 
     assert response.status_code == 200
@@ -216,18 +212,14 @@ def test_unauthenticated_get_returns_401(auth_client) -> None:
 
 
 def test_accessing_another_users_adr_returns_404(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     create_response = auth_client.post("/api/adrs", json={"title": "Private ADR"})
     adr_id = create_response.json()["id"]
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "intruder@example.com", "password": "password123"},
-    )
+    token_intruder = register_and_get_token(auth_client, "intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
     response = auth_client.get(f"/api/adrs/{adr_id}")
 
     assert response.status_code == 404
@@ -298,17 +290,13 @@ def test_list_adrs_respects_limit_and_offset(auth_client) -> None:
 
 
 def test_list_adrs_does_not_return_other_users_adrs(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     auth_client.post("/api/adrs", json={"title": "Owner Only ADR"})
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "other@example.com", "password": "password123"},
-    )
+    token_other = register_and_get_token(auth_client, "other@example.com")
+    set_bearer_auth(auth_client, token_other)
     response = auth_client.get("/api/adrs")
 
     assert response.status_code == 200
@@ -436,34 +424,26 @@ def test_unauthenticated_submit_review_returns_401(auth_client) -> None:
 
 
 def test_review_status_returns_404_for_other_users_adr(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     adr_id = _create_adr(auth_client, "Private ADR")
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "intruder@example.com", "password": "password123"},
-    )
+    token_intruder = register_and_get_token(auth_client, "intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
     response = auth_client.get(f"/api/adrs/{adr_id}/review-status")
 
     assert response.status_code == 404
 
 
 def test_submit_review_returns_404_for_other_users_adr(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     adr_id = _create_adr(auth_client, "Private ADR")
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "intruder@example.com", "password": "password123"},
-    )
+    token_intruder = register_and_get_token(auth_client, "intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
     response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
 
     assert response.status_code == 404
@@ -514,10 +494,8 @@ def test_invalid_review_surfaces_review_error(
     )
     with TestClient(create_app(settings=settings)) as client:
         _stop_event_worker(client)
-        client.post(
-            "/api/auth/register",
-            json={"email": "invalid-review@example.com", "password": "password123"},
-        )
+        token = register_and_get_token(client, "invalid-review@example.com")
+        set_bearer_auth(client, token)
         adr_id = _create_adr(client, "Invalid Review ADR")
         client.post(f"/api/adrs/{adr_id}/submit-review")
         _drain_event_bus(client)
@@ -609,10 +587,8 @@ def test_replay_processes_unprocessed_submit_event(
     )
     with TestClient(create_app(settings=settings)) as client:
         _stop_event_worker(client)
-        client.post(
-            "/api/auth/register",
-            json={"email": "replay@example.com", "password": "password123"},
-        )
+        token = register_and_get_token(client, "replay@example.com")
+        set_bearer_auth(client, token)
         adr_id = _create_adr(client, "Replay ADR")
         response = client.post(f"/api/adrs/{adr_id}/submit-review")
         assert response.status_code == 202
@@ -651,10 +627,8 @@ def test_replay_does_not_duplicate_completed_review(
     )
     with TestClient(create_app(settings=settings)) as client:
         _stop_event_worker(client)
-        client.post(
-            "/api/auth/register",
-            json={"email": "idempotent@example.com", "password": "password123"},
-        )
+        token = register_and_get_token(client, "idempotent@example.com")
+        set_bearer_auth(client, token)
         adr_id = _create_adr(client, "Idempotent ADR")
         client.post(f"/api/adrs/{adr_id}/submit-review")
         _drain_event_bus(client)
@@ -766,10 +740,8 @@ def test_retry_review_from_review_failed_returns_202(
     )
     with TestClient(create_app(settings=settings)) as client:
         _stop_event_worker(client)
-        client.post(
-            "/api/auth/register",
-            json={"email": "retry-user@example.com", "password": "password123"},
-        )
+        token = register_and_get_token(client, "retry-user@example.com")
+        set_bearer_auth(client, token)
         adr_id = _create_adr(client, "Retry Review ADR")
         client.post(f"/api/adrs/{adr_id}/submit-review")
         _drain_event_bus(client)
@@ -828,17 +800,13 @@ def test_unauthenticated_publish_returns_401(auth_client) -> None:
 
 
 def test_publish_returns_404_for_other_users_adr(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "publish-owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "publish-owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     adr_id = _seed_after_review_adr(auth_client)
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "publish-intruder@example.com", "password": "password123"},
-    )
+    token_intruder = register_and_get_token(auth_client, "publish-intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
     response = auth_client.post(f"/api/adrs/{adr_id}/publish")
 
     assert response.status_code == 404
@@ -899,17 +867,13 @@ def test_unauthenticated_delete_returns_401(auth_client) -> None:
 
 
 def test_delete_adr_returns_404_for_other_users_adr(auth_client) -> None:
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "delete-owner@example.com", "password": "password123"},
-    )
+    token_owner = register_and_get_token(auth_client, "delete-owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
     adr_id = _create_adr(auth_client)
-    auth_client.cookies.clear()
+    clear_bearer_auth(auth_client)
 
-    auth_client.post(
-        "/api/auth/register",
-        json={"email": "delete-intruder@example.com", "password": "password123"},
-    )
+    token_intruder = register_and_get_token(auth_client, "delete-intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
     response = auth_client.delete(f"/api/adrs/{adr_id}")
 
     assert response.status_code == 404

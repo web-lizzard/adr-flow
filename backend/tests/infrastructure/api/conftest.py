@@ -11,6 +11,46 @@ from infrastructure.bootstrap import create_app
 from infrastructure.config import Settings
 
 
+def auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def register_and_get_token(
+    client: TestClient,
+    email: str,
+    *,
+    password: str = "password123",
+) -> str:
+    response = client.post(
+        "/api/auth/register",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 201
+    return response.json()["access_token"]
+
+
+def login_and_get_token(
+    client: TestClient,
+    email: str,
+    *,
+    password: str = "password123",
+) -> str:
+    response = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def set_bearer_auth(client: TestClient, token: str) -> None:
+    client.headers["Authorization"] = f"Bearer {token}"
+
+
+def clear_bearer_auth(client: TestClient) -> None:
+    client.headers.pop("Authorization", None)
+
+
 @pytest.fixture(autouse=True)
 def clean_auth_tables(db_engine: Engine) -> None:
     with db_engine.begin() as connection:

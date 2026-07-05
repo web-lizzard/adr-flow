@@ -433,9 +433,9 @@ Remove obsolete cookie env vars from deployment surfaces and update documentatio
 
 #### Automated
 
-- [ ] 2.1 Auth integration tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_auth.py -v`
-- [ ] 2.2 ADR integration tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -v`
-- [ ] 2.3 Full backend suite passes: `cd backend && uv run pytest`
+- [x] 2.1 Auth integration tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_auth.py -v`
+- [x] 2.2 ADR integration tests pass: `cd backend && uv run pytest tests/infrastructure/api/test_adr_api.py -v`
+- [x] 2.3 Full backend suite passes: `cd backend && uv run pytest`
 
 #### Manual
 

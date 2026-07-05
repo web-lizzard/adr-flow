@@ -16,6 +16,7 @@ from domain.user.value_objects import UserId
 from infrastructure.bootstrap import create_app
 from infrastructure.config import Settings
 from infrastructure.messaging.task_group_bus import TaskGroupEventBus
+from tests.infrastructure.api.conftest import register_and_get_token, set_bearer_auth
 
 
 def _portal_call(client: TestClient, fn: Any, *args: Any) -> Any:
@@ -113,10 +114,8 @@ def review_bus_client(postgres_url: str, db_engine) -> Iterator[TestClient]:
 def test_submit_review_returns_before_worker_processes_event(
     review_bus_client: TestClient,
 ) -> None:
-    review_bus_client.post(
-        "/api/auth/register",
-        json={"email": "bus-user@example.com", "password": "password123"},
-    )
+    token = register_and_get_token(review_bus_client, "bus-user@example.com")
+    set_bearer_auth(review_bus_client, token)
     create_response = review_bus_client.post(
         "/api/adrs",
         json={"title": "Bus Lifecycle ADR"},

@@ -24,6 +24,7 @@ from domain.adr.value_objects import (
     ReviewResult,
 )
 from domain.errors import (
+    AdrAlreadyDeleted,
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
     AdrInvalidRetryStatus,
@@ -143,7 +144,7 @@ class ADR:
                     if adr is None:
                         msg = "ADRSoftDeleted before ADRCreated"
                         raise ValueError(msg)
-                    adr = adr._with_soft_deleted()
+                    adr = adr._with_soft_deleted(updated_at=event.occurred_at)
                 case _:
                     msg = f"Unknown event type: {type(event).__name__}"
                     raise ValueError(msg)
@@ -151,47 +152,60 @@ class ADR:
 
     def update_content(self, content: AdrContent, updated_at: datetime) -> Self:
         """Replace body content; rejected while ``in_review``."""
+        self._ensure_not_deleted()
         if self.status == AdrStatus.IN_REVIEW:
             raise AdrEditWhileInReview()
         return self._with_content_updated(content, updated_at)
 
     def update_title(self, title: AdrTitle, updated_at: datetime) -> Self:
         """Replace title; rejected while ``in_review``."""
+        self._ensure_not_deleted()
         if self.status == AdrStatus.IN_REVIEW:
             raise AdrEditWhileInReview()
         return self._with_title_updated(title, updated_at)
 
     def submit_for_review(self, updated_at: datetime) -> Self:
         """Move from ``draft`` to ``in_review``; clears review fields."""
+        self._ensure_not_deleted()
         if self.status != AdrStatus.DRAFT:
             raise AdrInvalidSubmitStatus()
         return self._with_submitted_for_review(updated_at)
 
     def retry_review(self, updated_at: datetime) -> Self:
         """Re-submit from ``review_failed``; clears review fields."""
+        self._ensure_not_deleted()
         if self.status != AdrStatus.REVIEW_FAILED:
             raise AdrInvalidRetryStatus()
         return self._with_submitted_for_review(updated_at)
 
     def publish(self, updated_at: datetime) -> Self:
         """Move from ``after_review`` to ``proposed``; preserves review fields."""
+        self._ensure_not_deleted()
         if self.status != AdrStatus.AFTER_REVIEW:
             raise AdrInvalidPublishStatus()
         return self._with_published(updated_at)
 
     def complete_review(self, result: ReviewResult, reviewed_at: datetime) -> Self:
         """Record successful AI review; requires ``in_review``."""
+        self._ensure_not_deleted()
         if self.status != AdrStatus.IN_REVIEW:
             raise AdrInvalidReviewStatus()
         return self._with_review_completed(result=result, reviewed_at=reviewed_at)
 
     def fail_review(self, kind: str, message: str, updated_at: datetime) -> Self:
         """Record failed AI review; requires ``in_review``."""
+        self._ensure_not_deleted()
         if self.status != AdrStatus.IN_REVIEW:
             raise AdrInvalidReviewStatus()
         return self._with_review_failed(
             kind=kind, message=message, updated_at=updated_at
         )
+
+    def soft_delete(self, updated_at: datetime) -> Self:
+        """Mark ADR removed from the active list without changing ``status``."""
+        if self.is_deleted:
+            raise AdrAlreadyDeleted()
+        return self._with_soft_deleted(updated_at)
 
     def _with_content_updated(self, content: AdrContent, updated_at: datetime) -> Self:
         return replace(self, content=content, updated_at=updated_at)
@@ -239,5 +253,9 @@ class ADR:
             updated_at=updated_at,
         )
 
-    def _with_soft_deleted(self) -> Self:
-        return replace(self, is_deleted=True)
+    def _with_soft_deleted(self, updated_at: datetime) -> Self:
+        return replace(self, is_deleted=True, updated_at=updated_at)
+
+    def _ensure_not_deleted(self) -> None:
+        if self.is_deleted:
+            raise AdrAlreadyDeleted()

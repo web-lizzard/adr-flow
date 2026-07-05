@@ -2,6 +2,7 @@
 
 from domain.errors import (
     AdrAccessDenied,
+    AdrAlreadyDeleted,
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
     AdrInvalidSubmitStatus,
@@ -19,6 +20,7 @@ def test_adr_domain_errors_derive_kind_from_class_name() -> None:
     assert AdrInvalidPublishStatus.kind == "adr_invalid_publish_status"
     assert AdrInvalidSubmitStatus.kind == "adr_invalid_submit_status"
     assert AdrEditWhileInReview.kind == "adr_edit_while_in_review"
+    assert AdrAlreadyDeleted.kind == "adr_already_deleted"
     assert InternalError.kind == "internal_error"
     assert RetryableInternalError.kind == "retryable_internal_error"
 
@@ -34,3 +36,6 @@ def test_adr_domain_errors_default_to_kind_message() -> None:
         str(AdrInvalidSubmitStatus()) == "ADR can only be submitted from draft status"
     )
     assert str(AdrEditWhileInReview()) == "Cannot edit ADR in review"
+    assert (
+        str(AdrAlreadyDeleted()) == "ADR has already been removed from the active list"
+    )

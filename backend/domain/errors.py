@@ -76,6 +76,11 @@ class AdrInvalidRetryStatus(DomainError):
         super().__init__("ADR can only be retried from review_failed status")
 
 
+class AdrAlreadyDeleted(DomainError):
+    def __init__(self) -> None:
+        super().__init__("ADR has already been removed from the active list")
+
+
 class InternalError(DomainError):
     """Non-retryable application failure during review (invariant / logic)."""
 

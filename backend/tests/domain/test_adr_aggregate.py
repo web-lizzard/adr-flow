@@ -1,5 +1,6 @@
 """ADR aggregate command methods and event restore."""
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -19,6 +20,7 @@ from domain.adr.value_objects import (
     ReviewResult,
 )
 from domain.errors import (
+    AdrAlreadyDeleted,
     AdrEditWhileInReview,
     AdrInvalidPublishStatus,
     AdrInvalidRetryStatus,
@@ -268,6 +270,7 @@ def test_restore_soft_deleted_sets_is_deleted() -> None:
     assert restored is not None
     assert restored.is_deleted is True
     assert restored.status == AdrStatus.DRAFT
+    assert restored.updated_at == _LATER
 
 
 def _in_review_adr() -> ADR:
@@ -345,3 +348,123 @@ def test_fail_review_rejects_after_review() -> None:
 
     with pytest.raises(AdrInvalidReviewStatus):
         adr.fail_review(kind="internal_error", message="bad output", updated_at=_LATER)
+
+
+def _adr_at_status(status: AdrStatus) -> ADR:
+    adr = _draft_adr()
+    if status == AdrStatus.DRAFT:
+        return adr
+    adr = adr.submit_for_review(updated_at=_NOW)
+    if status == AdrStatus.IN_REVIEW:
+        return adr
+    if status == AdrStatus.REVIEW_FAILED:
+        return adr.fail_review(
+            kind="internal_error",
+            message="Provider down",
+            updated_at=_LATER,
+        )
+    review_result = ReviewResult(annotations=(), reviewed_at=_NOW)
+    adr = adr.complete_review(result=review_result, reviewed_at=_NOW)
+    if status == AdrStatus.AFTER_REVIEW:
+        return adr
+    return adr.publish(updated_at=_LATER)
+
+
+def _soft_deleted_adr(status: AdrStatus) -> ADR:
+    adr = _adr_at_status(status)
+    deleted = adr.soft_delete(updated_at=_LATER)
+    assert deleted.is_deleted is True
+    return deleted
+
+
+def test_soft_delete_sets_is_deleted_preserves_fields() -> None:
+    review_result = ReviewResult(
+        annotations=(
+            ReviewAnnotation(
+                kind=ReviewAnnotationKind.MISSING_SECTION,
+                message="Missing section",
+            ),
+        ),
+        reviewed_at=_NOW,
+    )
+    adr = (
+        _draft_adr()
+        .submit_for_review(updated_at=_NOW)
+        .complete_review(result=review_result, reviewed_at=_NOW)
+    )
+
+    deleted = adr.soft_delete(updated_at=_LATER)
+
+    assert deleted.is_deleted is True
+    assert deleted.status == AdrStatus.AFTER_REVIEW
+    assert deleted.content == adr.content
+    assert deleted.title == adr.title
+    assert deleted.review_result == review_result
+    assert deleted.reviewed_at == _NOW
+    assert deleted.user_id == adr.user_id
+
+
+@pytest.mark.parametrize("status", list(AdrStatus))
+def test_soft_delete_from_each_status(status: AdrStatus) -> None:
+    adr = _adr_at_status(status)
+
+    deleted = adr.soft_delete(updated_at=_LATER)
+
+    assert deleted.is_deleted is True
+    assert deleted.status == status
+
+
+def test_soft_delete_updates_updated_at() -> None:
+    adr = _draft_adr()
+
+    deleted = adr.soft_delete(updated_at=_LATER)
+
+    assert deleted.updated_at == _LATER
+
+
+def test_soft_delete_twice_raises_adr_already_deleted() -> None:
+    adr = _draft_adr().soft_delete(updated_at=_LATER)
+
+    with pytest.raises(AdrAlreadyDeleted):
+        adr.soft_delete(updated_at=_LATER)
+
+
+@pytest.mark.parametrize(
+    ("mutator",),
+    [
+        (lambda adr: adr.update_content(AdrContent("## Context\n\nEdited"), _LATER),),
+        (lambda adr: adr.update_title(AdrTitle("New title"), _LATER),),
+        (lambda adr: adr.submit_for_review(_LATER),),
+        (lambda adr: adr.retry_review(_LATER),),
+        (lambda adr: adr.publish(_LATER),),
+        (
+            lambda adr: adr.complete_review(
+                ReviewResult(annotations=(), reviewed_at=_LATER),
+                _LATER,
+            ),
+        ),
+        (
+            lambda adr: adr.fail_review(
+                kind="internal_error",
+                message="bad output",
+                updated_at=_LATER,
+            ),
+        ),
+    ],
+    ids=[
+        "update_content",
+        "update_title",
+        "submit_for_review",
+        "retry_review",
+        "publish",
+        "complete_review",
+        "fail_review",
+    ],
+)
+def test_deleted_adr_mutators_raise_adr_already_deleted(
+    mutator: Callable[[ADR], object],
+) -> None:
+    adr = _soft_deleted_adr(AdrStatus.DRAFT)
+
+    with pytest.raises(AdrAlreadyDeleted):
+        mutator(adr)

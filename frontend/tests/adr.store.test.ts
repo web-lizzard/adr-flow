@@ -8,6 +8,7 @@ const updateAdrMock = vi.fn();
 const searchAdrsMock = vi.fn();
 const listAdrsMock = vi.fn();
 const submitAdrForReviewMock = vi.fn();
+const retryAdrForReviewMock = vi.fn();
 const publishAdrMock = vi.fn();
 const fetchAdrReviewStatusMock = vi.fn();
 
@@ -18,6 +19,7 @@ vi.mock("../composables/useApi", () => ({
   searchAdrs: (...args: unknown[]) => searchAdrsMock(...args),
   listAdrs: (...args: unknown[]) => listAdrsMock(...args),
   submitAdrForReview: (...args: unknown[]) => submitAdrForReviewMock(...args),
+  retryAdrForReview: (...args: unknown[]) => retryAdrForReviewMock(...args),
   publishAdr: (...args: unknown[]) => publishAdrMock(...args),
   fetchAdrReviewStatus: (...args: unknown[]) =>
     fetchAdrReviewStatusMock(...args),
@@ -44,6 +46,7 @@ describe("useAdrStore", () => {
     searchAdrsMock.mockReset();
     listAdrsMock.mockReset();
     submitAdrForReviewMock.mockReset();
+    retryAdrForReviewMock.mockReset();
     publishAdrMock.mockReset();
     fetchAdrReviewStatusMock.mockReset();
     navigateToMock.mockReset();
@@ -362,6 +365,36 @@ describe("useAdrStore", () => {
     expect(submitAdrForReviewMock).toHaveBeenCalledWith("adr-1");
     expect(fetchAdrMock).toHaveBeenCalledTimes(2);
     expect(store.currentAdr?.status).toBe("in_review");
+  });
+
+  it("retryForReview(id) calls retry-review and reloads the ADR", async () => {
+    fetchAdrMock
+      .mockResolvedValueOnce({
+        ...sampleAdr,
+        status: "review_failed",
+        review_error: {
+          source_event_id: "evt-1",
+          code: "internal_error",
+          message: "Review pipeline failed",
+          failed_at: "2026-06-16T12:00:00Z",
+          kind: "retryable_internal_error",
+        },
+      })
+      .mockResolvedValueOnce({
+        ...sampleAdr,
+        status: "in_review",
+        review_error: null,
+      });
+    retryAdrForReviewMock.mockResolvedValue(undefined);
+
+    const store = useAdrStore();
+    await store.load("adr-1");
+    await store.retryForReview("adr-1");
+
+    expect(retryAdrForReviewMock).toHaveBeenCalledWith("adr-1");
+    expect(fetchAdrMock).toHaveBeenCalledTimes(2);
+    expect(store.currentAdr?.status).toBe("in_review");
+    expect(store.currentAdr?.reviewError).toBeNull();
   });
 
   it("refreshReviewStatus(id) updates status metadata from review-status endpoint", async () => {

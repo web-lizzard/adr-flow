@@ -4,6 +4,7 @@ import {
   fetchAdrReviewStatus,
   listAdrs,
   publishAdr,
+  retryAdrForReview,
   searchAdrs,
   submitAdrForReview,
   updateAdr,
@@ -194,6 +195,16 @@ export const useAdrStore = defineStore("adr", () => {
     }
   }
 
+  async function retryForReview(id: string): Promise<void> {
+    loading.value = true;
+    try {
+      await retryAdrForReview(id);
+      await load(id);
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function publish(id: string): Promise<void> {
     loading.value = true;
     try {
@@ -230,6 +241,7 @@ export const useAdrStore = defineStore("adr", () => {
     save,
     searchByTitle,
     submitForReview,
+    retryForReview,
     publish,
     refreshReviewStatus,
     updateTitle,

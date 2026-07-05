@@ -19,6 +19,7 @@ export type ReviewError = {
   code: string;
   message: string;
   failed_at: string;
+  kind: string;
 };
 
 export type SectionRating = {
@@ -110,6 +111,12 @@ export function listAdrs() {
 
 export function submitAdrForReview(id: string) {
   return $fetch<void>(apiPath(`/adrs/${id}/submit-review`), {
+    method: "POST",
+  });
+}
+
+export function retryAdrForReview(id: string) {
+  return $fetch<void>(apiPath(`/adrs/${id}/retry-review`), {
     method: "POST",
   });
 }

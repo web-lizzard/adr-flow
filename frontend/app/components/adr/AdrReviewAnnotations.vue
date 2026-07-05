@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from "@/components/ui/button/Button.vue";
 import type {
   ReviewAnnotation,
   ReviewError,
@@ -11,12 +12,23 @@ const props = defineProps<{
   reviewError: ReviewError | null;
   status?: string;
   showTitle?: boolean;
+  retrying?: boolean;
+}>();
+
+const emit = defineEmits<{
+  retry: [];
 }>();
 
 const kindLabels: Record<string, string> = {
   missing_section: "Missing section",
   inconsistency: "Inconsistency",
   conciseness: "Conciseness",
+};
+
+const errorGuidanceByKind: Record<string, string> = {
+  retryable_internal_error: "The review could not finish. You can try again.",
+  internal_error:
+    "Something went wrong on our side. Contact your administrator if this keeps happening.",
 };
 
 const groupedAnnotations = computed(() => {
@@ -39,6 +51,17 @@ const showEmptyState = computed(
     !hasAnnotations.value &&
     !hasRatings.value,
 );
+
+const errorGuidance = computed(() => {
+  if (!props.reviewError) {
+    return null;
+  }
+  return errorGuidanceByKind[props.reviewError.kind] ?? null;
+});
+
+const showRetryButton = computed(
+  () => props.reviewError?.kind === "retryable_internal_error",
+);
 </script>
 
 <template>
@@ -58,6 +81,20 @@ const showEmptyState = computed(
     >
       <p class="font-medium text-destructive">Review failed</p>
       <p class="mt-1 text-muted-foreground">{{ reviewError.message }}</p>
+      <p v-if="errorGuidance" class="mt-2 text-muted-foreground">
+        {{ errorGuidance }}
+      </p>
+      <Button
+        v-if="showRetryButton"
+        type="button"
+        variant="outline"
+        size="sm"
+        class="mt-3"
+        :disabled="retrying"
+        @click="emit('retry')"
+      >
+        Try again
+      </Button>
     </div>
 
     <p v-else-if="showEmptyState" class="text-sm text-muted-foreground">

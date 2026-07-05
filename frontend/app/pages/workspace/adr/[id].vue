@@ -22,6 +22,7 @@ const publishError = ref<string | null>(null);
 const loadError = ref<string | null>(null);
 const isSubmitting = ref(false);
 const isPublishing = ref(false);
+const isRetrying = ref(false);
 const isEditorDisabled = computed(
   () =>
     adr.currentAdr.value?.status === "in_review" ||
@@ -36,6 +37,9 @@ const showPublishButton = computed(
 );
 const statusHelperText = computed(() => {
   const status = adr.currentAdr.value?.status;
+  if (status === "review_failed") {
+    return "Edit based on the review failure details. Changes save when you click away or leave this tab.";
+  }
   if (status === "after_review") {
     return "Edit based on review feedback. Changes save when you click away or leave this tab.";
   }
@@ -196,6 +200,21 @@ async function onPublish() {
     isPublishing.value = false;
   }
 }
+
+async function onRetryForReview() {
+  if (isRetrying.value) {
+    return;
+  }
+
+  isRetrying.value = true;
+  try {
+    await adr.retryForReview(adrId.value);
+  } catch (error) {
+    submitError.value = getAuthErrorMessage(error, "Failed to retry review");
+  } finally {
+    isRetrying.value = false;
+  }
+}
 </script>
 
 <template>
@@ -325,7 +344,9 @@ async function onPublish() {
         :section-ratings="adr.currentAdr.value.sectionRatings"
         :review-error="adr.currentAdr.value.reviewError"
         :status="adr.currentAdr.value.status"
+        :retrying="isRetrying"
         @close="isReviewSidebarOpen = false"
+        @retry="onRetryForReview"
       />
     </div>
   </div>

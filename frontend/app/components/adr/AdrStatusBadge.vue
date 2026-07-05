@@ -18,6 +18,11 @@ const statusConfig: Record<string, { label: string; class: string }> = {
     label: "After review",
     class: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   },
+  review_failed: {
+    label: "Review failed",
+    class:
+      "bg-destructive/15 text-destructive dark:bg-destructive/25 dark:text-destructive",
+  },
   proposed: {
     label: "Proposed",
     class: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",

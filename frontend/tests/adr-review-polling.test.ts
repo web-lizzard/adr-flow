@@ -62,6 +62,7 @@ describe("useAdrReviewPolling", () => {
         code: "validation_failed",
         message: "Review output was invalid",
         failed_at: "2026-06-16T12:00:00Z",
+        kind: "adr_review_failed_error",
       },
     });
     const adrId = ref("adr-1");
@@ -84,6 +85,7 @@ describe("useAdrReviewPolling", () => {
           code: "validation_failed",
           message: "Review output was invalid",
           failed_at: "2026-06-16T12:00:00Z",
+          kind: "adr_review_failed_error",
         },
       };
     });

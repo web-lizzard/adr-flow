@@ -9,6 +9,7 @@ const saveOnBlurMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn().mockResolvedValue(undefined);
 const saveMock = vi.fn().mockResolvedValue(undefined);
 const submitForReviewMock = vi.fn().mockResolvedValue(undefined);
+const retryForReviewMock = vi.fn().mockResolvedValue(undefined);
 const publishMock = vi.fn().mockResolvedValue(undefined);
 const refreshReviewStatusMock = vi.fn().mockResolvedValue(undefined);
 const updateTitleMock = vi.fn();
@@ -45,6 +46,7 @@ const currentAdr = ref<{
     code: string;
     message: string;
     failed_at: string;
+    kind: string;
   } | null;
 } | null>(null);
 const loading = ref(false);
@@ -62,6 +64,7 @@ vi.stubGlobal("useAdr", () => ({
   load: loadMock,
   save: saveMock,
   submitForReview: submitForReviewMock,
+  retryForReview: retryForReviewMock,
   publish: publishMock,
   refreshReviewStatus: refreshReviewStatusMock,
   updateTitle: updateTitleMock,
@@ -151,6 +154,8 @@ describe("ADR editor page", () => {
     saveMock.mockClear();
     submitForReviewMock.mockReset();
     submitForReviewMock.mockResolvedValue(undefined);
+    retryForReviewMock.mockReset();
+    retryForReviewMock.mockResolvedValue(undefined);
     publishMock.mockReset();
     publishMock.mockResolvedValue(undefined);
     refreshReviewStatusMock.mockReset();
@@ -259,6 +264,7 @@ describe("ADR editor page", () => {
         code: "validation_failed",
         message: "Review output was invalid",
         failed_at: "2026-06-16T12:00:00Z",
+        kind: "adr_review_failed_error",
       },
     });
 
@@ -452,6 +458,39 @@ describe("ADR editor page", () => {
     expect(wrapper.text()).toContain("Context");
     expect(wrapper.text()).toContain("0/5");
     expect(wrapper.text()).toContain("Clear rationale.");
+  });
+
+  it("remains editable for review_failed ADRs with retry CTA", async () => {
+    currentAdr.value = baseAdr({
+      status: "review_failed",
+      reviewError: {
+        source_event_id: "evt-1",
+        code: "internal_error",
+        message: "Review pipeline failed",
+        failed_at: "2026-06-16T12:00:00Z",
+        kind: "retryable_internal_error",
+      },
+    });
+
+    const wrapper = mountEditorPage();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain(
+      "This ADR is being reviewed and cannot be edited.",
+    );
+    expect(wrapper.findComponent(AdrStatusBadge).text()).toContain(
+      "Review failed",
+    );
+    expect(findButtonByText(wrapper, "Publish for review")).toBeUndefined();
+    expect(findButtonByText(wrapper, "Try again")).toBeDefined();
+
+    const titleInput = wrapper.get('[data-testid="title-input"]');
+    expect((titleInput.element as HTMLInputElement).disabled).toBe(false);
+
+    await findButtonByText(wrapper, "Try again")!.trigger("click");
+    await flushPromises();
+
+    expect(retryForReviewMock).toHaveBeenCalledWith("adr-1");
   });
 
   it("links back to the workspace", async () => {

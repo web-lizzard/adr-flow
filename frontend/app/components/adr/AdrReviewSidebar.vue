@@ -13,10 +13,12 @@ defineProps<{
   sectionRatings?: SectionRating[] | null;
   reviewError: ReviewError | null;
   status?: string;
+  retrying?: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
+  retry: [];
 }>();
 </script>
 
@@ -48,6 +50,8 @@ const emit = defineEmits<{
         :review-error="reviewError"
         :status="status"
         :show-title="false"
+        :retrying="retrying"
+        @retry="emit('retry')"
       />
     </div>
   </aside>

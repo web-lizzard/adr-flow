@@ -31,6 +31,7 @@ const sampleError: ReviewError = {
   code: "validation_failed",
   message: "Review output was invalid",
   failed_at: "2026-06-16T12:00:00Z",
+  kind: "adr_review_failed_error",
 };
 
 const sampleRatings: SectionRating[] = [
@@ -117,5 +118,47 @@ describe("AdrReviewAnnotations", () => {
 
     expect(wrapper.text()).toContain("Review failed");
     expect(wrapper.text()).toContain("Review output was invalid");
+  });
+
+  it("shows retry guidance and Try again for retryable_internal_error", async () => {
+    const wrapper = mount(AdrReviewAnnotations, {
+      props: {
+        annotations: null,
+        reviewError: {
+          ...sampleError,
+          kind: "retryable_internal_error",
+        },
+        retrying: false,
+      },
+    });
+
+    expect(wrapper.text()).toContain(
+      "The review could not finish. You can try again.",
+    );
+    const retryButton = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Try again");
+    expect(retryButton).toBeDefined();
+    await retryButton!.trigger("click");
+    expect(wrapper.emitted("retry")).toHaveLength(1);
+  });
+
+  it("shows admin placeholder and hides Try again for internal_error", () => {
+    const wrapper = mount(AdrReviewAnnotations, {
+      props: {
+        annotations: null,
+        reviewError: {
+          ...sampleError,
+          kind: "internal_error",
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain(
+      "Something went wrong on our side. Contact your administrator if this keeps happening.",
+    );
+    expect(
+      wrapper.findAll("button").find((button) => button.text() === "Try again"),
+    ).toBeUndefined();
   });
 });

@@ -18,6 +18,7 @@ const { notifyPublished } = useAdrPublishFeedback();
 const adrId = computed(() => String(route.params.id));
 const titleError = ref<string | null>(null);
 const submitError = ref<string | null>(null);
+const retryError = ref<string | null>(null);
 const publishError = ref<string | null>(null);
 const loadError = ref<string | null>(null);
 const isSubmitting = ref(false);
@@ -27,7 +28,8 @@ const isEditorDisabled = computed(
   () =>
     adr.currentAdr.value?.status === "in_review" ||
     isSubmitting.value ||
-    isPublishing.value,
+    isPublishing.value ||
+    isRetrying.value,
 );
 const showSubmitButton = computed(
   () => adr.currentAdr.value?.status === "draft",
@@ -98,7 +100,9 @@ watch(
   { immediate: true },
 );
 
-const isBlockingSave = computed(() => isSubmitting.value || isPublishing.value);
+const isBlockingSave = computed(
+  () => isSubmitting.value || isPublishing.value || isRetrying.value,
+);
 const { saveOnBlur } = useAdrPersistence(adrId, adrStore, isBlockingSave);
 const { isPolling, pollError } = useAdrReviewPolling(adrId, adr);
 
@@ -206,11 +210,15 @@ async function onRetryForReview() {
     return;
   }
 
+  retryError.value = null;
   isRetrying.value = true;
   try {
+    if (adr.isDirty.value) {
+      await adr.save();
+    }
     await adr.retryForReview(adrId.value);
   } catch (error) {
-    submitError.value = getAuthErrorMessage(error, "Failed to retry review");
+    retryError.value = getAuthErrorMessage(error, "Failed to retry review");
   } finally {
     isRetrying.value = false;
   }
@@ -345,6 +353,7 @@ async function onRetryForReview() {
         :review-error="adr.currentAdr.value.reviewError"
         :status="adr.currentAdr.value.status"
         :retrying="isRetrying"
+        :retry-action-error="retryError"
         @close="isReviewSidebarOpen = false"
         @retry="onRetryForReview"
       />

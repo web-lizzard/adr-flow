@@ -14,6 +14,7 @@ defineProps<{
   reviewError: ReviewError | null;
   status?: string;
   retrying?: boolean;
+  retryActionError?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -51,6 +52,7 @@ const emit = defineEmits<{
         :status="status"
         :show-title="false"
         :retrying="retrying"
+        :retry-action-error="retryActionError"
         @retry="emit('retry')"
       />
     </div>

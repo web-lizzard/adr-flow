@@ -13,6 +13,7 @@ const props = defineProps<{
   status?: string;
   showTitle?: boolean;
   retrying?: boolean;
+  retryActionError?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +28,7 @@ const kindLabels: Record<string, string> = {
 
 const errorGuidanceByKind: Record<string, string> = {
   retryable_internal_error: "The review could not finish. You can try again.",
+  adr_review_failed_error: "The review could not finish. You can try again.",
   internal_error:
     "Something went wrong on our side. Contact your administrator if this keeps happening.",
 };
@@ -59,9 +61,12 @@ const errorGuidance = computed(() => {
   return errorGuidanceByKind[props.reviewError.kind] ?? null;
 });
 
-const showRetryButton = computed(
-  () => props.reviewError?.kind === "retryable_internal_error",
-);
+const showRetryButton = computed(() => {
+  const kind = props.reviewError?.kind;
+  return (
+    kind === "retryable_internal_error" || kind === "adr_review_failed_error"
+  );
+});
 </script>
 
 <template>
@@ -95,6 +100,9 @@ const showRetryButton = computed(
       >
         Try again
       </Button>
+      <p v-if="retryActionError" class="mt-2 text-sm text-destructive">
+        {{ retryActionError }}
+      </p>
     </div>
 
     <p v-else-if="showEmptyState" class="text-sm text-muted-foreground">

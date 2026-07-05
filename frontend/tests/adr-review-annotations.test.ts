@@ -118,6 +118,12 @@ describe("AdrReviewAnnotations", () => {
 
     expect(wrapper.text()).toContain("Review failed");
     expect(wrapper.text()).toContain("Review output was invalid");
+    expect(wrapper.text()).toContain(
+      "The review could not finish. You can try again.",
+    );
+    expect(
+      wrapper.findAll("button").find((button) => button.text() === "Try again"),
+    ).toBeDefined();
   });
 
   it("shows retry guidance and Try again for retryable_internal_error", async () => {

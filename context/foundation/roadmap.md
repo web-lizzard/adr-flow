@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-08
-updated: 2026-07-04
+updated: 2026-07-05
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -265,6 +265,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Done
 
+- **S-01: user can register, log in, and reach a protected per-user ADR workspace.** — Archived 2026-07-05 → `context/archive/2026-06-14-account-access/`. Lesson: —.
 - **S-02: user can create an ADR from the starter template, edit markdown, and recover saved draft content after leaving or refreshing.** — Archived 2026-06-16 → `context/archive/2026-06-16-draft-authoring-persistence/`. Lesson: —.
 - **S-03: user can return later, browse owned ADR cards (title, status, last-edited), and reopen an existing ADR where editing is allowed.** — Archived 2026-06-16 → `context/archive/2026-06-16-adr-history-cards/`. Lesson: —.
 - **F-01: (foundation) review output can be checked against the required-section and actionability guardrails before the first review loop is treated as useful — a minimal verification harness, not a full review engine.** — Archived 2026-06-16 → `context/archive/2026-06-16-review-quality-checks/`. Lesson: —.

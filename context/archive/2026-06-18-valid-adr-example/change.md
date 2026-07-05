@@ -1,8 +1,9 @@
 ---
 id: valid-adr-example
-status: preparing
+status: archived
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-07-05
+archived_at: 2026-07-05T00:29:07Z
 ---
 
 # Valid ADR example

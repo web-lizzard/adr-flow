@@ -1,10 +1,10 @@
 ---
 change_id: review-validation-logs-only
 title: Review validation logs only
-status: superseded
+status: archived
 created: 2026-06-19
-updated: 2026-07-04
-archived_at: null
+updated: 2026-07-05
+archived_at: 2026-07-05T00:30:11Z
 ---
 
 ## Notes

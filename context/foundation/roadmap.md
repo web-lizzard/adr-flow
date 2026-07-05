@@ -37,7 +37,7 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 | S-05 | publish-after-review | edit the reviewed ADR without re-review and publish it as `proposed` | S-04 | US-01, US-04, FR-005, FR-007, FR-009 | done |
 | S-03 | adr-history-cards | return later, browse owned ADR cards, and reopen an existing ADR | S-02 | US-02, FR-013, NFR: Data retention | done |
 | S-06 | remove-adr-from-active-list | remove an ADR from the active card view without permanently destroying it | S-03 | FR-015, NFR: Data retention | proposed |
-| S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability | superseded |
+| S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability | done |
 | R-01 | adr-validation-re-shape | receive static gap detection, per-section 0–5 ratings, and strict validation on AI review output | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability | done |
 | S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | ready |
 | S-09 | conditional-adr-re-review | request one additional AI review when the first review reported errors — once per ADR | R-01, S-05 | US-01, FR-008 | proposed |
@@ -179,7 +179,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Superseded by R-01 (`adr-validation-re-shape`), which implements strict validation with static gap detection and per-section ratings instead of logs-only gating.
-- **Status:** superseded → see `context/changes/adr-validation-re-shape/`
+- **Status:** done
 
 ### R-01: ADR Validation Reshape
 
@@ -265,6 +265,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Done
 
+- **S-07: user always receives LLM review annotations in `after_review`; when quality checks fail, the failure is logged for measurement but the ADR still transitions out of `in_review`.** — Archived 2026-07-05 → `context/archive/2026-06-19-review-validation-logs-only/`. Lesson: superseded by R-01; never implemented.
 - **S-01: user can register, log in, and reach a protected per-user ADR workspace.** — Archived 2026-07-05 → `context/archive/2026-06-14-account-access/`. Lesson: —.
 - **S-02: user can create an ADR from the starter template, edit markdown, and recover saved draft content after leaving or refreshing.** — Archived 2026-06-16 → `context/archive/2026-06-16-draft-authoring-persistence/`. Lesson: —.
 - **S-03: user can return later, browse owned ADR cards (title, status, last-edited), and reopen an existing ADR where editing is allowed.** — Archived 2026-06-16 → `context/archive/2026-06-16-adr-history-cards/`. Lesson: —.

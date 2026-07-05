@@ -420,14 +420,14 @@ Remove obsolete cookie env vars from deployment surfaces and update documentatio
 
 #### Automated
 
-- [x] 1.1 Ruff check and format pass: `cd backend && uv run ruff check . && uv run ruff format --check .`
-- [x] 1.2 Type check passes: `cd backend && uv run ty check`
-- [x] 1.3 App boots without `COOKIE_*` env vars
+- [x] 1.1 Ruff check and format pass: `cd backend && uv run ruff check . && uv run ruff format --check .` — 404ac34
+- [x] 1.2 Type check passes: `cd backend && uv run ty check` — 404ac34
+- [x] 1.3 App boots without `COOKIE_*` env vars — 404ac34
 
 #### Manual
 
-- [ ] 1.4 OpenAPI shows `AuthResponse` on register/login; `UserResponse` on `/me` without token
-- [ ] 1.5 Register curl returns `access_token` in body, no `Set-Cookie`
+- [x] 1.4 OpenAPI shows `AuthResponse` on register/login; `UserResponse` on `/me` without token — 404ac34
+- [x] 1.5 Register curl returns `access_token` in body, no `Set-Cookie` — 404ac34
 
 ### Phase 2: Backend Test Migration
 

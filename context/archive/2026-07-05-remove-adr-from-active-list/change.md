@@ -1,10 +1,10 @@
 ---
 change_id: remove-adr-from-active-list
 title: Remove ADR from active list
-status: implemented
+status: archived
 created: 2026-07-05
 updated: 2026-07-05
-archived_at: null
+archived_at: 2026-07-05T09:41:26Z
 ---
 
 ## Notes

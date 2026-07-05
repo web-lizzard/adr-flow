@@ -453,9 +453,9 @@ Negligible — one additional POST endpoint and a JSON field on existing `review
 
 #### Automated
 
-- [x] 3.1 Frontend tests pass: `pnpm run test -- tests/adr-review-annotations.test.ts tests/adr-editor-page.test.ts tests/adr.store.test.ts tests/adr-review-polling.test.ts`
-- [x] 3.2 Lint passes: `pnpm run lint`
-- [x] 3.3 Typecheck passes: `pnpm run typecheck`
+- [x] 3.1 Frontend tests pass: `pnpm run test -- tests/adr-review-annotations.test.ts tests/adr-editor-page.test.ts tests/adr.store.test.ts tests/adr-review-polling.test.ts` — c307341
+- [x] 3.2 Lint passes: `pnpm run lint` — c307341
+- [x] 3.3 Typecheck passes: `pnpm run typecheck` — c307341
 
 #### Manual
 

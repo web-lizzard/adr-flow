@@ -400,14 +400,14 @@ None. `is_deleted` column and read-path filters already exist from F-02/S-03.
 
 #### Automated
 
-- [x] 1.1 Domain tests pass: `cd backend && uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_adr_errors.py -q`
-- [x] 1.2 Ruff passes: `cd backend && uv run ruff check domain/ tests/domain/`
-- [x] 1.3 Type check passes: `cd backend && uv run ty check`
+- [x] 1.1 Domain tests pass: `cd backend && uv run pytest tests/domain/test_adr_aggregate.py tests/domain/test_adr_errors.py -q` — 384aca4
+- [x] 1.2 Ruff passes: `cd backend && uv run ruff check domain/ tests/domain/` — 384aca4
+- [x] 1.3 Type check passes: `cd backend && uv run ty check` — 384aca4
 
 #### Manual
 
-- [ ] 1.4 Review aggregate: every public mutator except `soft_delete` calls `_ensure_not_deleted()` before status checks
-- [ ] 1.5 Replay path still sets `is_deleted` and preserves `status` after `_with_soft_deleted(updated_at)` change
+- [x] 1.4 Review aggregate: every public mutator except `soft_delete` calls `_ensure_not_deleted()` before status checks — 384aca4
+- [x] 1.5 Replay path still sets `is_deleted` and preserves `status` after `_with_soft_deleted(updated_at)` change — 384aca4
 
 ### Phase 2: Backend Write Path & API
 

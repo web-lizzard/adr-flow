@@ -147,6 +147,23 @@ def test_beacon_save_updates_content_and_returns_204(auth_client) -> None:
     assert response.content == b""
 
 
+def test_get_after_beacon_save_returns_updated_content(auth_client) -> None:
+    _register_user(auth_client)
+    adr_id = _create_adr(auth_client)
+
+    response = auth_client.post(
+        f"/api/adrs/{adr_id}/save",
+        json={"content": "Beacon persisted content"},
+    )
+
+    assert response.status_code == 204
+
+    get_response = auth_client.get(f"/api/adrs/{adr_id}")
+
+    assert get_response.status_code == 200
+    assert get_response.json()["content"] == "Beacon persisted content"
+
+
 def test_get_after_patch_returns_updated_content(auth_client) -> None:
     _register_user(auth_client)
     adr_id = _create_adr(auth_client)

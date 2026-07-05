@@ -6,10 +6,10 @@ Close Phase 1 rollout gaps from `context/foundation/test-plan.md`: prove mutatin
 
 ## Progress
 
-- [x] 1.1 Add cross-user denial test for `PATCH /api/adrs/{id}`
-- [x] 1.2 Add cross-user denial test for `POST /api/adrs/{id}/save`
-- [x] 1.3 Add cross-user denial test for `POST /api/adrs/{id}/retry-review`
-- [ ] 2.1 Add beacon save persistence round-trip (`POST /save` → `GET`)
+- [x] 1.1 Add cross-user denial test for `PATCH /api/adrs/{id}` — ade4b8d
+- [x] 1.2 Add cross-user denial test for `POST /api/adrs/{id}/save` — ade4b8d
+- [x] 1.3 Add cross-user denial test for `POST /api/adrs/{id}/retry-review` — ade4b8d
+- [x] 2.1 Add beacon save persistence round-trip (`POST /save` → `GET`)
 - [ ] 3.1 Update `context/foundation/test-plan.md` §6 Phase 1 cookbook patterns
 - [ ] 3.2 Run targeted pytest and pre-commit on touched files
 

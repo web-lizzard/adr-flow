@@ -1,18 +1,23 @@
 ---
 project: adr-flow
-version: 1
+version: 2
 status: active
 created: 2026-06-16
-updated: 2026-06-16
+updated: 2026-07-05
 prd_version: 1
-test_base_profile: sparse (effectively none — existing tests generated without a plan; treat as bare)
+test_base_profile: meaningful (pytest + vitest configured; ~53 backend test modules, 14 frontend test files)
+refreshed_by: context/changes/test-plan-refresh-2026-07-05/
 ---
 
 # Test Plan: adr-flow
 
-> Phased test rollout for ADR Flow. Each rollout phase opens its own change folder
-> and runs through the `/research` → `/plan` → `/implement` chain.
-> Re-run `/test-plan` to check status or advance to the next phase.
+> Phased test rollout for ADR Flow. Strategy is frozen at the top (§1–§5);
+> cookbook patterns at the bottom (§6) fill in as phases ship.
+> Read before writing any new test.
+>
+> Refresh: re-run `/test-plan --refresh` when stale (see §8).
+>
+> Last updated: 2026-07-05
 
 ## §1 Strategy
 
@@ -24,14 +29,22 @@ test_base_profile: sparse (effectively none — existing tests generated without
 
 3. **Risks are scenarios, not code locations.** Every risk in §2 describes a *failure the user would notice*, cited with evidence (PRD lines, interview answers, hot-spot directories). No risk row cites a file path, function name, or schema name as its anchor. Code-level grounding is `/research`'s job, produced per rollout phase against the current codebase.
 
+Hot-spot scope used for likelihood weighting: `backend/` (excluding `.venv`, `__pycache__`, `migrations/versions`), `frontend/app/`.
+
+### North star
+
+The **review process works end-to-end**: login → create ADR → submit for review → receive section ratings and annotations → edit in `after_review` → publish as `proposed`. Auth e2e is required alongside this north-star flow. Phase 3 delivers both with a **mocked LLM** at the API boundary — not a real provider call.
+
 ### Negative space — what we do NOT test
 
 - shadcn-vue UI components (library code, not application logic)
 - Alembic migration files (run once, verified manually)
-- ORM model definitions (tested implicitly through integration; no standalone model tests)
-- LLM client library wrappers (test the contract we enforce, not the HTTP client)
+- ORM model definitions (tested implicitly through integration)
+- LLM client HTTP transport internals (test the contract we enforce)
 - Snapshot tests (break on every style tweak, catch nothing for this product)
-- Full probabilistic AI review evaluation with F-scores (deferred post-MVP; see §2 Risk #1 response guidance)
+- Full probabilistic AI review evaluation with F-scores (deferred post-MVP)
+- Real-LLM e2e (non-deterministic, expensive, belongs in offline harness only)
+- Full browser e2e for every status transition (integration + targeted e2e cover the contract)
 
 ## §2 Risk Map
 
@@ -39,112 +52,172 @@ test_base_profile: sparse (effectively none — existing tests generated without
 
 | # | Risk (failure scenario) | Impact | Likelihood | Source(s) |
 |---|---|---|---|---|
-| 1 | AI review returns false-positive annotations or rejects a valid ADR — user publishes a well-formed ADR and review flags non-existent issues, eroding trust in the product wedge | High | High | PRD NFR: >=80% section-gap detection accuracy; PRD NFR: annotation actionability; Interview Q1; Roadmap S-04 + F-01 |
-| 2 | ADR status transition accepts an illegal move (e.g. `draft`→`proposed` skipping review, or editing while `in_review`) — the 4-status contract breaks silently | High | Medium | PRD FR-007 (4-status lifecycle); PRD FR-005 (no edit in `in_review`); PRD FR-008/FR-009; Roadmap S-04/S-05 |
-| 3 | User A can read or modify User B's ADR via direct API call — IDOR; per-user isolation fails | High | Medium | PRD NFR: per-user data isolation; PRD Access Control; Interview Q1 ("auth tests not too tight") |
-| 4 | Draft content lost on browser refresh, tab close, or session expiry — save-on-blur or save-on-unload silently fails | High | Medium | PRD NFR: no draft loss; PRD FR-006; PRD Open Question #1; Roadmap S-02 unknown |
-| 5 | Event store append succeeds but projection update fails — read model is stale; user sees outdated ADR status or missing ADR | Medium | Medium | Architecture: synchronous projection in command path; Infrastructure risk register; Hot-spot dir `backend/infrastructure/adapters/persistence/` (8 touches/30d) |
-| 6 | Async event handler (AI review) crashes and leaves ADR stuck in `in_review` — user waits indefinitely; no recovery path | High | Medium | Architecture: asyncio.TaskGroup dispatch; Infrastructure risk register; Interview Q3 ("async event worker... crucial part of the MVP"); Roadmap S-04; **Mitigated:** `review_failed` status + `POST /api/adrs/{id}/retry-review` (error-status change) |
-| 7 | Auth token forgery or session bypass — JWT validation is weak, allowing unauthenticated or cross-user access | High | Low | PRD Access Control; Tech-stack: custom JWT; Interview Q1 ("auth tests not too tight"); AGENTS.md: "Auth belongs in the backend" |
+| 1 | AI review completes with garbage or empty section ratings — user sees `after_review` but no actionable quality signal, eroding trust in the product wedge | High | High | PRD FR-010 (per-section 0–5 ratings); PRD Business Logic (static + LLM phases); refresh research; hot-spot dir `backend/infrastructure/llm/` (28 touches/30d) |
+| 2 | ADR remains stuck in `in_review` after the review worker fails — user waits indefinitely with no recovery path | High | Medium | PRD FR-007/FR-016 (`review_failed` + retry); Architecture: asyncio event dispatch; refresh research |
+| 3 | User A can read or modify User B's ADR via direct API call — IDOR; per-user isolation fails | High | Medium | PRD NFR: per-user data isolation; PRD Access Control; hot-spot dir `backend/domain/user/` (prior scan) |
+| 4 | Draft content lost on browser refresh, tab close, or session expiry — save-on-blur or save-on-unload silently fails | High | Medium | PRD NFR: no draft loss; PRD FR-006; PRD Open Question #1; hot-spot dir `frontend/app/composables/` (15 touches/30d) |
+| 5 | Retry review corrupts state — double retry, stale `review_error`, or duplicate review events leave the ADR in an inconsistent status | High | Medium | PRD FR-016 (retry endpoint); Architecture: event-sourcing-lite idempotency; refresh research |
 
 ### Risk Response Guidance
 
 | Risk # | What would prove protection | Must challenge | Context needed | Likely cheapest layer | Anti-pattern to avoid |
 |---|---|---|---|---|---|
-| 1 | Given fixture ADRs with known section presence, the review pipeline returns correctly structured annotations that flag the right sections; annotation schema is always valid JSON conforming to F-01's contract | "The LLM is smart enough" — must verify *our* parsing, schema validation, and section-detection logic, not the LLM's prose quality | F-01 quality-check harness; annotation response schema; prompt template; what counts as "missing" vs "empty" | Integration test with fixture ADRs against the deterministic layer (schema + section detection); defer probabilistic eval post-MVP | Building a full evaluation dataset as MVP gate; asserting exact LLM wording instead of structural properties; the oracle problem (expected value copied from the implementation) |
-| 2 | Attempting `draft`→`proposed` (skipping review) raises an error; editing content while status is `in_review` raises an error; `after_review`→`proposed` succeeds without re-triggering review | "Happy-path transitions work, so the lifecycle is correct" — must test *illegal* transitions, not just legal ones | ADR aggregate status-transition rules; which transitions emit which events; where status is checked (domain vs router) | Unit test on ADR aggregate (pure domain, no DB) | Only testing legal transitions; implementation-mirror assertions ("status field equals X" copied from aggregate code) |
-| 3 | User A's token cannot fetch/update/delete User B's ADR via direct API call with a guessed or enumerated ADR ID | "Authenticated = authorized" — must verify ownership check, not just auth check | How `user_id` scope is enforced in query/command handlers; whether the router or the handler checks ownership | Integration test: two users, cross-access attempt returns 403/404 | Testing only that unauthenticated requests fail (auth != authz) |
-| 4 | After save-on-blur fires and the browser is force-closed, reopening the ADR shows the last blurred content; after save-on-unload fires and the tab is refreshed, content is preserved | "The API save endpoint works, so draft loss is impossible" — must test the browser-side trigger (blur/unload) actually fires the save | Frontend save-trigger mechanism; API endpoint for content persistence; what happens when save fails silently | Frontend integration test (blur/unload event → API call assertion) + backend integration test (save endpoint persists correctly) | Testing only the API endpoint without verifying the browser triggers it |
-| 5 | When projection update throws after event append, the system either rolls back both or provides a recovery path (replay) | "Same-transaction means atomicity" — must verify the transaction boundary actually wraps both operations | Whether event append and projection update share a DB transaction; what happens on projection error; startup replay behavior | Integration test against real Postgres (append + project in one transaction; simulate projection failure) | Mocking the DB — the risk is specifically about transaction behavior |
-| 6 | When the AI review handler raises an unhandled exception, the ADR does not remain stuck in `in_review` — it transitions to `review_failed` with persisted `review_error`; user retries via dedicated endpoint. Startup replay remains a secondary recovery path. | "TaskGroup catches exceptions" — must verify handler failure marks the event and projection shows `review_failed`, not perpetual `in_review` | Event handler error paths; `RunAiReviewHandler._fail_review`; `RetryAdrForReviewCommandHandler`; migration `004_review_failed` | Integration test: inject a failing handler, verify ADR → `review_failed`, then retry → `in_review` | Testing only the happy path where the LLM responds correctly; assuming stuck-in-review is acceptable |
-| 7 | A request with a tampered JWT (wrong secret, expired, malformed) is rejected with 401; a request with no token to a protected endpoint returns 401 | "JWT library handles validation" — must verify *our* configuration (algorithm, secret, expiry) is correct, not that PyJWT works | Token creation config; middleware/dependency that validates tokens; which endpoints are protected | Unit test on token validation + integration test on protected endpoint | Testing only that a valid token succeeds (proves nothing about rejection) |
+| 1 | Given fixture ADRs, merged review output always has five section ratings (0–5) with feedback where score ≥ 1, valid annotation kinds, and actionability fields; garbage LLM payloads cannot silently complete as empty `after_review` | "Schema validation exists, so ratings are always good" — validation is currently advisory; must test the *merged API response*, not only wire models | Static + LLM merge rules; `validate_review_result` behavior; fake LLM fixtures; what "complete" means at API boundary | Integration test with injected fake LLM returning malformed/partial payloads | Asserting exact LLM wording; F-score eval as MVP gate; oracle copied from implementation |
+| 2 | When the review handler raises (transport error, parse failure, exhausted retries), ADR transitions to `review_failed` with persisted `review_error`; user retry clears error and returns to `in_review` | "TaskGroup catches exceptions" — must verify projection shows `review_failed`, not perpetual `in_review` | Handler failure paths; projection apply; retry command; idempotency on duplicate failure events | Integration test: inject failing LLM service → `review_failed` → retry → `in_review` | Happy-path-only review tests; assuming stuck-in-review is acceptable |
+| 3 | User A's token cannot fetch, patch, save, delete, review, or retry User B's ADR | "Authenticated = authorized" — must verify ownership on *mutating* routes, not only GET | How `user_id` scope is enforced in handlers; 403 vs 404 policy | Integration test: two users, cross-access on read + write + retry | Testing only unauthenticated 401; read-path IDOR only |
+| 4 | After save-on-blur fires, content persists via API; after save-on-unload/beacon fires on tab close, content survives reload | "The save endpoint works, so draft loss is impossible" — must test blur/unload *triggers* and failure handling | `saveOnBlur` vs `beaconSave`; editor blur wiring; PATCH/beacon API | Frontend unit/integration (blur → store.save) + backend integration (persist) + optional e2e reload | Testing API save without browser triggers; mocking persistence on editor page tests only |
+| 5 | Retry from `review_failed` is idempotent; duplicate retry or concurrent submit does not duplicate events or leave stale `review_error` | "Retry endpoint returns 200, so state is correct" — must verify event stream and projection after double-call | Aggregate retry guards; handler skip rules for duplicate `source_event_id`; projection clears `review_error` | Integration test: fail → retry → verify events; double-retry attempt | Testing only single happy retry |
 
 ## §3 Phased Rollout
 
 | # | Phase name | Goal | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Critical-path domain + auth hardening | Prove ADR lifecycle transitions reject illegal moves and auth/authz boundaries block cross-user access; bootstrap pytest and vitest with meaningful patterns that all later phases follow | 2, 3, 7 | Unit (domain aggregate), integration (API auth + IDOR) | change opened | testing-critical-path-domain-auth |
-| 2 | Persistence integrity + event flow | Prove event append + projection atomicity holds under failure and handler crash recovery works; establish DB-backed test fixtures | 5, 6 | Integration (Postgres transactions, handler error injection, startup replay) | not started | — |
-| 3 | AI review quality + draft safety | Prove AI review annotation schema and section-detection are correct against fixture ADRs; prove save-on-blur/unload triggers fire and persist content | 1, 4 | Integration (deterministic annotation validation with fixture ADRs), frontend integration (save trigger verification) | not started | — |
-| 4 | Quality gates wiring | Lock the test floor: pre-commit hooks run tests, CI runs the full suite, coverage thresholds enforced, test commands documented in AGENTS.md | all | CI/hook configuration | not started | — |
+| 1 | Critical-path API integration | Close mutating IDOR gaps, persistence API round-trips, and any remaining authz holes on ADR routes — building on existing domain/API coverage rather than bootstrapping from zero | 3, 4 (backend path) | API integration (pytest + TestClient) | shipped | context/changes/testing-critical-path-api-integration/ |
+| 2 | AI review contract + error recovery | Prove merged review output contract at API boundary; prove failure → `review_failed` → retry recovery; tighten garbage-rating behavior per product decision | 1, 2, 5 | Integration (fake LLM injection, handler failure, retry idempotency) | not started | — |
+| 3 | E2E auth + north-star review (mocked LLM) | Prove register/login → workspace and full review north star in a real browser with LLM mocked at API — the user's definition of "it works" | 1, 2, 4 (frontend path) | E2E (Playwright or Vitest browser — bootstrap in this phase) | not started | — |
+| 4 | Quality gates wiring | Lock the test floor: pre-commit runs tests, CI runs full suite, test commands documented; coverage thresholds if justified | all | CI/hook configuration | not started | — |
 
 ### Phase ordering rationale
 
-- **Phase 1 first:** Risks #2, #3, #7 are testable today (domain aggregate and auth endpoints already exist). These are the cheapest tests for the highest-confidence risks. Establishes the test patterns and fixtures all later phases reuse.
-- **Phase 2 second:** Risks #5, #6 require DB fixtures and infrastructure-level testing. Builds on Phase 1's pytest patterns. Must ship before S-04 (AI review) lands to catch event-flow regressions early.
-- **Phase 3 third:** Risks #1, #4 depend on S-04 and S-02 being implemented (or nearly so). Tests the product wedge (AI review accuracy) and the "no draft loss" guardrail. The deterministic annotation layer is MVP; probabilistic eval is deferred.
-- **Phase 4 last:** All rollout phases must be shippable and green before wiring quality gates. This phase prevents regression by locking the floor.
+- **Phase 1 first:** Existing suite already covers domain lifecycle and read-path IDOR. Cheapest remaining signal is mutating cross-user API tests and backend persistence — reuses current pytest fixtures.
+- **Phase 2 second:** AI review contract and recovery are the product wedge. Fake-LLM integration tests extend the `review_quality/` harness to the API boundary before browser cost.
+- **Phase 3 third:** North-star e2e requires auth + review UI + persistence triggers together; mocked LLM keeps CI deterministic. Bootstrap e2e runner here, not before API gaps close.
+- **Phase 4 last:** Gates lock a green suite; wiring before Phases 1–3 would block on incomplete coverage.
 
 ## §4 Stack
 
 ### Backend
 - **Language:** Python 3.13+
 - **Framework:** FastAPI
-- **Test runner:** pytest (configured in `pyproject.toml`, `testpaths = ["tests"]`)
-- **Existing test files:** 8 files in `backend/tests/` (domain, application, infrastructure) — generated without a plan, effectively bare
+- **Test runner:** pytest 9.x (`pyproject.toml`, `testpaths = ["tests"]`)
+- **Existing test files:** ~53 modules under `backend/tests/` (domain, application, API, review_quality, persistence, auth)
 - **Linter/formatter:** Ruff (line-length 88), ty (type checker)
 - **Architecture:** Hexagonal, CQRS-lite, event-sourcing-lite
 
 ### Frontend
 - **Language:** TypeScript
 - **Framework:** Nuxt 4
-- **Test runner:** Vitest (configured in `vitest.config.ts`, `tests/**/*.test.ts`)
-- **Existing test files:** 2 files (`smoke.test.ts`, `auth.store.test.ts`) — minimal, effectively bare
+- **Test runner:** Vitest (`vitest.config.ts`, `frontend/tests/**/*.test.ts`)
+- **Existing test files:** 14 files (auth, adr store, persistence composable, review UI components, editor page)
 - **Linter/formatter:** ESLint, Prettier, TypeScript (`tsc`)
 - **UI library:** shadcn-vue (excluded from test scope)
 
+### E2E
+- **Runner:** none yet — see §3 Phase 3
+- **Recommendation:** Playwright (aligns with cursor-ide-browser MCP for local debugging) or Vitest browser mode if team prefers single runner
+
+| Layer | Tool | Version | Notes |
+|---|---|---|---|
+| unit + integration (backend) | pytest + httpx | 9.x | API tests use `AsyncClient` against app factory |
+| unit + integration (frontend) | Vitest + jsdom | 4.x | Component tests use `@vue/test-utils` |
+| API mocking (frontend e2e) | Playwright route intercept / MSW | TBD | Mock LLM at API boundary in Phase 3 |
+| e2e | Playwright (planned) | TBD | Bootstrap in Phase 3 — north star + auth |
+| accessibility | none | — | Not in MVP rollout scope |
+
 ### Stack grounding tools (current session)
-- Docs: Context7 MCP — available; use for Vitest/pytest/Nuxt/FastAPI-specific guidance per rollout phase; checked: 2026-06-16
-- Search: Exa.ai MCP — available; use for current tool support and best practices; checked: 2026-06-16
-- Runtime/browser: cursor-ide-browser MCP — available; possible e2e verification layer for Phase 3 draft-loss testing; checked: 2026-06-16
-- Provider/platform: user-notebooks, user-visualization — not quality-gate relevant; checked: 2026-06-16
+- Docs: Context7 MCP — available; use for Vitest/pytest/Playwright setup per phase; checked: 2026-07-05
+- Search: Exa.ai MCP — available; use for current Playwright/Nuxt test guidance; checked: 2026-07-05
+- Runtime/browser: cursor-ide-browser MCP — available; local verification aid for Phase 3 e2e; checked: 2026-07-05
+- Provider/platform: GCP observability MCP — not quality-gate relevant for MVP; checked: 2026-07-05
 
-## §5 Hot-Spot Evidence
+## §5 Quality Gates
 
-### Scan parameters
-- Scope: `backend/` (excluding `.venv`, `__pycache__`, `migrations/versions`), `frontend/app/`
-- Period: last 30 days
-- Commits in scope: 16
-
-### Top directories by churn
-| Directory | Touches (30d) | Risk relevance |
-|---|---|---|
-| `backend/infrastructure/adapters/persistence/` | 8 | Risk #5 (event/projection atomicity) |
-| `backend/domain/user/` | 8 | Risk #7 (auth), Risk #3 (ownership) |
-| `backend/application/ports/` | 8 | Risk #5, #6 (port contracts for event store, projections) |
-| `frontend/app/components/ui/form/` | 8 | Excluded (shadcn-vue library code) |
-| `backend/domain/adr/` | 7 | Risk #2 (status transitions) |
-| `frontend/app/pages/` | 6 | Risk #4 (save triggers on ADR editor pages) |
-
-### Signal assessment
-16 commits in 30 days is adequate for likelihood calibration. Churn concentrates in persistence adapters and domain layers — consistent with F-02 and S-01 being the only implemented slices. Frontend churn is dominated by UI component scaffolding (shadcn-vue), which is excluded from test scope.
+| Gate | Where | Required? | Catches |
+|---|---|---|---|
+| lint + typecheck | local + pre-commit | required | syntactic / type drift |
+| unit + integration (backend) | local + CI | required after §3 Phase 2 | API and domain regressions |
+| unit + integration (frontend) | local + CI | required after §3 Phase 2 | store/composable/component regressions |
+| e2e north-star + auth | CI on PR | required after §3 Phase 3 | broken review flow or auth redirect |
+| pre-commit test hook | local (agent loop) | recommended after §3 Phase 4 | regressions at edit time |
+| coverage thresholds | CI | optional after §3 Phase 4 | untested new code in hot paths |
 
 ## §6 Cookbook
 
 Test patterns shipped by each rollout phase. Populated as phases complete.
 
-### Phase 1 — Critical-path domain + auth hardening
-TBD — see §3 Phase 1 for ADR lifecycle illegal-transition patterns, IDOR cross-user access denial patterns, and JWT rejection patterns.
+### Phase 1 — Critical-path API integration
 
-### Phase 2 — Persistence integrity + event flow
-TBD — see §3 Phase 2 for event-append/projection atomicity patterns, handler error injection patterns, and startup replay verification patterns.
+Shipped in `context/changes/testing-critical-path-api-integration/`. File: `backend/tests/infrastructure/api/test_adr_api.py`.
 
-### Phase 3 — AI review quality + draft safety
-TBD — see §3 Phase 3 for fixture-based annotation schema validation patterns and frontend save-trigger verification patterns.
+#### Mutating IDOR denial (Risk #3)
+
+**Behavior:** User B's Bearer token cannot mutate User A's ADR on write routes; API returns **404** (not 403) and owner state is unchanged.
+
+**Pattern:**
+
+1. Owner registers → `set_bearer_auth` → create ADR with known `title` / `content`
+2. `clear_bearer_auth` → intruder registers → `set_bearer_auth`
+3. Intruder calls mutating route → assert `status_code == 404`
+4. Switch back to owner token → `GET /api/adrs/{id}` → assert `title`, `content`, or `status` unchanged
+
+**Routes covered:** `PATCH /api/adrs/{id}`, `POST /api/adrs/{id}/save`, `POST /api/adrs/{id}/retry-review` (draft seed suffices — owner check runs before status validation).
+
+**Tests:** `test_patch_returns_404_for_other_users_adr`, `test_beacon_save_returns_404_for_other_users_adr`, `test_retry_review_returns_404_for_other_users_adr` (plus existing read/submit/publish/delete cross-user tests).
+
+**Helpers:** `register_and_get_token`, `set_bearer_auth`, `clear_bearer_auth` from `backend/tests/infrastructure/api/conftest.py`; mirror `test_accessing_another_users_adr_returns_404`.
+
+**Anti-pattern:** Testing only unauthenticated 401 or read-path IDOR (`GET`, list, search) without mutating-route denial.
+
+#### Persistence API round-trip (Risk #4, backend path)
+
+**Behavior:** Content saved via the beacon unload path survives an independent read — projection/write failure cannot hide behind a 204 response.
+
+**Pattern:**
+
+1. Authenticated user creates ADR
+2. `POST /api/adrs/{id}/save` with `{"content": "<payload>"}` → assert `204`
+3. `GET /api/adrs/{id}` → assert `content == "<payload>"` (oracle is the GET, not the save response body)
+
+**Tests:** `test_get_after_beacon_save_returns_updated_content` (PATCH round-trip: `test_get_after_patch_returns_updated_content`).
+
+**Anti-pattern:** Asserting `204`/`200` on save or PATCH without a separate GET to prove persistence.
+
+### Phase 2 — AI review contract + error recovery
+TBD — see §3 Phase 2 for fake-LLM injection patterns, garbage-rating rejection or documented acceptance, and `review_failed` → retry recovery patterns.
+
+### Phase 3 — E2E auth + north-star review (mocked LLM)
+TBD — see §3 Phase 3 for Playwright auth flow patterns and north-star review flow with API-level LLM mock.
 
 ### Phase 4 — Quality gates wiring
-TBD — see §3 Phase 4 for pre-commit hook configuration, CI test suite integration, and coverage threshold enforcement.
+TBD — see §3 Phase 4 for pre-commit test integration, CI workflow, and documented `just test` usage in AGENTS.md.
+
+### Existing reference tests (pre-rollout baseline)
+
+Contributors can study these before Phase 1 ships cookbook entries:
+
+- Domain lifecycle illegal transitions: `backend/tests/domain/test_adr_aggregate.py`
+- API read-path IDOR + review happy path: `backend/tests/infrastructure/api/test_adr_api.py`
+- Review schema + runtime validation: `backend/tests/review_quality/`, `backend/tests/domain/adr/test_review_llm_schema.py`
+- Frontend review UI (mocked): `frontend/tests/adr-editor-page.test.ts`
+- Unload beacon persistence: `frontend/tests/useAdrPersistence.test.ts`
 
 ## §7 Negative Space
 
-What this plan deliberately excludes — and why. Review quarterly; if the team's beliefs change, re-run `/test-plan --refresh`.
+What this plan deliberately excludes — and why. Review quarterly; if beliefs change, re-run `/test-plan --refresh`.
 
 | Area | Why excluded | Revisit when |
 |---|---|---|
-| shadcn-vue UI components | Library code; testing it tests the library, not application logic (Interview Q5) | Custom components wrap shadcn with business logic |
-| Alembic migration files | Run once, verified manually; migration correctness is a deployment concern (Interview Q5) | Migrations become reversible or run in CI against production-like data |
-| ORM model definitions | Tested implicitly through integration tests that hit real Postgres (Interview Q5) | Models carry computed properties or custom validation |
-| LLM client library wrappers | Test the contract we enforce (annotation schema), not the HTTP client (Interview Q5) | Custom retry/fallback logic is added to the LLM adapter |
-| Snapshot tests | Break on every style tweak, catch nothing for a markdown-editor product (Interview Q5) | Visual regression becomes a real risk (e.g. ADR print/export view) |
-| Probabilistic AI review eval (F-score) | Expensive; not feasible for MVP; deterministic structural tests cover the contract (Interview Q1 + brief discussion) | Post-MVP when review quality is the competitive moat and prompt iteration is frequent |
-| E2E browser tests | Cost × signal: integration tests on API + frontend unit tests cover the same risks cheaper for MVP | Multi-step user flows span >3 pages and integration tests can no longer simulate the interaction |
+| shadcn-vue UI components | Library code; tests the library, not application logic | Custom components wrap shadcn with business logic |
+| Alembic migration files | Run once, verified manually | Migrations run in CI against production-like data |
+| ORM model definitions | Covered implicitly through Postgres integration tests | Models carry computed properties or custom validation |
+| LLM HTTP client internals | Test enforced contract (ratings + annotations), not transport | Custom retry/fallback logic added to adapter |
+| Snapshot tests | Break on style tweaks; low signal for markdown editor | Print/export view needs visual regression |
+| Probabilistic AI eval (F-score) | Expensive; offline harness only post-MVP | Review quality is competitive moat and prompts iterate weekly |
+| Real-LLM e2e | Non-deterministic, costly, flaky in CI | Scheduled nightly job with budget cap |
+| Full browser e2e for every status transition | Cost × signal: API + unit tests cover illegal transitions | Multi-page flows exceed integration simulation |
+| Event/projection atomicity under failure | Deprioritized vs north-star; add if persistence incidents occur | Production stale-read incident or replay bug |
+
+## §8 Freshness Ledger
+
+- Strategy (§1–§5) last reviewed: 2026-07-05
+- Stack versions last verified: 2026-07-05
+- AI-native tool references last verified: 2026-07-05
+
+Refresh (`/test-plan --refresh`) when:
+
+- a new top-3 risk surfaces from the roadmap or archive,
+- a recommended tool's `checked:` date is older than three months,
+- the project's tech stack changes (new framework, new test runner),
+- §7 negative-space no longer matches what the team believes.
+
+Prior refresh: `context/changes/test-plan-refresh-2026-07-05/` (product pivot to LLM ratings, test base sparse → meaningful, §3 phases reset).

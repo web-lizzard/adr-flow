@@ -445,21 +445,21 @@ Remove obsolete cookie env vars from deployment surfaces and update documentatio
 
 #### Automated
 
-- [x] 3.1 ESLint passes: `cd frontend && pnpm run lint`
-- [x] 3.2 Typecheck passes: `cd frontend && pnpm run typecheck`
-- [x] 3.3 Auth store tests pass: `cd frontend && pnpm exec vitest run tests/auth.store.test.ts`
+- [x] 3.1 ESLint passes: `cd frontend && pnpm run lint` — c8967d3
+- [x] 3.2 Typecheck passes: `cd frontend && pnpm run typecheck` — c8967d3
+- [x] 3.3 Auth store tests pass: `cd frontend && pnpm exec vitest run tests/auth.store.test.ts` — c8967d3
 
 #### Manual
 
-- [ ] 3.4 Dev login stores token in sessionStorage
-- [ ] 3.5 Protected API call shows `Authorization: Bearer` in Network tab
+- [x] 3.4 Dev login stores token in sessionStorage — c8967d3
+- [x] 3.5 Protected API call shows `Authorization: Bearer` in Network tab — c8967d3
 
 ### Phase 4: Frontend SSR, Beacon Save & Tests
 
 #### Automated
 
-- [ ] 4.1 Frontend tests pass: `cd frontend && pnpm run test`
-- [ ] 4.2 ESLint and typecheck pass
+- [x] 4.1 Frontend tests pass: `cd frontend && pnpm run test`
+- [x] 4.2 ESLint and typecheck pass
 
 #### Manual
 

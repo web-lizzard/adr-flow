@@ -1,8 +1,13 @@
 import { useEventListener } from "@vueuse/core";
 import { apiPath } from "../../composables/useApi";
+import { getAccessToken } from "../../composables/useAuthToken";
 import type { useAdrStore } from "../stores/adr";
 
 const BEACON_PAYLOAD_WARNING_BYTES = 60 * 1024;
+
+function isClient(): boolean {
+  return typeof window !== "undefined" && import.meta.client !== false;
+}
 
 export function useAdrPersistence(
   adrId: Ref<string>,
@@ -27,18 +32,23 @@ export function useAdrPersistence(
       return;
     }
 
+    const token = getAccessToken();
+    if (!token) {
+      return;
+    }
+
     const blob = createSaveBlob(store.currentAdr);
     const url = apiPath(`/adrs/${adrId.value}/save`);
-    const queued = navigator.sendBeacon?.(url, blob) ?? false;
 
-    if (!queued) {
-      void fetch(url, {
-        method: "POST",
-        body: blob,
-        keepalive: true,
-        credentials: "include",
-      }).catch(() => undefined);
-    }
+    void fetch(url, {
+      method: "POST",
+      body: blob,
+      keepalive: true,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }).catch(() => undefined);
   }
 
   function createSaveBlob(adr: { title: string; content: string }) {
@@ -54,10 +64,7 @@ export function useAdrPersistence(
       return;
     }
 
-    if (
-      typeof navigator.sendBeacon === "function" &&
-      createSaveBlob(store.currentAdr).size <= BEACON_PAYLOAD_WARNING_BYTES
-    ) {
+    if (createSaveBlob(store.currentAdr).size <= BEACON_PAYLOAD_WARNING_BYTES) {
       return;
     }
 
@@ -65,7 +72,7 @@ export function useAdrPersistence(
     event.returnValue = "";
   }
 
-  if (import.meta.client) {
+  if (isClient()) {
     useEventListener(window, "beforeunload", warnIfBeaconIsRisky);
     useEventListener(window, "pagehide", beaconSave);
     useEventListener(document, "visibilitychange", () => {

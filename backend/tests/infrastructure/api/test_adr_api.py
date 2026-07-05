@@ -225,6 +225,80 @@ def test_accessing_another_users_adr_returns_404(auth_client) -> None:
     assert response.status_code == 404
 
 
+def test_patch_returns_404_for_other_users_adr(auth_client) -> None:
+    token_owner = register_and_get_token(auth_client, "patch-owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
+    create_response = auth_client.post(
+        "/api/adrs",
+        json={"title": "Owner Title"},
+    )
+    adr_id = create_response.json()["id"]
+    auth_client.patch(
+        f"/api/adrs/{adr_id}",
+        json={"content": "Owner content"},
+    )
+    clear_bearer_auth(auth_client)
+
+    token_intruder = register_and_get_token(auth_client, "patch-intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
+    response = auth_client.patch(
+        f"/api/adrs/{adr_id}",
+        json={"content": "stolen", "title": "Hijacked"},
+    )
+
+    assert response.status_code == 404
+
+    set_bearer_auth(auth_client, token_owner)
+    owner_adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert owner_adr["title"] == "Owner Title"
+    assert owner_adr["content"] == "Owner content"
+
+
+def test_beacon_save_returns_404_for_other_users_adr(auth_client) -> None:
+    token_owner = register_and_get_token(auth_client, "save-owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
+    create_response = auth_client.post(
+        "/api/adrs",
+        json={"title": "Save Owner ADR"},
+    )
+    adr_id = create_response.json()["id"]
+    auth_client.patch(
+        f"/api/adrs/{adr_id}",
+        json={"content": "Owner saved content"},
+    )
+    clear_bearer_auth(auth_client)
+
+    token_intruder = register_and_get_token(auth_client, "save-intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
+    response = auth_client.post(
+        f"/api/adrs/{adr_id}/save",
+        json={"content": "intruder content"},
+    )
+
+    assert response.status_code == 404
+
+    set_bearer_auth(auth_client, token_owner)
+    owner_adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert owner_adr["content"] == "Owner saved content"
+
+
+def test_retry_review_returns_404_for_other_users_adr(auth_client) -> None:
+    token_owner = register_and_get_token(auth_client, "retry-owner@example.com")
+    set_bearer_auth(auth_client, token_owner)
+    adr_id = _create_adr(auth_client, "Retry Owner ADR")
+    clear_bearer_auth(auth_client)
+
+    token_intruder = register_and_get_token(auth_client, "retry-intruder@example.com")
+    set_bearer_auth(auth_client, token_intruder)
+    response = auth_client.post(f"/api/adrs/{adr_id}/retry-review")
+
+    assert response.status_code == 404
+
+    set_bearer_auth(auth_client, token_owner)
+    owner_adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert owner_adr["status"] == "draft"
+
+
 def test_patch_in_review_status_returns_error(auth_client) -> None:
     _register_user(auth_client)
     adr_id = _create_adr(auth_client)

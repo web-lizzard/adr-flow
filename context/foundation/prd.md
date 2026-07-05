@@ -62,7 +62,7 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 - **Given** a logged-in user with at least one ADR created in a previous session
 - **When** they navigate to their ADR list
-- **Then** they see the complete list of their own ADRs regardless of status (`draft`, `in_review`, `after_review`, `proposed`), with clear status indicators, and can open any one for viewing or further editing (where the status permits editing)
+- **Then** they see the complete list of their own ADRs regardless of status (`draft`, `in_review`, `after_review`, `review_failed`, `proposed`), with clear status indicators, and can open any one for viewing or further editing (where the status permits editing)
 
 ### US-03: Registration and immediate access
 
@@ -91,17 +91,19 @@ Tech lead or architect on a product team, using the product **individually** (B2
 
 - FR-004: User can create a new ADR document from a standardized markdown starter template that pre-fills required section headings (`## Context`, `## Options`, `## Decision`, `## Status`, `## Consequences`) as the structural contract the AI review parses against. Priority: must-have
   > Socrates: Counter-argument accepted (architecture pivot): "Structural fields are unnecessary — a single markdown section with guidelines in a comment achieves the same effect at lower cost." Resolution: pivoted from field-based template to markdown-only editor with starter template; AI parses markdown headings to validate required sections.
-- FR-005: User can edit the ADR markdown content in a web editor in any status except `in_review`. Priority: must-have
-  > Socrates: Counter-argument considered: none stood. Resolution: kept as written.
+- FR-005: User can edit the ADR markdown content in a web editor in any status except `in_review` (including `review_failed`, where the user may fix content before retrying review). Priority: must-have
+  > Socrates: Counter-argument considered: none stood. Resolution: kept as written; `review_failed` added post-MVP wedge (error-status change) so users are not blocked after a system failure.
 - FR-006: User's ADR edits are persisted by save-on-blur (when focus leaves the editor) and by save-on-unload (when the user closes the tab or refreshes), so a draft is not lost on browser close, refresh, or session expiry. Priority: must-have
   > Socrates: Counter-argument accepted: "Save-on-blur is simpler and sufficient for MVP — full continuous autosave is excessive complexity (debounce, conflict, network failure)." Resolution: revised from continuous autosave to save-on-blur + save-on-unload; equivalent against Guardrail "no draft loss".
 
 ### ADR lifecycle
 
-- FR-007: User can advance an ADR through four statuses: `draft` → `in_review` → `after_review` → `proposed`. Priority: must-have
-  > Socrates: Counter-argument considered: none stood. Resolution: kept as written; 4-status model negotiated explicitly in Phase 4.
+- FR-007: User can advance an ADR through five statuses: `draft` → `in_review` → `after_review` → `proposed`, with a failure branch `in_review` → `review_failed` when the AI review pipeline cannot complete. Priority: must-have
+  > Socrates: Counter-argument considered: none stood. Resolution: kept as written; extended from 4 to 5 statuses (added `review_failed`) to unblock users after system-level review failures.
 - FR-008: User can trigger AI review by clicking "Publish for review", which transitions ADR from `draft` to `in_review`. AI review runs exactly once per ADR in MVP (internally parallel per-section LLM calls are an implementation detail). Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written; re-review and quota-based variants deferred post-MVP.
+- FR-016: User can retry a failed AI review from `review_failed` by clicking "Try again", which calls a dedicated retry endpoint and transitions the ADR back to `in_review` with `review_error` cleared. Retry is offered only for retryable system failures (`kind=retryable_internal_error`); non-retryable failures show contact-admin guidance with no retry button. Priority: must-have
+  > Note: Added post error-status change; distinct from re-review after successful `after_review` edits (still out of MVP).
 - FR-009: User can click "Publish" from `after_review` to transition ADR to `proposed`. No AI re-review is triggered. Priority: must-have
   > Socrates: Counter-argument considered: none stood. Resolution: kept as written; user retains control and accountability for publishing post-review.
 
@@ -148,7 +150,7 @@ The product **evaluates ADR content in three phases: static gap detection, paral
 - (a) **Section ratings** — a score (0–5) and feedback for each of the five required sections (score 0 for statically detected gaps; scores 1–5 from LLM for present sections);
 - (b) **Annotations** — missing or empty sections (`missing_section`, from static detection), detected inconsistencies with location in the text, and specific fragments to shorten with proposed more concise wording (from LLM).
 
-**When the user sees the result:** after the ADR transitions from `in_review` to `after_review` — section ratings and annotations are visible in the review panel; the user can address them with edits, then publish the ADR to `proposed` status. If any review phase fails validation, the ADR remains in `in_review` with a `review_error` until the user resubmits.
+**When the user sees the result:** after the ADR transitions from `in_review` to `after_review` — section ratings and annotations are visible in the review panel; the user can address them with edits, then publish the ADR to `proposed` status. When merge validation finds content gaps or quality issues, the ADR still completes to `after_review` with section ratings and annotations — the user decides whether to edit and publish. When the AI review pipeline fails due to infrastructure or provider errors, the ADR transitions to `review_failed` with a structured `review_error` (code, message, kind); the user can edit content and retry via the dedicated retry action when the failure is retryable.
 
 ## Access Control
 
@@ -170,7 +172,7 @@ The product **evaluates ADR content in three phases: static gap detection, paral
 - **No re-review after ADR edits** — review runs once in the ADR lifecycle (draft → in_review); further edits after `after_review` do not trigger a new review.
 - **No per-user configurable ADR conventions** — 5 sections (context, options, decision, status, consequences) are hard-coded; organization-specific convention packs deferred post-MVP.
 - **No filtering or search in the ADR list** — card view without filters; sufficient for small scale (< 100 ADRs per user).
-- **No `accepted` / `superseded` statuses** — MVP has only 4 statuses (draft → in_review → after_review → proposed); full ADR decision lifecycle deferred post-MVP.
+- **No `accepted` / `superseded` statuses** — MVP has five lifecycle statuses (`draft`, `in_review`, `after_review`, `review_failed`, `proposed`); full ADR decision lifecycle deferred post-MVP.
 - **No password reset in MVP** — a user who forgets their password loses account access (conscious decision; contact support or recreate account).
 - **No permanent ADR destruction** — users can remove ADRs from their active view only; records are retained.
 - **No shared workspaces / team feature** — B2C/PLG only, one user = one isolated space.

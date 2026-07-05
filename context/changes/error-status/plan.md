@@ -465,8 +465,8 @@ Negligible — one additional POST endpoint and a JSON field on existing `review
 
 #### Automated
 
-- [ ] 4.1 N/A (docs only)
+- [x] 4.1 N/A (docs only)
 
 #### Manual
 
-- [ ] 4.2 PRD and test-plan updated; no contradictions with implemented behavior
+- [x] 4.2 PRD and test-plan updated; no contradictions with implemented behavior

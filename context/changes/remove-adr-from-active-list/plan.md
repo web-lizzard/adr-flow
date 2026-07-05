@@ -427,11 +427,11 @@ None. `is_deleted` column and read-path filters already exist from F-02/S-03.
 
 #### Automated
 
-- [ ] 3.1 Frontend tests pass: `cd frontend && pnpm run test -- adr-card adr.store`
-- [ ] 3.2 Lint passes: `cd frontend && pnpm run lint`
-- [ ] 3.3 Typecheck passes: `cd frontend && pnpm run typecheck`
+- [x] 3.1 Frontend tests pass: `cd frontend && pnpm run test -- adr-card adr.store`
+- [x] 3.2 Lint passes: `cd frontend && pnpm run lint`
+- [x] 3.3 Typecheck passes: `cd frontend && pnpm run typecheck`
 
 #### Manual
 
-- [ ] 3.4 Workspace trash icon opens confirmation; confirm removes card from grid
-- [ ] 3.5 Cancel closes dialog without removing; bookmarked editor URL for removed ADR shows generic not-found
+- [x] 3.4 Workspace trash icon opens confirmation; confirm removes card from grid
+- [x] 3.5 Cancel closes dialog without removing; bookmarked editor URL for removed ADR shows generic not-found

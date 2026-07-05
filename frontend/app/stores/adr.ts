@@ -1,5 +1,6 @@
 import {
   createAdr,
+  deleteAdr,
   fetchAdr,
   fetchAdrReviewStatus,
   listAdrs,
@@ -215,6 +216,16 @@ export const useAdrStore = defineStore("adr", () => {
     }
   }
 
+  async function remove(id: string): Promise<void> {
+    loading.value = true;
+    try {
+      await deleteAdr(id);
+      await fetchList();
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function refreshReviewStatus(id: string): Promise<void> {
     const status = await fetchAdrReviewStatus(id);
     if (!currentAdr.value || currentAdr.value.id !== id) {
@@ -243,6 +254,7 @@ export const useAdrStore = defineStore("adr", () => {
     submitForReview,
     retryForReview,
     publish,
+    remove,
     refreshReviewStatus,
     updateTitle,
     updateContent,

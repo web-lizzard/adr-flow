@@ -10,6 +10,7 @@ const listAdrsMock = vi.fn();
 const submitAdrForReviewMock = vi.fn();
 const retryAdrForReviewMock = vi.fn();
 const publishAdrMock = vi.fn();
+const deleteAdrMock = vi.fn();
 const fetchAdrReviewStatusMock = vi.fn();
 
 vi.mock("../composables/useApi", () => ({
@@ -21,6 +22,7 @@ vi.mock("../composables/useApi", () => ({
   submitAdrForReview: (...args: unknown[]) => submitAdrForReviewMock(...args),
   retryAdrForReview: (...args: unknown[]) => retryAdrForReviewMock(...args),
   publishAdr: (...args: unknown[]) => publishAdrMock(...args),
+  deleteAdr: (...args: unknown[]) => deleteAdrMock(...args),
   fetchAdrReviewStatus: (...args: unknown[]) =>
     fetchAdrReviewStatusMock(...args),
 }));
@@ -48,6 +50,7 @@ describe("useAdrStore", () => {
     submitAdrForReviewMock.mockReset();
     retryAdrForReviewMock.mockReset();
     publishAdrMock.mockReset();
+    deleteAdrMock.mockReset();
     fetchAdrReviewStatusMock.mockReset();
     navigateToMock.mockReset();
   });
@@ -395,6 +398,81 @@ describe("useAdrStore", () => {
     expect(fetchAdrMock).toHaveBeenCalledTimes(2);
     expect(store.currentAdr?.status).toBe("in_review");
     expect(store.currentAdr?.reviewError).toBeNull();
+  });
+
+  it("remove(id) calls deleteAdr and refreshes the list", async () => {
+    listAdrsMock
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: "adr-1",
+            title: "First ADR",
+            status: "draft",
+            updated_at: "2026-06-16T10:00:00Z",
+          },
+          {
+            id: "adr-2",
+            title: "Second ADR",
+            status: "proposed",
+            updated_at: "2026-06-16T11:00:00Z",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: "adr-2",
+            title: "Second ADR",
+            status: "proposed",
+            updated_at: "2026-06-16T11:00:00Z",
+          },
+        ],
+      });
+    deleteAdrMock.mockResolvedValue(undefined);
+
+    const store = useAdrStore();
+    await store.fetchList();
+    await store.remove("adr-1");
+
+    expect(deleteAdrMock).toHaveBeenCalledWith("adr-1");
+    expect(listAdrsMock).toHaveBeenCalledTimes(2);
+    expect(store.adrs).toEqual([
+      {
+        id: "adr-2",
+        title: "Second ADR",
+        status: "proposed",
+        updatedAt: "2026-06-16T11:00:00Z",
+      },
+    ]);
+  });
+
+  it("remove(id) rethrows errors without changing the list", async () => {
+    listAdrsMock.mockResolvedValue({
+      results: [
+        {
+          id: "adr-1",
+          title: "First ADR",
+          status: "draft",
+          updated_at: "2026-06-16T10:00:00Z",
+        },
+      ],
+    });
+    const failure = new Error("Delete failed");
+    deleteAdrMock.mockRejectedValue(failure);
+
+    const store = useAdrStore();
+    await store.fetchList();
+
+    await expect(store.remove("adr-1")).rejects.toThrow("Delete failed");
+    expect(listAdrsMock).toHaveBeenCalledTimes(1);
+    expect(store.adrs).toEqual([
+      {
+        id: "adr-1",
+        title: "First ADR",
+        status: "draft",
+        updatedAt: "2026-06-16T10:00:00Z",
+      },
+    ]);
   });
 
   it("refreshReviewStatus(id) updates status metadata from review-status endpoint", async () => {

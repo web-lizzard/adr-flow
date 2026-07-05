@@ -127,6 +127,12 @@ export function publishAdr(id: string) {
   });
 }
 
+export function deleteAdr(id: string) {
+  return $fetch<void>(apiPath(`/adrs/${id}`), {
+    method: "DELETE",
+  });
+}
+
 export function fetchAdrReviewStatus(id: string) {
   return $fetch<ReviewStatusResponse>(apiPath(`/adrs/${id}/review-status`));
 }

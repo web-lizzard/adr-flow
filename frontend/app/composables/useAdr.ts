@@ -21,6 +21,7 @@ export function useAdr() {
     submitForReview: store.submitForReview,
     retryForReview: store.retryForReview,
     publish: store.publish,
+    remove: store.remove,
     refreshReviewStatus: store.refreshReviewStatus,
     updateTitle: store.updateTitle,
     updateContent: store.updateContent,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useDebounceFn } from "@vueuse/core";
+import { getAuthErrorMessage } from "@/stores/auth";
 
 definePageMeta({
   layout: "default",
@@ -8,11 +9,14 @@ definePageMeta({
 
 const auth = useAuth();
 const adr = useAdr();
+const { notifyRemoved } = useAdrRemoveFeedback();
 
 const title = ref("");
 const titleError = ref<string | null>(null);
 const checkingTitle = ref(false);
 const formError = ref<string | null>(null);
+const removingId = ref<string | null>(null);
+const removeError = ref<string | null>(null);
 
 const canSubmit = computed(
   () =>
@@ -78,6 +82,19 @@ async function onSubmit() {
     formError.value = getAuthErrorMessage(error, "Failed to create ADR");
   }
 }
+
+async function onRemove(id: string) {
+  removeError.value = null;
+  removingId.value = id;
+  try {
+    await adr.remove(id);
+    notifyRemoved();
+  } catch (error) {
+    removeError.value = getAuthErrorMessage(error, "Failed to remove ADR");
+  } finally {
+    removingId.value = null;
+  }
+}
 </script>
 
 <template>
@@ -135,6 +152,9 @@ async function onSubmit() {
       <p v-else-if="adr.listError.value" class="text-sm text-destructive">
         {{ adr.listError.value }}
       </p>
+      <p v-else-if="removeError" class="text-sm text-destructive">
+        {{ removeError }}
+      </p>
       <p
         v-else-if="adr.adrs.value.length === 0"
         class="text-sm text-muted-foreground"
@@ -149,6 +169,8 @@ async function onSubmit() {
           :title="item.title"
           :status="item.status"
           :updated-at="item.updatedAt"
+          :removing="removingId === item.id"
+          @remove="onRemove"
         />
       </div>
     </section>

@@ -458,15 +458,15 @@ Remove obsolete cookie env vars from deployment surfaces and update documentatio
 
 #### Automated
 
-- [x] 4.1 Frontend tests pass: `cd frontend && pnpm run test`
-- [x] 4.2 ESLint and typecheck pass
+- [x] 4.1 Frontend tests pass: `cd frontend && pnpm run test` — eab9b88
+- [x] 4.2 ESLint and typecheck pass — eab9b88
 
 #### Manual
 
-- [ ] 4.3 Hard refresh after login keeps user authenticated
-- [ ] 4.4 Unload/visibility-hidden save persists draft with Bearer
-- [ ] 4.5 Corrupt token redirects to `/login`
-- [ ] 4.6 Cold SSR load of auth pages has no erroneous redirect flash
+- [x] 4.3 Hard refresh after login keeps user authenticated — eab9b88
+- [x] 4.4 Unload/visibility-hidden save persists draft with Bearer — eab9b88
+- [x] 4.5 Corrupt token redirects to `/login` — eab9b88
+- [x] 4.6 Cold SSR load of auth pages has no erroneous redirect flash — eab9b88
 
 ### Phase 5: Deploy & Docs Cleanup
 

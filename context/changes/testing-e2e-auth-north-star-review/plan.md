@@ -277,28 +277,28 @@ Annotations: 1 inconsistency ("Status may not reflect the recorded decision.", l
 
 #### Automated
 
-- [x] 1.1 Gitignore effective: `git ls-files frontend/playwright-report frontend/test-results` returns empty
-- [x] 1.2 TypeScript passes with `e2e/helpers.ts`: `cd frontend && pnpm run typecheck`
-- [x] 1.3 Lint passes: `cd frontend && pnpm run lint`
-- [x] 1.4 Existing tests unaffected: `cd frontend && pnpm run test`
+- [x] 1.1 Gitignore effective: `git ls-files frontend/playwright-report frontend/test-results` returns empty — 51f157b
+- [x] 1.2 TypeScript passes with `e2e/helpers.ts`: `cd frontend && pnpm run typecheck` — 51f157b
+- [x] 1.3 Lint passes: `cd frontend && pnpm run lint` — 51f157b
+- [x] 1.4 Existing tests unaffected: `cd frontend && pnpm run test` — 51f157b
 
 #### Manual
 
-- [ ] 1.5 AGENTS.md reads clearly — stale reference gone, helpers and known issues documented
-- [ ] 1.6 Login form still works after `.prevent` addition
+- [x] 1.5 AGENTS.md reads clearly — stale reference gone, helpers and known issues documented
+- [x] 1.6 Login form still works after `.prevent` addition
 
 ### Phase 2: Auth Login E2E Spec
 
 #### Automated
 
-- [x] 2.1 Spec passes: `cd frontend && pnpm run e2e -- auth-login.spec.ts`
-- [x] 2.2 TypeScript passes: `cd frontend && pnpm run typecheck`
-- [x] 2.3 Lint passes: `cd frontend && pnpm run lint`
+- [x] 2.1 Spec passes: `cd frontend && pnpm run e2e -- auth-login.spec.ts` — 51f157b
+- [x] 2.2 TypeScript passes: `cd frontend && pnpm run typecheck` — 51f157b
+- [x] 2.3 Lint passes: `cd frontend && pnpm run lint` — 51f157b
 
 #### Manual
 
-- [ ] 2.4 Spec runs visibly in headed mode — login form interaction is clean
-- [ ] 2.5 No race conditions or flicker on form submission
+- [x] 2.4 Spec runs visibly in headed mode — login form interaction is clean
+- [x] 2.5 No race conditions or flicker on form submission
 
 ### Phase 3: North-Star Review E2E Spec
 

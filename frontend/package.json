@@ -12,7 +12,10 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "playwright:install": "playwright-cli install --skills=agents",
+    "playwright:browser": "playwright-cli install-browser",
+    "playwright": "bash scripts/playwright-cli.sh"
   },
   "dependencies": {
     "@lucide/vue": "^1.17.0",
@@ -38,6 +41,7 @@
   "devDependencies": {
     "@nuxtjs/color-mode": "^4.0.0",
     "@pinia/nuxt": "^0.11.3",
+    "@playwright/cli": "^0.1.15",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^10.4.0",

@@ -59,3 +59,8 @@ gcp-deploy-web:
 
 mcp-verify:
     @bash scripts/mcp/verify.sh
+
+# --- devcontainer desktop (noVNC for headed Playwright) ---
+
+novnc:
+    @bash .devcontainer/bin/novnc.sh

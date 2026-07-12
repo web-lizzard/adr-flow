@@ -4,6 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     command: sleep infinity
+    environment:
+      DISPLAY: ":99"
+    ports:
+      - "6080:6080"
     volumes:
       - ..:/workspace:cached
       - gcloud-config:/home/vscode/.config/gcloud

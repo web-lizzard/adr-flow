@@ -19,7 +19,16 @@
 		"source=${localWorkspaceFolder}/.devcontainer/.permissions-cache/permissions.json,target=/home/vscode/.cursor/permissions.json,type=bind,consistency=cached"
 	],
 	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/post-create.sh",
+	"postStartCommand": "bash ${containerWorkspaceFolder}/.devcontainer/bin/start-display.sh",
+	"forwardPorts": [6080],
+	"portsAttributes": {
+		"6080": {
+			"label": "noVNC desktop",
+			"onAutoForward": "notify"
+		}
+	},
 	"remoteEnv": {
+		"DISPLAY": ":99",
 		"REDIS_URL": "redis://redis:6379",
 		"DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow",
 		"TEST_DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/adr_flow_test",

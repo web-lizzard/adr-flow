@@ -979,6 +979,140 @@ def test_retry_review_from_review_failed_returns_202(
         assert retried["review_error"] is None
 
 
+def test_review_failure_persists_review_error(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from domain.errors import RetryableInternalError
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class FailingReviewService:
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ):
+            del markdown, validation_feedback
+            raise RetryableInternalError("LLM provider unavailable")
+
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: FailingReviewService(),
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        token = register_and_get_token(client, "review-failure@example.com")
+        set_bearer_auth(client, token)
+        adr_id = _create_adr(client, "Review Failure ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        adr = client.get(f"/api/adrs/{adr_id}").json()
+        assert adr["status"] == "review_failed"
+        review_error = adr["review_error"]
+        assert review_error is not None
+        assert review_error["kind"] == "retryable_internal_error"
+        assert review_error["message"]
+        assert UUID(review_error["source_event_id"])
+        assert review_error["failed_at"]
+
+        status = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert status["status"] == "review_failed"
+        assert status["review_error"] == review_error
+
+
+def test_retry_from_review_failed_completes_review(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from domain.errors import RetryableInternalError
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+    from infrastructure.llm.factory import build_adr_review_service
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class ToggleableReviewService:
+        def __init__(self, real_service) -> None:
+            self._fail = True
+            self._real_service = real_service
+
+        def allow_success(self) -> None:
+            self._fail = False
+
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ):
+            if self._fail:
+                del markdown, validation_feedback
+                raise RetryableInternalError("LLM provider unavailable")
+            return await self._real_service.review_adr(
+                markdown,
+                validation_feedback=validation_feedback,
+            )
+
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        llm_provider="fake",
+    )
+    review_service = ToggleableReviewService(build_adr_review_service(settings))
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: review_service,
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        token = register_and_get_token(client, "retry-recovery@example.com")
+        set_bearer_auth(client, token)
+        adr_id = _create_adr(client, "Retry Recovery ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        failed = client.get(f"/api/adrs/{adr_id}").json()
+        assert failed["status"] == "review_failed"
+        assert failed["review_error"] is not None
+
+        review_service.allow_success()
+        response = client.post(f"/api/adrs/{adr_id}/retry-review")
+        assert response.status_code == 202
+
+        completed = _wait_for_review_status(client, adr_id, expected="after_review")
+        assert completed["review_error"] is None
+
+        adr = client.get(f"/api/adrs/{adr_id}").json()
+        assert adr["status"] == "after_review"
+        assert adr["review_error"] is None
+        assert adr["section_ratings"] is not None
+        assert len(adr["section_ratings"]) == 5
+
+
 def test_retry_review_from_draft_returns_400(auth_client) -> None:
     _register_user(auth_client)
     adr_id = _create_adr(auth_client)

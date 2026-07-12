@@ -1113,6 +1113,188 @@ def test_retry_from_review_failed_completes_review(
         assert len(adr["section_ratings"]) == 5
 
 
+def test_double_retry_while_in_review_returns_400(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from domain.errors import RetryableInternalError
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+    from infrastructure.llm.factory import build_adr_review_service
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class ToggleableReviewService:
+        def __init__(self, real_service) -> None:
+            self._fail = True
+            self._real_service = real_service
+
+        def allow_success(self) -> None:
+            self._fail = False
+
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ):
+            if self._fail:
+                del markdown, validation_feedback
+                raise RetryableInternalError("LLM provider unavailable")
+            return await self._real_service.review_adr(
+                markdown,
+                validation_feedback=validation_feedback,
+            )
+
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        llm_provider="fake",
+    )
+    review_service = ToggleableReviewService(build_adr_review_service(settings))
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: review_service,
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        token = register_and_get_token(client, "double-retry@example.com")
+        set_bearer_auth(client, token)
+        adr_id = _create_adr(client, "Double Retry ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        failed = client.get(f"/api/adrs/{adr_id}").json()
+        assert failed["status"] == "review_failed"
+
+        review_service.allow_success()
+        response = client.post(f"/api/adrs/{adr_id}/retry-review")
+        assert response.status_code == 202
+
+        in_review = client.get(f"/api/adrs/{adr_id}").json()
+        assert in_review["status"] == "in_review"
+        assert in_review["review_error"] is None
+
+        second_retry = client.post(f"/api/adrs/{adr_id}/retry-review")
+        assert second_retry.status_code == 400
+        assert second_retry.json()["kind"] == "adr_invalid_retry_status"
+
+        with db_engine.begin() as connection:
+            submit_count = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM events "
+                    "WHERE event_type = 'ADRSubmittedForReview' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            ).scalar_one()
+            assert submit_count == 2
+
+
+def test_failure_replay_does_not_duplicate_review_failed(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from domain.errors import RetryableInternalError
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class FailingReviewService:
+        async def review_adr(
+            self,
+            markdown: str,
+            *,
+            validation_feedback: tuple[str, ...] = (),
+        ):
+            del markdown, validation_feedback
+            raise RetryableInternalError("LLM provider unavailable")
+
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: FailingReviewService(),
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        token = register_and_get_token(client, "failure-replay@example.com")
+        set_bearer_auth(client, token)
+        adr_id = _create_adr(client, "Failure Replay ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        failed = client.get(f"/api/adrs/{adr_id}").json()
+        assert failed["status"] == "review_failed"
+        source_event_id = failed["review_error"]["source_event_id"]
+
+        with db_engine.begin() as connection:
+            failure_count = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM events "
+                    "WHERE event_type = 'AIReviewFailed' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            ).scalar_one()
+            assert failure_count == 1
+
+            connection.execute(
+                text(
+                    "UPDATE events SET processed_at = NULL "
+                    "WHERE event_type = 'ADRSubmittedForReview' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            )
+
+        _drain_event_bus(client)
+
+        replayed = client.get(f"/api/adrs/{adr_id}").json()
+        assert replayed["status"] == "review_failed"
+        assert replayed["review_error"]["source_event_id"] == source_event_id
+
+        with db_engine.begin() as connection:
+            failure_count_after = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM events "
+                    "WHERE event_type = 'AIReviewFailed' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            ).scalar_one()
+            assert failure_count_after == 1
+
+            stored_source_ids = connection.execute(
+                text(
+                    "SELECT payload->>'source_event_id' FROM events "
+                    "WHERE event_type = 'AIReviewFailed' "
+                    "AND aggregate_id = :adr_id"
+                ),
+                {"adr_id": str(adr_id)},
+            ).fetchall()
+            assert len(stored_source_ids) == 1
+            assert stored_source_ids[0][0] == source_event_id
+
+
 def test_retry_review_from_draft_returns_400(auth_client) -> None:
     _register_user(auth_client)
     adr_id = _create_adr(auth_client)

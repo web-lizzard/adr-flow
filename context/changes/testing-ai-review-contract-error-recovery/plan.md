@@ -10,10 +10,10 @@ Close Phase 2 rollout gaps from `context/foundation/test-plan.md`: prove merged 
 - [x] 1.2 Update `test_invalid_review_surfaces_review_error` to assert `review_failed` (rename if needed) — 84eaac8
 - [x] 2.1 Add API contract test: `complete.md` ADR → five section ratings via real merge path — dc41f18
 - [x] 2.2 Add API test: wire-level LLM failure → `review_failed` with `review_error` — dc41f18
-- [x] 3.1 Add dedicated submit-failure API test with `review_error` field assertions
-- [x] 3.2 Extend retry test: drain after retry → `after_review`; assert `review_error` cleared
-- [ ] 4.1 Add double-retry test: second `POST /retry-review` while `in_review` → `400`
-- [ ] 4.2 Add failure replay idempotency test (reset `processed_at`, re-drain → single `AIReviewFailed`)
+- [x] 3.1 Add dedicated submit-failure API test with `review_error` field assertions — 168c37b
+- [x] 3.2 Extend retry test: drain after retry → `after_review`; assert `review_error` cleared — 168c37b
+- [x] 4.1 Add double-retry test: second `POST /retry-review` while `in_review` → `400`
+- [x] 4.2 Add failure replay idempotency test (reset `processed_at`, re-drain → single `AIReviewFailed`)
 - [ ] 5.1 Update `context/foundation/test-plan.md` §6 Phase 2 cookbook patterns
 - [ ] 5.2 Run targeted pytest and pre-commit on touched files
 

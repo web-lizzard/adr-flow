@@ -51,7 +51,7 @@ const onSubmit = form.handleSubmit(async (values) => {
       </CardDescription>
     </CardHeader>
     <CardContent>
-      <form class="space-y-4" @submit="onSubmit">
+      <form class="space-y-4" @submit.prevent="onSubmit">
         <p
           v-if="submitError"
           class="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"

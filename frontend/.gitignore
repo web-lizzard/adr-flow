@@ -25,3 +25,10 @@ logs
 
 # playwright-cli runtime artifacts (snapshots, traces, screenshots)
 .playwright-cli/
+
+# Playwright auth storage state (tokens, session data)
+.auth/user.json
+
+# Playwright test artifacts
+playwright-report/
+test-results/

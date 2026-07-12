@@ -5,6 +5,7 @@ from application.ports.adr_review import AdrReviewPort
 from application.ports.event_store import StoredEvent
 from application.ports.unit_of_work import UnitOfWorkFactory
 from application.review_metadata import ReviewErrorMetadata
+from application.review_quality import validate_review_result
 from domain.adr import ADRSubmittedForReview, AIReviewCompleted, AIReviewFailed, AdrId
 from domain.adr.rehydrate import rehydrate_adr
 from domain.adr.value_objects import AdrStatus, ReviewResult
@@ -81,6 +82,20 @@ class RunAiReviewHandler:
                 adr_id=str(adr_id),
                 error=str(exc),
                 exc_info=True,
+            )
+            return
+
+        validation = validate_review_result(markdown, result)
+        if not validation.passed:
+            failure_count = len(validation.failures)
+            error = InternalError(
+                f"Review validation failed with {failure_count} error(s)",
+            )
+            await self._fail_review(stored_event, adr_id, error)
+            self._logger.error(
+                "handler.run_ai_review.validation_failed",
+                adr_id=str(adr_id),
+                failure_count=failure_count,
             )
             return
 

@@ -233,7 +233,7 @@ def test_run_ai_review_fails_on_single_service_exception(
     assert str(error) in review_error.message
 
 
-def test_run_ai_review_completes_when_merged_result_fails_validation() -> None:
+def test_run_ai_review_fails_when_merged_result_fails_validation() -> None:
     adr_id = uuid4()
     user_id = uuid4()
     content = "## Context\n\nWe need a store.\n\n## Options\n\nA or B.\n"
@@ -264,8 +264,12 @@ def test_run_ai_review_completes_when_merged_result_fails_validation() -> None:
 
     persist_uow = uow_factory.unit_of_works[1]
     events, _, _ = persist_uow.event_store.appended[0]
-    assert isinstance(events[0], AIReviewCompleted)
-    assert persist_uow.adr_projection.recorded_failures == []
+    assert isinstance(events[0], AIReviewFailed)
+    assert events[0].kind == "internal_error"
+    assert "Review validation failed" in events[0].message
+    _, review_error, _ = persist_uow.adr_projection.recorded_failures[0]
+    assert review_error.kind == "internal_error"
+    assert persist_uow.adr_projection.applied_results == []
 
 
 def test_run_ai_review_is_idempotent_when_adr_already_after_review() -> None:

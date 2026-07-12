@@ -592,13 +592,17 @@ def test_invalid_review_surfaces_review_error(
         _drain_event_bus(client)
 
         completed = client.get(f"/api/adrs/{adr_id}/review-status").json()
-        assert completed["status"] == "after_review"
-        assert completed["review_error"] is None
-        assert completed["reviewed_at"] is not None
+        assert completed["status"] == "review_failed"
+        assert completed["review_error"] is not None
+        assert completed["review_error"]["kind"] == "internal_error"
+        assert completed["review_error"]["message"]
+        assert completed["reviewed_at"] is None
 
         adr = client.get(f"/api/adrs/{adr_id}").json()
-        assert adr["status"] == "after_review"
-        assert adr["review_error"] is None
+        assert adr["status"] == "review_failed"
+        assert adr["review_error"] is not None
+        assert adr["review_error"]["kind"] == "internal_error"
+        assert adr["review_error"]["message"]
         assert adr["section_ratings"] in (None, [])
 
 

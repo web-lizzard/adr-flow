@@ -28,6 +28,21 @@ def _create_adr(client: TestClient, title: str = "My First ADR") -> UUID:
     return UUID(response.json()["id"])
 
 
+def _create_adr_with_content(
+    client: TestClient,
+    markdown: str,
+    *,
+    title: str = "Complete ADR",
+) -> UUID:
+    adr_id = _create_adr(client, title)
+    response = client.patch(
+        f"/api/adrs/{adr_id}",
+        json={"content": markdown},
+    )
+    assert response.status_code == 200
+    return adr_id
+
+
 def test_create_adr_with_title_returns_201_with_starter_template(auth_client) -> None:
     _register_user(auth_client)
 
@@ -490,6 +505,115 @@ def test_get_adr_includes_section_ratings_after_review(auth_client) -> None:
         assert "score" in rating
         assert 0 <= rating["score"] <= 5
         assert "feedback" in rating
+
+
+def test_complete_adr_review_returns_five_section_ratings_at_api(auth_client) -> None:
+    from domain.adr.value_objects import ReviewAnnotationKind
+    from tests.review_quality.cases import load_fixture
+
+    _register_user(auth_client)
+    markdown = load_fixture("complete.md")
+    adr_id = _create_adr_with_content(auth_client, markdown)
+
+    response = auth_client.post(f"/api/adrs/{adr_id}/submit-review")
+    assert response.status_code == 202
+
+    _wait_for_review_status(auth_client, adr_id, expected="after_review")
+
+    adr = auth_client.get(f"/api/adrs/{adr_id}").json()
+    assert adr["status"] == "after_review"
+    assert adr["section_ratings"] is not None
+    assert len(adr["section_ratings"]) == 5
+
+    rated_sections = {rating["section"] for rating in adr["section_ratings"]}
+    assert rated_sections == {
+        "Context",
+        "Options",
+        "Decision",
+        "Status",
+        "Consequences",
+    }
+
+    allowed_kinds = {kind.value for kind in ReviewAnnotationKind}
+    for rating in adr["section_ratings"]:
+        assert 0 <= rating["score"] <= 5
+        if rating["score"] >= 1:
+            assert rating["feedback"]
+
+    for annotation in adr["review_annotations"] or []:
+        assert annotation["kind"] in allowed_kinds
+
+
+def test_malformed_llm_response_surfaces_review_failed(
+    postgres_url: str,
+    db_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from typing import TypeVar
+
+    from pydantic import BaseModel
+
+    from application.ports.llm_completion import ChatMessage
+    from application.services.adr_review_service import AdrReviewService
+    from infrastructure.bootstrap import create_app
+    from infrastructure.config import Settings
+    from infrastructure.llm.errors import LlmParseError
+    from tests.review_quality.cases import load_fixture
+
+    T = TypeVar("T", bound=BaseModel)
+
+    with db_engine.begin() as connection:
+        connection.execute(text("DELETE FROM adrs"))
+        connection.execute(text("DELETE FROM users"))
+        connection.execute(text("DELETE FROM events"))
+
+    class MalformedPort:
+        async def complete_structured(
+            self,
+            *,
+            messages: list[ChatMessage],
+            response_model: type[T],
+        ) -> T:
+            del messages, response_model
+            raise LlmParseError("Could not parse LLM response")
+
+    monkeypatch.setattr(
+        "infrastructure.bootstrap.build_adr_review_service",
+        lambda _settings: AdrReviewService(
+            MalformedPort(),
+            review_llm_retry_base_seconds=0,
+        ),
+    )
+    settings = Settings(
+        database_url=postgres_url,
+        jwt_secret="test-jwt-secret-at-least-32-characters",
+        cors_origins=["http://testserver"],
+        llm_provider="fake",
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        _stop_event_worker(client)
+        token = register_and_get_token(client, "malformed-llm@example.com")
+        set_bearer_auth(client, token)
+        markdown = load_fixture("complete.md")
+        adr_id = _create_adr_with_content(client, markdown, title="Malformed LLM ADR")
+        client.post(f"/api/adrs/{adr_id}/submit-review")
+        _drain_event_bus(client)
+
+        status = client.get(f"/api/adrs/{adr_id}/review-status").json()
+        assert status["status"] == "review_failed"
+        assert status["review_error"] is not None
+        assert status["review_error"]["kind"] in (
+            "retryable_internal_error",
+            "internal_error",
+        )
+
+        adr = client.get(f"/api/adrs/{adr_id}").json()
+        assert adr["status"] == "review_failed"
+        assert adr["review_error"] is not None
+        assert adr["review_error"]["kind"] in (
+            "retryable_internal_error",
+            "internal_error",
+        )
 
 
 def test_submit_review_rejects_non_draft_status(auth_client) -> None:

@@ -6,10 +6,10 @@ Close Phase 2 rollout gaps from `context/foundation/test-plan.md`: prove merged 
 
 ## Progress
 
-- [x] 1.1 Enforce `validate_review_result` failure → `review_failed` in `RunAiReviewHandler`
-- [x] 1.2 Update `test_invalid_review_surfaces_review_error` to assert `review_failed` (rename if needed)
-- [ ] 2.1 Add API contract test: `complete.md` ADR → five section ratings via real merge path
-- [ ] 2.2 Add API test: wire-level LLM failure → `review_failed` with `review_error`
+- [x] 1.1 Enforce `validate_review_result` failure → `review_failed` in `RunAiReviewHandler` — 84eaac8
+- [x] 1.2 Update `test_invalid_review_surfaces_review_error` to assert `review_failed` (rename if needed) — 84eaac8
+- [x] 2.1 Add API contract test: `complete.md` ADR → five section ratings via real merge path
+- [x] 2.2 Add API test: wire-level LLM failure → `review_failed` with `review_error`
 - [ ] 3.1 Add dedicated submit-failure API test with `review_error` field assertions
 - [ ] 3.2 Extend retry test: drain after retry → `after_review`; assert `review_error` cleared
 - [ ] 4.1 Add double-retry test: second `POST /retry-review` while `in_review` → `400`

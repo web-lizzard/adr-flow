@@ -304,14 +304,14 @@ Annotations: 1 inconsistency ("Status may not reflect the recorded decision.", l
 
 #### Automated
 
-- [x] 3.1 Spec passes: `cd frontend && pnpm run e2e -- north-star-review.spec.ts`
-- [x] 3.2 Full suite passes: `cd frontend && pnpm run e2e`
-- [x] 3.3 TypeScript passes: `cd frontend && pnpm run typecheck`
-- [x] 3.4 Lint passes: `cd frontend && pnpm run lint`
+- [x] 3.1 Spec passes: `cd frontend && pnpm run e2e -- north-star-review.spec.ts` — 61fcc8e
+- [x] 3.2 Full suite passes: `cd frontend && pnpm run e2e` — 61fcc8e
+- [x] 3.3 TypeScript passes: `cd frontend && pnpm run typecheck` — 61fcc8e
+- [x] 3.4 Lint passes: `cd frontend && pnpm run lint` — 61fcc8e
 
 #### Manual
 
-- [ ] 3.5 Full flow observable in headed mode
-- [ ] 3.6 Review sidebar appears after poll cycle (~3-5s)
-- [ ] 3.7 No console errors during the flow
-- [ ] 3.8 Publish transitions cleanly to "Proposed"
+- [x] 3.5 Full flow observable in headed mode
+- [x] 3.6 Review sidebar appears after poll cycle (~3-5s)
+- [x] 3.7 No console errors during the flow
+- [x] 3.8 Publish transitions cleanly to "Proposed"

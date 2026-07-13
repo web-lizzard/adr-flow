@@ -1,7 +1,7 @@
 ---
 change_id: testing-e2e-auth-north-star-review
 title: Testing e2e auth north star review
-status: implementing
+status: implemented
 created: 2026-07-13
 updated: 2026-07-13
 plan: plan.md

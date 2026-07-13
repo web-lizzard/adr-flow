@@ -304,10 +304,10 @@ Annotations: 1 inconsistency ("Status may not reflect the recorded decision.", l
 
 #### Automated
 
-- [ ] 3.1 Spec passes: `cd frontend && pnpm run e2e -- north-star-review.spec.ts`
-- [ ] 3.2 Full suite passes: `cd frontend && pnpm run e2e`
-- [ ] 3.3 TypeScript passes: `cd frontend && pnpm run typecheck`
-- [ ] 3.4 Lint passes: `cd frontend && pnpm run lint`
+- [x] 3.1 Spec passes: `cd frontend && pnpm run e2e -- north-star-review.spec.ts`
+- [x] 3.2 Full suite passes: `cd frontend && pnpm run e2e`
+- [x] 3.3 TypeScript passes: `cd frontend && pnpm run typecheck`
+- [x] 3.4 Lint passes: `cd frontend && pnpm run lint`
 
 #### Manual
 

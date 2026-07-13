@@ -1,10 +1,10 @@
 ---
 change_id: testing-ai-review-contract-error-recovery
 title: AI review contract and error recovery tests
-status: implementing
+status: archived
 created: 2026-07-05
-updated: 2026-07-12
-archived_at: null
+updated: 2026-07-13
+archived_at: 2026-07-13T01:02:37Z
 ---
 
 ## Notes

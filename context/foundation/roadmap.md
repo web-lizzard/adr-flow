@@ -3,7 +3,7 @@ project: adr-flow
 version: 1
 status: draft
 created: 2026-06-08
-updated: 2026-07-05
+updated: 2026-07-13
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -39,7 +39,7 @@ ADR Flow helps an individual tech lead or architect turn a first ADR draft into 
 | S-06 | remove-adr-from-active-list | remove an ADR from the active card view without permanently destroying it | S-03 | FR-015, NFR: Data retention | done |
 | S-07 | review-validation-logs-only | always receive LLM review annotations in `after_review`; failed quality checks are logged only and never block the transition | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Annotation actionability | done |
 | R-01 | adr-validation-re-shape | receive static gap detection, per-section 0–5 ratings, and strict validation on AI review output | S-04 | FR-008, FR-010, FR-011, FR-012, NFR: Static section gap detection, NFR: Annotation actionability | done |
-| S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | ready |
+| S-08 | jwt-bearer-access-token | authenticate with a JWT `access_token` in the `Authorization` header (no refresh token) instead of an httponly session cookie | S-01 | US-03, FR-003, Access Control | done |
 
 ## Streams
 
@@ -202,7 +202,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Transport change only — registration, login, and per-user isolation semantics stay the same. Frontend must store and attach the token; session expiry behavior follows JWT `exp` with no silent refresh in MVP.
-- **Status:** ready
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -248,6 +248,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Done
 
+- **S-08: user can authenticate API calls with a JWT `access_token` in the `Authorization: Bearer` header; login/register return the token in the response body; no refresh token and no httponly session cookie.** — Archived 2026-07-13 → `context/archive/2026-07-05-jwt-bearer-access-token/`. Lesson: —.
 - **S-06: user can remove an ADR from the active card view while the record remains retained (soft-delete).** — Archived 2026-07-05 → `context/archive/2026-07-05-remove-adr-from-active-list/`. Lesson: —.
 - **S-09: user can request one additional AI review when the first review reported errors (non-empty actionable annotations) — at most once per ADR; edits in `after_review` still do not auto-trigger review.** — Cancelled 2026-07-05 → `context/archive/2026-06-19-conditional-adr-re-review/`. Lesson: ratings + user-driven `after_review` make conditional re-review redundant; eligibility predicate never resolved.
 - **S-07: user always receives LLM review annotations in `after_review`; when quality checks fail, the failure is logged for measurement but the ADR still transitions out of `in_review`.** — Archived 2026-07-05 → `context/archive/2026-06-19-review-validation-logs-only/`. Lesson: superseded by R-01; never implemented.

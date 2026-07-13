@@ -5,9 +5,6 @@ name: Backend CI
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
 
 concurrency:
   group: backend-ci-${{ github.event.pull_request.number }}
@@ -57,9 +54,9 @@ jobs:
         working-directory: backend
         run: uv run alembic check
 
-      - name: Run persistence and domain tests
+      - name: Run tests
         working-directory: backend
-        run: uv run pytest tests/infrastructure/adapters/persistence tests/domain
+        run: uv run pytest
 
       - name: Lint
         working-directory: backend

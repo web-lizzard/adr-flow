@@ -357,12 +357,12 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Automated
 
-- [x] 4.1 `just e2e` runs Playwright (command exists and invokes `pnpm run e2e`)
-- [x] 4.2 `just test` still runs frontend + backend unit suites
-- [x] 4.3 `pre-commit run --all-files` passes (doc-only changes should not break hooks)
+- [x] 4.1 `just e2e` runs Playwright (command exists and invokes `pnpm run e2e`) — 113a269
+- [x] 4.2 `just test` still runs frontend + backend unit suites — 113a269
+- [x] 4.3 `pre-commit run --all-files` passes (doc-only changes should not break hooks) — 113a269
 
 #### Manual
 
-- [x] 4.4 `AGENTS.md` accurately describes CI workflows and local test commands
-- [x] 4.5 `test-plan.md` §4 and §6 Phase 4 reflect current state
-- [x] 4.6 `README.md` pre-commit description matches `.pre-commit-config.yaml`
+- [x] 4.4 `AGENTS.md` accurately describes CI workflows and local test commands — 113a269
+- [x] 4.5 `test-plan.md` §4 and §6 Phase 4 reflect current state — 113a269
+- [x] 4.6 `README.md` pre-commit description matches `.pre-commit-config.yaml` — 113a269

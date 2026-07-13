@@ -1,7 +1,7 @@
 ---
 change_id: testing-quality-gates-wiring
 title: Quality gates wiring (Phase 4 test rollout)
-status: implementing
+status: implemented
 created: 2026-07-13
 updated: 2026-07-13
 research: research.md

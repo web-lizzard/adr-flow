@@ -315,10 +315,10 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Automated
 
-- [x] 1.1 Workflow YAML is valid: inspect `.github/workflows/backend-ci.yml` for correct pytest command and absent `paths:` key
-- [x] 1.2 Local parity: `cd backend && uv run pytest` passes (full suite green before merge)
-- [x] 1.3 Lint unchanged: `cd backend && uv run ruff check .` passes
-- [x] 1.4 Types unchanged: `cd backend && uv run ty check` passes
+- [x] 1.1 Workflow YAML is valid: inspect `.github/workflows/backend-ci.yml` for correct pytest command and absent `paths:` key — 987a83a
+- [x] 1.2 Local parity: `cd backend && uv run pytest` passes (full suite green before merge) — 987a83a
+- [x] 1.3 Lint unchanged: `cd backend && uv run ruff check .` passes — 987a83a
+- [x] 1.4 Types unchanged: `cd backend && uv run ty check` passes — 987a83a
 
 #### Manual
 
@@ -329,23 +329,23 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Automated
 
-- [ ] 2.1 Local parity: `cd frontend && pnpm run test` passes
-- [ ] 2.2 Local parity: `cd frontend && pnpm run lint` passes
-- [ ] 2.3 Local parity: `cd frontend && pnpm run typecheck` passes
-- [ ] 2.4 Workflow file exists at `.github/workflows/frontend-ci.yml`
+- [x] 2.1 Local parity: `cd frontend && pnpm run test` passes — 83d6afb
+- [x] 2.2 Local parity: `cd frontend && pnpm run lint` passes — 83d6afb
+- [x] 2.3 Local parity: `cd frontend && pnpm run typecheck` passes — 83d6afb
+- [x] 2.4 Workflow file exists at `.github/workflows/frontend-ci.yml` — 83d6afb
 
 #### Manual
 
-- [ ] 2.5 Push a branch and confirm Frontend CI runs and passes on a PR
-- [ ] 2.6 Confirm Vitest output includes persistence-related tests (`useAdrPersistence.test.ts` or similar)
+- [x] 2.5 Push a branch and confirm Frontend CI runs and passes on a PR — 83d6afb
+- [x] 2.6 Confirm Vitest output includes persistence-related tests (`useAdrPersistence.test.ts` or similar) — 83d6afb
 
 ### Phase 3: Add E2E CI
 
 #### Automated
 
-- [ ] 3.1 Local parity (without CI env): `cd frontend && pnpm run e2e` passes
-- [ ] 3.2 Workflow file exists at `.github/workflows/e2e-ci.yml`
-- [ ] 3.3 E2E specs present: `frontend/e2e/auth-login.spec.ts`, `frontend/e2e/north-star-review.spec.ts`
+- [x] 3.1 Local parity (without CI env): `cd frontend && pnpm run e2e` passes
+- [x] 3.2 Workflow file exists at `.github/workflows/e2e-ci.yml`
+- [x] 3.3 E2E specs present: `frontend/e2e/auth-login.spec.ts`, `frontend/e2e/north-star-review.spec.ts`
 
 #### Manual
 

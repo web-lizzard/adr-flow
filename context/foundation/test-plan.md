@@ -17,7 +17,7 @@ refreshed_by: context/changes/test-plan-refresh-2026-07-05/
 >
 > Refresh: re-run `/test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-07-12
+> Last updated: 2026-07-13
 
 ## §1 Strategy
 

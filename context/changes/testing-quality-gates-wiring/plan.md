@@ -322,8 +322,8 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Manual
 
-- [ ] 1.5 Push a branch and confirm Backend CI runs on a PR that touches only `frontend/**` (proves path filter removal)
-- [ ] 1.6 Confirm CI log shows API tests (`test_adr_api.py`) executing, not only persistence/domain
+- [x] 1.5 Push a branch and confirm Backend CI runs on a PR that touches only `frontend/**` (proves path filter removal) — manual verify 2026-07-13
+- [x] 1.6 Confirm CI log shows API tests (`test_adr_api.py`) executing, not only persistence/domain — manual verify 2026-07-13
 
 ### Phase 2: Add Frontend CI
 
@@ -349,9 +349,9 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Manual
 
-- [ ] 3.4 Push a branch and confirm E2E CI runs on a PR (expect ~2–5 min job duration)
-- [ ] 3.5 Confirm CI log shows both `auth-login` and `north-star-review` specs passing
-- [ ] 3.6 Confirm Playwright starts backend on port 8100 and frontend on 3100 without env-related startup failures
+- [x] 3.4 Push a branch and confirm E2E CI runs on a PR (expect ~2–5 min job duration) — manual verify 2026-07-13
+- [x] 3.5 Confirm CI log shows both `auth-login` and `north-star-review` specs passing — manual verify 2026-07-13
+- [x] 3.6 Confirm Playwright starts backend on port 8100 and frontend on 3100 without env-related startup failures — manual verify 2026-07-13
 
 ### Phase 4: Local Ergonomics & Documentation
 

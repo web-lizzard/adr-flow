@@ -315,10 +315,10 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Automated
 
-- [x] 1.1 Workflow YAML is valid: inspect `.github/workflows/backend-ci.yml` for correct pytest command and absent `paths:` key
-- [x] 1.2 Local parity: `cd backend && uv run pytest` passes (full suite green before merge)
-- [x] 1.3 Lint unchanged: `cd backend && uv run ruff check .` passes
-- [x] 1.4 Types unchanged: `cd backend && uv run ty check` passes
+- [x] 1.1 Workflow YAML is valid: inspect `.github/workflows/backend-ci.yml` for correct pytest command and absent `paths:` key — 987a83a
+- [x] 1.2 Local parity: `cd backend && uv run pytest` passes (full suite green before merge) — 987a83a
+- [x] 1.3 Lint unchanged: `cd backend && uv run ruff check .` passes — 987a83a
+- [x] 1.4 Types unchanged: `cd backend && uv run ty check` passes — 987a83a
 
 #### Manual
 
@@ -329,10 +329,10 @@ No data migration. Existing contributors need no action beyond pulling the branc
 
 #### Automated
 
-- [ ] 2.1 Local parity: `cd frontend && pnpm run test` passes
-- [ ] 2.2 Local parity: `cd frontend && pnpm run lint` passes
-- [ ] 2.3 Local parity: `cd frontend && pnpm run typecheck` passes
-- [ ] 2.4 Workflow file exists at `.github/workflows/frontend-ci.yml`
+- [x] 2.1 Local parity: `cd frontend && pnpm run test` passes
+- [x] 2.2 Local parity: `cd frontend && pnpm run lint` passes
+- [x] 2.3 Local parity: `cd frontend && pnpm run typecheck` passes
+- [x] 2.4 Workflow file exists at `.github/workflows/frontend-ci.yml`
 
 #### Manual
 

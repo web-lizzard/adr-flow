@@ -24,6 +24,9 @@ test:
     just test-frontend
     just test-backend
 
+e2e:
+    cd frontend && pnpm run e2e
+
 # --- backend migrations (DATABASE_URL from devcontainer or caller env) ---
 
 migrate-backend:

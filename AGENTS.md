@@ -34,6 +34,7 @@ Deeper product and architecture: @context/foundation/prd.md, @context/foundation
 - `cd frontend && pnpm run test` — Vitest (`tests/`).
 - `cd backend && uv run pytest` — pytest (`tests/`).
 - `just test` / `just test-frontend` / `just test-backend` — both or one side.
+- `just e2e` / `cd frontend && pnpm run e2e` — Playwright E2E (`frontend/e2e/`).
 
 During agent edits, related tests run automatically via `.cursor/hooks/test-after-edit.sh` (Vitest `related` for `frontend/`, mapped pytest targets for `backend/`). Use the commands above only when explicitly verifying a change set, investigating hook failures, or when the user requests a full suite.
 
@@ -44,7 +45,15 @@ During agent edits, related tests run automatically via `.cursor/hooks/test-afte
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses Conventional Commits prefixes: `feat`, `chore`, `docs` with optional scopes (e.g. `chore(bootstrap): …`). PRs target `main` on `github.com:web-lizzard/adr-flow.git`. CI workflows are not in-repo yet; treat pre-commit as the local gate until GitHub Actions land per @context/foundation/tech-stack.md.
+Recent history uses Conventional Commits prefixes: `feat`, `chore`, `docs` with optional scopes (e.g. `chore(bootstrap): …`). PRs target `main` on `github.com:web-lizzard/adr-flow.git`.
+
+**CI (every PR to `main`, no path filters):**
+
+- `.github/workflows/backend-ci.yml` — full `uv run pytest`, migrations, Ruff, ty
+- `.github/workflows/frontend-ci.yml` — Vitest, ESLint, `tsc`
+- `.github/workflows/e2e-ci.yml` — Postgres, migrations, Playwright chromium, `pnpm run e2e`
+
+Pre-commit covers lint and type only (no test hook). Run `just test` and `just e2e` locally before pushing when you want full-suite confidence; CI enforces the test floor at merge time.
 
 ## Security & Configuration
 

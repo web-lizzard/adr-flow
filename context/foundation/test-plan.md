@@ -3,7 +3,7 @@ project: adr-flow
 version: 2
 status: active
 created: 2026-06-16
-updated: 2026-07-05
+updated: 2026-07-13
 prd_version: 1
 test_base_profile: meaningful (pytest + vitest configured; ~53 backend test modules, 14 frontend test files)
 refreshed_by: context/changes/test-plan-refresh-2026-07-05/
@@ -17,7 +17,7 @@ refreshed_by: context/changes/test-plan-refresh-2026-07-05/
 >
 > Refresh: re-run `/test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-07-05
+> Last updated: 2026-07-12
 
 ## §1 Strategy
 
@@ -72,10 +72,10 @@ The **review process works end-to-end**: login → create ADR → submit for rev
 
 | # | Phase name | Goal | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Critical-path API integration | Close mutating IDOR gaps, persistence API round-trips, and any remaining authz holes on ADR routes — building on existing domain/API coverage rather than bootstrapping from zero | 3, 4 (backend path) | API integration (pytest + TestClient) | shipped | context/changes/testing-critical-path-api-integration/ |
-| 2 | AI review contract + error recovery | Prove merged review output contract at API boundary; prove failure → `review_failed` → retry recovery; tighten garbage-rating behavior per product decision | 1, 2, 5 | Integration (fake LLM injection, handler failure, retry idempotency) | not started | — |
-| 3 | E2E auth + north-star review (mocked LLM) | Prove register/login → workspace and full review north star in a real browser with LLM mocked at API — the user's definition of "it works" | 1, 2, 4 (frontend path) | E2E (Playwright or Vitest browser — bootstrap in this phase) | not started | — |
-| 4 | Quality gates wiring | Lock the test floor: pre-commit runs tests, CI runs full suite, test commands documented; coverage thresholds if justified | all | CI/hook configuration | not started | — |
+| 1 | Critical-path API integration | Close mutating IDOR gaps, persistence API round-trips, and any remaining authz holes on ADR routes — building on existing domain/API coverage rather than bootstrapping from zero | 3, 4 (backend path) | API integration (pytest + TestClient) | complete | context/changes/testing-critical-path-api-integration/ |
+| 2 | AI review contract + error recovery | Prove merged review output contract at API boundary; prove failure → `review_failed` → retry recovery; tighten garbage-rating behavior per product decision | 1, 2, 5 | Integration (fake LLM injection, handler failure, retry idempotency) | complete | context/changes/testing-ai-review-contract-error-recovery/ |
+| 3 | E2E auth + north-star review (mocked LLM) | Prove register/login → workspace and full review north star in a real browser with LLM mocked at API — the user's definition of "it works" | 1, 2, 4 (frontend path) | E2E (Playwright or Vitest browser — bootstrap in this phase) | complete | context/changes/testing-e2e-auth-north-star-review/ |
+| 4 | Quality gates wiring | Lock the test floor: CI runs full suite, test commands documented; coverage thresholds if justified | all | CI/hook configuration | complete | context/changes/testing-quality-gates-wiring/ |
 
 ### Phase ordering rationale
 
@@ -103,15 +103,15 @@ The **review process works end-to-end**: login → create ADR → submit for rev
 - **UI library:** shadcn-vue (excluded from test scope)
 
 ### E2E
-- **Runner:** none yet — see §3 Phase 3
-- **Recommendation:** Playwright (aligns with cursor-ide-browser MCP for local debugging) or Vitest browser mode if team prefers single runner
+- **Runner:** Playwright (`frontend/playwright.config.ts`, `pnpm run e2e` / `just e2e`)
+- **Specs:** `frontend/e2e/auth-login.spec.ts`, `frontend/e2e/north-star-review.spec.ts`
 
 | Layer | Tool | Version | Notes |
 |---|---|---|---|
 | unit + integration (backend) | pytest + httpx | 9.x | API tests use `AsyncClient` against app factory |
 | unit + integration (frontend) | Vitest + jsdom | 4.x | Component tests use `@vue/test-utils` |
-| API mocking (frontend e2e) | Playwright route intercept / MSW | TBD | Mock LLM at API boundary in Phase 3 |
-| e2e | Playwright (planned) | TBD | Bootstrap in Phase 3 — north star + auth |
+| API mocking (frontend e2e) | Playwright route intercept | — | LLM mocked at API boundary (`LLM_PROVIDER=fake` in webServer) |
+| e2e | Playwright | 1.61.x | CI via `.github/workflows/e2e-ci.yml`; north star + auth |
 | accessibility | none | — | Not in MVP rollout scope |
 
 ### Stack grounding tools (current session)
@@ -173,13 +173,97 @@ Shipped in `context/changes/testing-critical-path-api-integration/`. File: `back
 **Anti-pattern:** Asserting `204`/`200` on save or PATCH without a separate GET to prove persistence.
 
 ### Phase 2 — AI review contract + error recovery
-TBD — see §3 Phase 2 for fake-LLM injection patterns, garbage-rating rejection or documented acceptance, and `review_failed` → retry recovery patterns.
+
+Shipped in `context/changes/testing-ai-review-contract-error-recovery/`. Files: `backend/tests/infrastructure/api/test_adr_api.py`, `backend/tests/application/handlers/test_run_ai_review.py`, `backend/application/handlers/run_ai_review.py`.
+
+#### Review contract at API (Risk #1)
+
+**Behavior:** A complete ADR reviewed through the real `AdrReviewService` merge path at the HTTP boundary returns five structurally valid section ratings; malformed LLM payloads and invalid merged output cannot silently complete as empty `after_review`.
+
+**Pattern:**
+
+1. Load `complete.md` from `backend/tests/review_quality/fixtures/` via `load_fixture`
+2. `_create_adr_with_content(client, markdown)` → `POST submit-review` → `_wait_for_review_status(..., expected="after_review")`
+3. `GET /api/adrs/{id}` oracle:
+   - `section_ratings` length == 5; sections == `{Context, Options, Decision, Status, Consequences}`
+   - Each `score` in 0..5; if `score >= 1`, `feedback` non-empty
+   - Each annotation `kind` in `ReviewAnnotationKind` values (if annotations present)
+4. For wire-level failure: monkeypatch `build_adr_review_service` → `AdrReviewService(MalformedPort())` where `MalformedPort.complete_structured` raises `LlmParseError`; drain → assert `review_failed` with `review_error.kind` in (`retryable_internal_error`, `internal_error`)
+5. For invalid merged output: `InvalidReviewService` returning empty ratings → handler calls `validate_review_result` → `review_failed` (not `after_review`)
+
+**Tests:** `test_complete_adr_review_returns_five_section_ratings_at_api`, `test_malformed_llm_response_surfaces_review_failed`, `test_invalid_review_surfaces_review_error`.
+
+**Helpers:** `_create_adr_with_content`, `_wait_for_review_status`, `_stop_event_worker`, `_drain_event_bus`; `load_fixture` from `tests.review_quality.cases`.
+
+**Anti-pattern:** Asserting exact LLM wording; testing only wire-model/Pydantic validation without the merged API response; assuming advisory `validate_review_result` blocks completion at the service layer.
+
+#### Failure → retry recovery (Risk #2)
+
+**Behavior:** When the review handler fails, ADR transitions to `review_failed` with persisted `review_error` metadata; user retry clears the error and completes to `after_review`.
+
+**Pattern:**
+
+1. Monkeypatch `build_adr_review_service` → `FailingReviewService` raising `RetryableInternalError`
+2. Submit → `_drain_event_bus` → assert `review_failed`
+3. Assert `review_error`: `kind`, `message`, `source_event_id` (valid UUID string), `failed_at`; `GET /review-status` matches
+4. For full recovery: swap to succeeding service (`ToggleableReviewService.allow_success()` or restore default fake LLM), `POST retry-review` → `_wait_for_review_status(..., expected="after_review")`
+5. Assert `review_error` is null; `section_ratings` length == 5
+
+**Tests:** `test_review_failure_persists_review_error`, `test_retry_from_review_failed_completes_review`.
+
+**Anti-pattern:** Happy-path-only review tests; stopping assertions at `in_review` after retry without draining to completion; assuming TaskGroup exception handling implies correct projection.
+
+#### Retry idempotency (Risk #5)
+
+**Behavior:** Second retry while `in_review` is rejected; replaying a failed submit event does not duplicate `AIReviewFailed` events.
+
+**Pattern:**
+
+1. Fail → retry with succeeding service → assert `in_review` (do **not** drain to completion)
+2. Second `POST retry-review` → `400`, `kind == adr_invalid_retry_status`
+3. Query `events`: exactly two `ADRSubmittedForReview` for the ADR (initial submit + one retry)
+4. For failure replay: after `review_failed`, `UPDATE events SET processed_at = NULL WHERE event_type = 'ADRSubmittedForReview' ...`; re-drain → still one `AIReviewFailed` with same `source_event_id`; status remains `review_failed`
+
+**Tests:** `test_double_retry_while_in_review_returns_400`, `test_failure_replay_does_not_duplicate_review_failed`.
+
+**Anti-pattern:** Asserting only `202` on retry without verifying event stream integrity or projection state after double-call.
 
 ### Phase 3 — E2E auth + north-star review (mocked LLM)
-TBD — see §3 Phase 3 for Playwright auth flow patterns and north-star review flow with API-level LLM mock.
+
+Shipped in `context/changes/testing-e2e-auth-north-star-review/`. Files: `frontend/e2e/auth-login.spec.ts`, `frontend/e2e/north-star-review.spec.ts`, `frontend/playwright.config.ts`.
+
+**Behavior:** Register/login → workspace; full review north star in a real browser with `LLM_PROVIDER=fake` at the API boundary.
+
+**Local:** `just e2e` or `cd frontend && pnpm run e2e` (Playwright `webServer` starts backend on 8100 and frontend on 3100).
+
+**CI:** `.github/workflows/e2e-ci.yml` — Postgres 15, migrations, Playwright chromium, `pnpm run e2e`.
 
 ### Phase 4 — Quality gates wiring
-TBD — see §3 Phase 4 for pre-commit test integration, CI workflow, and documented `just test` usage in AGENTS.md.
+
+Shipped in `context/changes/testing-quality-gates-wiring/`.
+
+#### CI workflows (every PR to `main`, no path filters)
+
+| Workflow | What runs |
+|---|---|
+| `.github/workflows/backend-ci.yml` | Postgres 15, migrations, full `uv run pytest`, Ruff, ty |
+| `.github/workflows/frontend-ci.yml` | `pnpm run test`, `pnpm run lint`, `pnpm run typecheck` |
+| `.github/workflows/e2e-ci.yml` | Postgres 15, migrations, Playwright chromium, `pnpm run e2e` |
+
+#### Local commands
+
+| Command | Scope |
+|---|---|
+| `just test` | Vitest + full pytest |
+| `just test-frontend` / `just test-backend` | One side |
+| `just e2e` | Playwright E2E suite |
+
+#### Pre-commit vs CI
+
+- **Pre-commit (required):** trailing-whitespace, Ruff, Prettier, ESLint, `tsc`, ty — lint/type only.
+- **CI (required):** full unit/integration + E2E suites above.
+- **Deferred:** pre-commit test hook (too slow for every commit); coverage thresholds (no pytest-cov or vitest coverage gates until hot-path gaps justify cost).
+- **Agent loop:** Cursor `test-after-edit.sh` runs related tests on file edit, not the full suite.
 
 ### Existing reference tests (pre-rollout baseline)
 

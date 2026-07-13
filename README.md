@@ -40,4 +40,4 @@ Add new host initialize steps as numbered scripts in `.devcontainer/initialize.d
 
 On **Rebuild Container**, `postCreateCommand` runs `.devcontainer/post-create.sh`, which executes every `*.sh` script in `.devcontainer/post-create.d/` in sorted order. Add new setup steps there (for example when you configure a tech stack).
 
-Currently this installs [pre-commit](https://pre-commit.com/) and registers git hooks. The repo config (`.pre-commit-config.yaml`) starts with trailing-whitespace only; extend hooks as the project grows.
+Currently this installs [pre-commit](https://pre-commit.com/) and registers git hooks. The repo config (`.pre-commit-config.yaml`) runs trailing-whitespace, Ruff (backend), Prettier, ESLint, `tsc` (frontend), and ty (backend). Tests run in CI on every PR, not in pre-commit.

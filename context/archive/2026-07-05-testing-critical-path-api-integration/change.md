@@ -1,10 +1,10 @@
 ---
 change_id: testing-critical-path-api-integration
 title: Critical-path API integration tests (IDOR + persistence)
-status: implemented
+status: archived
 created: 2026-07-05
-updated: 2026-07-05
-archived_at: null
+updated: 2026-07-13
+archived_at: 2026-07-13T01:03:06Z
 ---
 
 ## Notes
